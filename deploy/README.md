@@ -39,8 +39,9 @@ a login you already trust.
 
 `apps-backup.timer` at 22:30 UTC: `pg_dump -Fc` of production, piped over ssh to the backup host. There
 the key of `apps-backup` works only from the server's addresses and only runs `apps-backup-receive`,
-which takes a dump of exactly the announced size and checksum and keeps the last 14
-(`/var/backups/apps`). Set the backup host up with `backup-host/setup.sh "<backup_key.pub>"
+which takes a pg_dump archive of exactly the announced size and checksum, named within 15 minutes of
+now, and never replaces or deletes a stored one (`/var/backups/apps`). A daily cron job on the backup
+host, `apps-backup-prune`, removes dumps whose name is older than 14 days. Set the backup host up with `backup-host/setup.sh "<backup_key.pub>"
 "<server addresses>"`. The database keeps serving during the dump.
 
 Restore into a fresh Postgres and compare row counts before trusting a dump:

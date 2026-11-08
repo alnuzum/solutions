@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Daily on the backup host (/etc/cron.d/apps-backup-prune): remove dumps whose name is older than
+# 14 days. Age comes from the name, which apps-backup-receive only accepts within 15 minutes of the
+# upload, so no upload can make a real backup look old.
+set -euo pipefail
+DIR=/var/backups/apps
+DAYS=14
+cd /
+cut=$(date -u -d "-$DAYS days" +%Y%m%d)
+for f in "$DIR"/prod-*.dump "$DIR"/stand-*.dump; do
+  [ -e "$f" ] || continue
+  day=$(basename "$f" | sed -nE 's/^(prod|stand)-([0-9]{8})T[0-9]{4}Z\.dump$/\2/p')
+  [ -n "$day" ] && [ "$day" -lt "$cut" ] && rm -f -- "$f"
+done
+find "$DIR" -maxdepth 1 -name '.incoming.*' -mmin +120 -delete

@@ -36,8 +36,9 @@ jobs:
           done
           if [ -n "$down" ]; then
             text="ALERT apps: /health does not answer from outside:${down} (GitHub Actions, $(date -u +%H:%M) UTC)"
-            curl -s -o /dev/null --max-time 10 "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-              --data-urlencode "chat_id=${CHAT}" --data-urlencode "text=${text}"
+            # the token on stdin, not in the arguments of curl
+            printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TOKEN" |
+              curl -s -o /dev/null --max-time 10 -K - --data-urlencode "chat_id=${CHAT}" --data-urlencode "text=${text}"
             echo "down:${down}"
             exit 1
           fi

@@ -80,9 +80,10 @@ held=$(grep -vE '^(died|unhealthy):' <<<"$current" || true)
 previous=$(cat "$STATE" 2>/dev/null || true)
 new=$(comm -13 <(echo "$previous") <(echo "$current") | sed '/^$/d')
 
-send() {
-  curl -fsS -o /dev/null --max-time 15 "https://api.telegram.org/bot${TELEGRAM_ALERT_TOKEN}/sendMessage" \
-    --data-urlencode "chat_id=${TELEGRAM_ALERT_CHAT}" --data-urlencode "text=$1"
+send() {  # the token goes to curl on stdin, not in its arguments: those are visible to every process
+  printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TELEGRAM_ALERT_TOKEN" |
+    curl -fsS -o /dev/null --max-time 15 -K - \
+      --data-urlencode "chat_id=${TELEGRAM_ALERT_CHAT}" --data-urlencode "text=$1"
 }
 stamp="$(hostname) $(date -u +%H:%M) UTC"
 if [ -n "$new" ]; then
