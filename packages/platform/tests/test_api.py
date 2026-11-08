@@ -11,7 +11,7 @@ from alnuzum_platform.api import create_app
 from alnuzum_platform.config import Settings
 
 KEYS = "k1:" + base64.b64encode(b"\x01" * 32).decode()
-TOKEN = "admin-token-for-tests"
+TOKEN = "admin-token-for-tests-0123456789abcdef"
 WEBHOOK = "https://acme.bitrix24.ru/rest/1/abcdef123456/"
 
 
@@ -59,6 +59,16 @@ async def test_routes_without_the_token_are_401(
     resp = await client.request(method, path, headers=headers, json={})
     assert resp.status_code == 401
     assert resp.headers["www-authenticate"] == "Bearer"
+
+
+async def test_short_admin_token_closes_the_api(migrated: str) -> None:
+    short = "x" * 31
+    app = create_app(Settings(database_url=migrated, secret_keys=KEYS, admin_token=short))
+    async with _client(app) as client:
+        resp = await client.get(
+            "/connections", params={"owner": "acme"}, headers={"Authorization": f"Bearer {short}"}
+        )
+    assert resp.status_code == 401
 
 
 @pytest.mark.parametrize(("method", "path"), ROUTES)

@@ -5,6 +5,7 @@ Secrets of a connection (one JSON object, encrypted as a whole):
 | CRM | keys |
 |---|---|
 | amocrm, kommo | ``access_token``; with OAuth also ``refresh_token``, ``expires_at`` (ISO 8601) |
+| amocrm, external integration | also ``client_id``, ``client_secret``: its own keys in each account |
 | bitrix24 | ``webhook_url`` |
 | zoho | ``access_token``, ``refresh_token``, ``expires_at``, ``accounts_server`` |
 | odoo | ``database``, ``login``, ``api_key`` |
@@ -15,14 +16,17 @@ the Odoo address for https and public IPs (and again on every connect, see ``net
 """
 
 import asyncio
+import hashlib
 import json
+import secrets as _secrets
 import uuid
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from collections import OrderedDict
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from alnuzum_crm.bitrix24 import parse_webhook
@@ -32,11 +36,14 @@ from alnuzum_crm.oauth import ZOHO_ACCOUNTS_HOSTS, ZOHO_API_HOSTS, normalize_amo
 from alnuzum_crm.tokens import TokenSet
 from alnuzum_crm.types import CrmKind
 from alnuzum_platform.crypto import Keyring
-from alnuzum_platform.models import CrmConnection
+from alnuzum_platform.models import CrmConnection, CrmWrite, OAuthState
 
 SECRET_KEYS: dict[CrmKind, tuple[frozenset[str], frozenset[str]]] = {
     # (required, optional)
-    CrmKind.AMOCRM: (frozenset({"access_token"}), frozenset({"refresh_token", "expires_at"})),
+    CrmKind.AMOCRM: (
+        frozenset({"access_token"}),
+        frozenset({"refresh_token", "expires_at", "client_id", "client_secret"}),
+    ),
     CrmKind.KOMMO: (frozenset({"access_token"}), frozenset({"refresh_token", "expires_at"})),
     CrmKind.BITRIX24: (frozenset({"webhook_url"}), frozenset()),
     CrmKind.ZOHO: (
@@ -57,6 +64,33 @@ class ConnectionDisabled(RuntimeError):
     """Disabled, or waiting for the user to authorise again."""
 
 
+class StateInvalid(LookupError):
+    """Unknown, expired, already used, or started by another session."""
+
+
+class QuotaExceeded(RuntimeError):
+    pass
+
+
+STATE_TTL = timedelta(minutes=15)
+LOCKS_KEPT = 1024
+
+
+def state_hash(state: str) -> str:
+    return hashlib.sha256(state.encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class WriteInfo:
+    id: uuid.UUID
+    action: str
+    record_id: str | None
+    record_url: str | None
+    ok: bool | None
+    error: str | None
+    created_at: datetime | None
+
+
 @dataclass(frozen=True)
 class ConnectionInfo:
     """What may leave the store: no secrets."""
@@ -69,6 +103,10 @@ class ConnectionInfo:
     status: str
     access_expires_at: datetime | None
     created_at: datetime | None
+    account: str = ""
+    meta: dict[str, Any] = field(default_factory=dict)
+    last_error: str | None = None
+    checked_at: datetime | None = None
 
     @classmethod
     def of(cls, row: CrmConnection) -> "ConnectionInfo":
@@ -81,6 +119,10 @@ class ConnectionInfo:
             row.status,
             row.access_expires_at,
             row.created_at,
+            row.account or "",
+            dict(row.meta or {}),
+            row.last_error,
+            row.checked_at,
         )
 
 
@@ -125,7 +167,8 @@ class ConnectionStore:
     def __init__(self, sessions: async_sessionmaker[AsyncSession], keyring: Keyring) -> None:
         self._sessions = sessions
         self._keyring = keyring
-        self._locks: dict[uuid.UUID, asyncio.Lock] = {}
+        # one refresh at a time per connection inside this process; least recently used locks are dropped
+        self._locks: OrderedDict[uuid.UUID, asyncio.Lock] = OrderedDict()
 
     def _seal(self, row: CrmConnection, secrets: dict[str, str]) -> None:
         row.secret = self._keyring.encrypt(json.dumps(secrets).encode(), _aad(row.id, row.crm))
@@ -141,17 +184,57 @@ class ConnectionStore:
         return data
 
     async def create(
-        self, owner: str, crm: CrmKind, endpoint: str, secrets: dict[str, str], *, label: str = ""
+        self,
+        owner: str,
+        crm: CrmKind,
+        endpoint: str,
+        secrets: dict[str, str],
+        *,
+        label: str = "",
+        account: str = "",
+        meta: dict[str, Any] | None = None,
     ) -> ConnectionInfo:
+        """A new active connection. The same CRM account connected again by the same owner replaces
+        the earlier connection (its secret is erased)."""
         clean = await validate(crm, endpoint, secrets)
         row = CrmConnection(
-            id=uuid.uuid4(), owner=owner, crm=crm.value, label=label, endpoint=clean, status="active"
+            id=uuid.uuid4(),
+            owner=owner,
+            crm=crm.value,
+            label=label,
+            endpoint=clean,
+            account=account,
+            meta=meta or {},
+            status="active",
         )
         row.token_version = 0
         self._seal(row, secrets)
         async with self._sessions.begin() as session:
+            if account:
+                earlier = await session.execute(
+                    select(CrmConnection)
+                    .where(
+                        CrmConnection.owner == owner,
+                        CrmConnection.crm == crm.value,
+                        CrmConnection.account == account,
+                        CrmConnection.status != "disabled",
+                    )
+                    .with_for_update()
+                )
+                for old in earlier.scalars():
+                    self._erase(old, "replaced")
             session.add(row)
         return ConnectionInfo.of(row)
+
+    @staticmethod
+    def _erase(row: CrmConnection, reason: str | None) -> None:
+        row.status = "disabled"
+        row.secret = None
+        row.key_id = None
+        row.access_expires_at = None
+        row.token_version += 1
+        row.disabled_at = datetime.now(UTC)
+        row.last_error = reason
 
     async def _row(
         self, session: AsyncSession, conn_id: uuid.UUID, owner: str | None, *, lock: bool = False
@@ -181,16 +264,172 @@ class ConnectionStore:
         async with self._sessions() as session:
             return self._open(await self._row(session, conn_id, None))
 
-    async def disable(self, conn_id: uuid.UUID, owner: str) -> None:
-        """For good: the secret is erased, a new connection is needed to come back."""
+    async def disable(self, conn_id: uuid.UUID, owner: str) -> dict[str, str] | None:
+        """For good: the secret is erased, a new connection is needed to come back. Returns the
+        secrets it held (to revoke them at the CRM), or None when there were none left."""
         async with self._sessions.begin() as session:
             row = await self._row(session, conn_id, owner, lock=True)
-            row.status = "disabled"
-            row.secret = None
-            row.key_id = None
-            row.access_expires_at = None
-            row.token_version += 1
-            row.disabled_at = datetime.now(UTC)
+            held: dict[str, str] | None = None
+            if row.secret is not None:
+                held = json.loads(self._keyring.decrypt(row.secret, _aad(row.id, row.crm)))
+            self._erase(row, None)
+            return held
+
+    async def disable_account(self, crm: CrmKind, account: str, reason: str) -> int:
+        """Every live connection to this CRM account, whoever owns it: the CRM said the integration
+        was removed there. Returns how many were disabled."""
+        if not account:
+            return 0
+        async with self._sessions.begin() as session:
+            rows = await session.execute(
+                select(CrmConnection)
+                .where(
+                    CrmConnection.crm == crm.value,
+                    CrmConnection.account == account,
+                    CrmConnection.status != "disabled",
+                )
+                .with_for_update()
+            )
+            done = 0
+            for row in rows.scalars():
+                self._erase(row, reason)
+                done += 1
+            return done
+
+    async def mark(self, conn_id: uuid.UUID, *, status: str | None = None, error: str | None = None) -> None:
+        """Result of a check: when it ran, what failed (a short code, never a CRM message)."""
+        async with self._sessions.begin() as session:
+            row = await self._row(session, conn_id, None, lock=True)
+            if row.status == "disabled":
+                return
+            if status is not None:
+                row.status = status
+            row.last_error = error
+            row.checked_at = datetime.now(UTC)
+
+    async def list_active(self, limit: int = 500) -> Sequence[ConnectionInfo]:
+        async with self._sessions() as session:
+            rows = await session.execute(
+                select(CrmConnection)
+                .where(CrmConnection.status == "active")
+                .order_by(CrmConnection.checked_at.asc().nulls_first())
+                .limit(limit)
+            )
+            return [ConnectionInfo.of(r) for r in rows.scalars()]
+
+    # --- OAuth windows ---
+
+    async def create_state(self, owner: str, crm: CrmKind, lang: str) -> str:
+        state = _secrets.token_urlsafe(32)
+        async with self._sessions.begin() as session:
+            session.add(
+                OAuthState(
+                    id_hash=state_hash(state),
+                    owner=owner,
+                    crm=crm.value,
+                    lang=lang,
+                    expires_at=datetime.now(UTC) + STATE_TTL,
+                )
+            )
+        return state
+
+    async def attach_client(self, state: str, client_id: str, client_secret: str) -> bool:
+        """Keys of the integration amoCRM created for this window; the first delivery wins and the
+        state stays usable for the browser that comes back with the code."""
+        key = state_hash(state)
+        async with self._sessions.begin() as session:
+            row = await session.get(OAuthState, key, with_for_update=True)
+            if (
+                row is None
+                or row.crm != CrmKind.AMOCRM.value
+                or row.used_at is not None
+                or row.client is not None
+                or row.expires_at <= datetime.now(UTC)
+            ):
+                return False
+            blob = json.dumps({"client_id": client_id, "client_secret": client_secret}).encode()
+            row.client = self._keyring.encrypt(blob, f"oauth-state:{key}".encode())
+            return True
+
+    async def consume_state(self, state: str, owner: str, crm: CrmKind) -> tuple[str, dict[str, str] | None]:
+        """The window's language and the keys amoCRM sent for it. Once only, own session only."""
+        key = state_hash(state)
+        async with self._sessions.begin() as session:
+            result = await session.execute(
+                update(OAuthState)
+                .where(
+                    OAuthState.id_hash == key,
+                    OAuthState.owner == owner,
+                    OAuthState.crm == crm.value,
+                    OAuthState.used_at.is_(None),
+                    OAuthState.expires_at > func.now(),
+                )
+                .values(used_at=func.now())
+                .returning(OAuthState.lang, OAuthState.client)
+            )
+            found = result.first()
+        if found is None:
+            raise StateInvalid("oauth state")
+        lang, blob = found
+        client = None
+        if blob is not None:
+            client = json.loads(self._keyring.decrypt(blob, f"oauth-state:{key}".encode()))
+        return lang, client
+
+    async def purge_states(self) -> int:
+        async with self._sessions.begin() as session:
+            result = await session.execute(
+                delete(OAuthState).where(OAuthState.expires_at < func.now() - STATE_TTL)
+            )
+            return int(getattr(result, "rowcount", 0) or 0)
+
+    # --- journal of CRM writes and the daily quota ---
+
+    async def start_write(self, conn_id: uuid.UUID, owner: str, action: str, quota: int) -> uuid.UUID:
+        """Reserve one write of the daily quota (the connection row is locked while counting, so two
+        parallel checks cannot both take the last one)."""
+        async with self._sessions.begin() as session:
+            row = await self._row(session, conn_id, owner, lock=True)
+            if row.status != "active":
+                raise ConnectionDisabled(f"connection {row.id} is {row.status}")
+            since = datetime.now(UTC) - timedelta(days=1)
+            used = await session.scalar(
+                select(func.count())
+                .select_from(CrmWrite)
+                .where(CrmWrite.connection_id == conn_id, CrmWrite.created_at > since)
+            )
+            if (used or 0) >= quota:
+                raise QuotaExceeded(f"{quota} writes per day")
+            write = CrmWrite(id=uuid.uuid4(), connection_id=conn_id, owner=owner, crm=row.crm, action=action)
+            session.add(write)
+            return write.id
+
+    async def finish_write(
+        self,
+        write_id: uuid.UUID,
+        *,
+        ok: bool,
+        record_id: str | None = None,
+        record_url: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        async with self._sessions.begin() as session:
+            write = await session.get(CrmWrite, write_id, with_for_update=True)
+            if write is not None:
+                write.ok, write.record_id, write.record_url, write.error = ok, record_id, record_url, error
+
+    async def writes(self, conn_id: uuid.UUID, owner: str, limit: int = 10) -> Sequence[WriteInfo]:
+        async with self._sessions() as session:
+            rows = await session.execute(
+                select(CrmWrite)
+                .where(CrmWrite.connection_id == conn_id, CrmWrite.owner == owner)
+                .order_by(CrmWrite.created_at.desc())
+                .limit(limit)
+            )
+            return [
+                WriteInfo(w.id, w.action, w.record_id, w.record_url, w.ok, w.error, w.created_at)
+                for w in rows.scalars()
+            ]
 
     async def refresh_tokens(self, conn_id: uuid.UUID, stale_access: str, refresher: Refresher) -> TokenSet:
         """New tokens after ``stale_access`` was refused or expired; at most one refresh at a time.
@@ -198,7 +437,13 @@ class ConnectionStore:
         Refresh tokens of amoCRM are single-use: two workers refreshing at once would leave the
         connection with a dead token. One process waits on a lock, other processes on the row
         lock; whoever comes second finds tokens newer than the ones it saw and reuses them."""
-        lock = self._locks.setdefault(conn_id, asyncio.Lock())
+        lock = self._locks.pop(conn_id, None) or asyncio.Lock()
+        self._locks[conn_id] = lock
+        while len(self._locks) > LOCKS_KEPT:
+            oldest, held = next(iter(self._locks.items()))
+            if held.locked():
+                break
+            del self._locks[oldest]
         async with lock:
             async with self._sessions.begin() as session:
                 row = await self._row(session, conn_id, None, lock=True)
