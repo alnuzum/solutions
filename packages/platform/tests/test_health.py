@@ -15,14 +15,14 @@ async def _get(app: FastAPI, path: str) -> httpx.Response:
 async def test_health_ok(migrated: str) -> None:
     resp = await _get(create_app(Settings(database_url=migrated)), "/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert resp.json() == {"status": "ok", "version": "dev"}
 
 
 async def test_health_reports_db_down() -> None:
     app = create_app(Settings(database_url="postgresql+asyncpg://nobody:x@127.0.0.1:1/none"))
     resp = await _get(app, "/health")
     assert resp.status_code == 503
-    assert resp.json() == {"status": "db_unavailable"}
+    assert resp.json() == {"status": "db_unavailable", "version": "dev"}
 
 
 async def test_docs_are_not_exposed(migrated: str) -> None:

@@ -39,9 +39,10 @@ from alnuzum_crm.errors import (
     CrmValidationError,
 )
 from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
-from alnuzum_crm.oauth import ZOHO_API_HOSTS, zoho_host
+from alnuzum_crm.oauth import ZOHO_API_HOSTS, ZOHO_WEB_HOSTS, zoho_host
 from alnuzum_crm.tokens import TokenSource
 from alnuzum_crm.types import (
+    AccountInfo,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -113,6 +114,16 @@ class ZohoCRM(CRM):
         self._inn_field = inn_field
         self._inn_checked = inn_field is not None
         self._stages: dict[str, str] | None = None
+
+    async def account(self) -> AccountInfo:
+        data = await self._request("GET", "/org")
+        orgs = data.get("org") if isinstance(data, dict) else None
+        org = orgs[0] if isinstance(orgs, list) and orgs and isinstance(orgs[0], dict) else {}
+        web = f"https://{ZOHO_WEB_HOSTS.get(self.api_host, 'crm.zoho.com')}/crm/{org.get('domain_name', '')}"
+        return AccountInfo(str(org.get("id", "")), str(org.get("company_name", "")), web)
+
+    def deal_link(self, account: AccountInfo, deal_id: str) -> str:
+        return f"{account.web}/tab/Potentials/{self._id(deal_id)}"
 
     def _id(self, value: str | None) -> str:
         return record_id(value, self.kind.value)

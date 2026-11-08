@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ t['crm_' ~ c.crm.value] }}{% endblock %}
+{% block body %}
+<div class="head">
+  <div>
+    <p class="back"><a href="/{{ lang }}">← {{ t.back }}</a></p>
+    <h1><svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg> {{ t['crm_' ~ c.crm.value] }}</h1>
+    <p>{{ c.label }}</p>
+  </div>
+  <em class="st st-{{ c.status }} big" data-status="{{ c.status }}">{{ t['st_' ~ c.status] }}</em>
+</div>
+
+{% if notice == "quota" %}<p class="err" role="alert" data-notice="quota"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.why_quota.format(quota=quota) }}</p>
+{% elif notice == "auth" or c.status == "reauth_required" %}<p class="err" role="alert" data-notice="auth"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.why_auth }} <a href="/{{ lang }}/connect/{{ c.crm.value }}">{{ t.reconnect }}</a></p>
+{% elif notice == "unavailable" %}<p class="err" role="alert" data-notice="unavailable"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.why_unavailable }}</p>
+{% elif notice == "rejected" %}<p class="err" role="alert" data-notice="rejected"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.why_rejected.format(code=notice_code) }}</p>{% endif %}
+{% if c.status == "disabled" and c.last_error in ("crm_uninstalled", "replaced") %}<p class="err" data-notice="{{ c.last_error }}"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t['why_' ~ c.last_error] }}</p>{% endif %}
+
+<div class="out">
+  <div class="card">
+    <h3>{{ t.last_check }}</h3>
+    {% if last %}
+      <span class="deal" data-deal="{{ last.record_id }}">{{ t.deal_no.format(id=last.record_id) }}</span>
+      {% if last.record_url %}<a class="open" href="{{ last.record_url }}" target="_blank" rel="noopener noreferrer" data-deal-link>{{ t.open_in.format(crm=t['crm_' ~ c.crm.value]) }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>{% endif %}
+    {% else %}<span class="deal muted">{{ t.never }}</span>{% endif %}
+    <dl>
+      <dt>{{ t.account }}</dt><dd class="mono">{{ c.endpoint }}</dd>
+      <dt>{{ t.connected_at }}</dt><dd>{{ c.created_at.strftime('%Y-%m-%d %H:%M UTC') if c.created_at else '' }}</dd>
+      <dt>{{ t.checked_at }}</dt><dd>{{ c.checked_at.strftime('%Y-%m-%d %H:%M UTC') if c.checked_at else t.never }}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h3>{{ t.journal }}</h3>
+    {% if writes %}
+    <ol class="log">
+      {% for w in writes %}<li{% if loop.first %} class="new"{% endif %}><time>{{ w.created_at.strftime('%H:%M') if w.created_at else '' }}</time><span>{% if w.ok %}{{ t.w_ok.format(id=w.record_id) }}{% elif w.ok is none %}{{ t.w_pending }}{% else %}{{ t.w_fail.format(why=w.error) }}{% endif %}</span></li>{% endfor %}
+    </ol>
+    {% else %}<p class="muted">{{ t.journal_empty }}</p>{% endif %}
+  </div>
+
+  <div class="plate act">
+    {% if c.status == "active" %}
+    <h3>{{ t.check }}</h3>
+    <p>{{ t.check_text.format(quota=quota) }}</p>
+    <form method="post" action="/{{ lang }}/connections/{{ c.id }}/check"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn dark" type="submit" data-action="check">{{ t.check }}<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></button></form>
+    {% else %}
+    <h3>{{ t['st_' ~ c.status] }}</h3>
+    <a class="btn dark" href="/{{ lang }}/connect/{{ c.crm.value }}">{{ t.reconnect }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></a>
+    {% endif %}
+    {% if c.status != "disabled" %}
+    <details class="off">
+      <summary>{{ t.disconnect }}</summary>
+      <p>{{ t.disconnect_text.format(where=t['where_' ~ c.crm.value]) }}</p>
+      <form method="post" action="/{{ lang }}/connections/{{ c.id }}/disable"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost" type="submit" data-action="disable">{{ t.disconnect_yes }}</button></form>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Nightly (apps-backup.timer, as root): pg_dump of production straight to the backup host, which keeps
+# the last 14. The site and the database keep running; pg_dump reads one consistent snapshot.
+#   apps-backup [prod|stand]    (stand only to try the chain out; the watchdog looks at prod)
+# Needs /etc/alnuzum/backup.env (BACKUP_HOST), the key /etc/alnuzum/backup_key and the host's key in
+# /etc/alnuzum/backup_known_hosts. The backup host accepts this key only from this server's addresses,
+# and only into apps-backup-receive: it can store a dump, nothing else.
+set -euo pipefail
+. /etc/alnuzum/backup.env
+ENV_NAME="${1:-prod}"
+case "$ENV_NAME" in prod | stand) ;; *) echo "usage: apps-backup [prod|stand]" >&2; exit 2 ;; esac
+umask 077
+name="$ENV_NAME-$(date -u +%Y%m%dT%H%MZ).dump"
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+docker exec "apps-$ENV_NAME-db-1" pg_dump -U alnuzum -d alnuzum -Fc > "$tmp"
+size=$(stat -c %s "$tmp")
+# a custom-format dump starts with PGDMP; an empty or broken one is a failure, not a backup
+[ "$(head -c 5 "$tmp")" = PGDMP ] && [ "$size" -gt 1024 ] || { echo "dump looks wrong ($size bytes)" >&2; exit 1; }
+sum=$(sha256sum "$tmp" | cut -d' ' -f1)
+reply=$(ssh -i /etc/alnuzum/backup_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile=/etc/alnuzum/backup_known_hosts "apps-backup@$BACKUP_HOST" "$name $size $sum" < "$tmp")
+[ "$reply" = "stored $name $size" ] || { echo "backup host said: $reply" >&2; exit 1; }
+[ "$ENV_NAME" = prod ] && echo "$name $size $sum" > /var/lib/alnuzum/backup.ok
+echo "$reply"

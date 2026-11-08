@@ -1,0 +1,45 @@
+name: Uptime
+
+# Outside view of production and the stand every five minutes: /health must answer "ok" within three
+# tries; otherwise a message goes to Telegram. The server watches itself every minute as well
+# (deploy/server/apps-watchdog); this one also sees a dead machine or network.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: /health of prod and stand
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check, alert when down
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_ALERT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_ALERT_CHAT }}
+        run: |
+          down=""
+          for host in apps.alnuzum.com apps-stand.alnuzum.com; do
+            ok=""
+            for _ in 1 2 3; do
+              if [ "$(curl -s --max-time 10 "https://$host/health" | jq -r .status 2>/dev/null)" = ok ]; then ok=1; break; fi
+              sleep 15
+            done
+            if [ -z "$ok" ]; then down="$down $host"; fi
+          done
+          if [ -n "$down" ]; then
+            text="ALERT apps: /health does not answer from outside:${down} (GitHub Actions, $(date -u +%H:%M) UTC)"
+            # the token on stdin, not in the arguments of curl
+            printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TOKEN" |
+              curl -s -o /dev/null --max-time 10 -K - --data-urlencode "chat_id=${CHAT}" --data-urlencode "text=${text}"
+            echo "down:${down}"
+            exit 1
+          fi
+          echo "both up"

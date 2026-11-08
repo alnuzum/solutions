@@ -7,7 +7,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from types import TracebackType
 from typing import ClassVar, Self
 
+from alnuzum_crm.errors import CrmUnsupported
 from alnuzum_crm.types import (
+    AccountInfo,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -43,6 +45,15 @@ class CRM(ABC):
 
     @abstractmethod
     async def aclose(self) -> None: ...
+
+    async def account(self) -> AccountInfo:
+        """The account the credentials reach. One cheap call: a refused token or key raises
+        ``CrmAuthError``, which is how a connection removed on the CRM side is noticed."""
+        raise CrmUnsupported("account lookup", crm=self.kind.value)
+
+    def deal_link(self, account: AccountInfo, deal_id: str) -> str:
+        """Address of the deal's page in the CRM."""
+        raise CrmUnsupported("deal links", crm=self.kind.value)
 
     @abstractmethod
     async def find_company(self, company: CompanyIn) -> str | None:

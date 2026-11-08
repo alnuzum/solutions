@@ -187,6 +187,10 @@ async def _poll[T](
     return None
 
 
+# no operator in Uzbekistan has the code 00: a test phone can never be somebody's number
+PHONE_CODE = "00"
+
+
 def run_numbers(run_id: str) -> tuple[str, str]:
     """INN (9 digits) and phone tail (7 digits) unique to a run: amoCRM never deletes contacts,
     so a fixed test phone would match the contacts of earlier runs."""
@@ -206,7 +210,7 @@ async def run_conformance(
     done: list[str] = []
     got = Collected()
     inn, tail = run_numbers(run_id)
-    phone = f"+998 90 {tail[:3]} {tail[3:5]} {tail[5:]}"
+    phone = f"+998 {PHONE_CODE} {tail[:3]} {tail[3:5]} {tail[5:]}"
     name = f"E2E Co {run_id}"
     email = f"e2e-{run_id}@example.com"
     try:
@@ -238,7 +242,7 @@ async def run_conformance(
         got.contact_ids.append(ct.id)
         found = await _poll(lambda: crm.find_contact(ContactIn(name="x", email=email.upper())), sleep)
         _check(found == ct.id, "contact found by e-mail in another case")
-        other_format = f"99890{tail}"
+        other_format = f"998{PHONE_CODE}{tail}"
         found = await _poll(lambda: crm.find_contact(ContactIn(name="x", phone=other_format)), sleep)
         _check(found == ct.id, "contact found by phone in another format")
         again = await crm.find_or_create_contact(ContactIn(name="Someone", email=email))

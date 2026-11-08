@@ -1,0 +1,7 @@
+[Unit]
+Description=Nightly pg_dump of production to the backup host
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/apps-backup

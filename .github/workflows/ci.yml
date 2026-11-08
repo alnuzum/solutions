@@ -10,7 +10,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # a newer push to a pull request replaces its run; runs on main finish (they deploy production)
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
@@ -116,8 +117,8 @@ jobs:
           test "$(jq -r '[.[].RuleID] | sort | join(",")' "$RUNNER_TEMP/planted.json")" = "bitrix24-inbound-webhook,zoho-oauth-token"
       - name: gitleaks over the whole history
         env:
-          # hosts of the test accounts must never reach the repository
-          HOSTS: ${{ vars.AMOCRM_DOMAIN }} ${{ vars.KOMMO_DOMAIN }} ${{ vars.B24_HOST }}
+          # hosts of the test accounts must never reach the repository; secrets, so the log masks them
+          HOSTS: ${{ secrets.AMOCRM_DOMAIN }} ${{ secrets.KOMMO_DOMAIN }} ${{ secrets.B24_HOST }}
         run: |
           python3 - <<'PY'
           import os, re
@@ -129,3 +130,77 @@ jobs:
           open(os.environ["RUNNER_TEMP"] + "/gitleaks-ci.toml", "w").write(cfg)
           PY
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --config "$RUNNER_TEMP/gitleaks-ci.toml" --log-opts="--all" .
+
+  # The image of this commit goes to the server only after every job of the gate is green.
+  deploy-stand:
+    name: Deploy to the stand
+    needs: [lint, test, compose, gitleaks]
+    # pull requests from this repository only: forks and Dependabot get no secrets
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: stand
+      url: https://apps-stand.alnuzum.com
+    concurrency:
+      group: deploy-stand
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build, ship, start
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SECRET_KEYS: ${{ secrets.SECRET_KEYS }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          KOMMO_CLIENT_ID: ${{ vars.KOMMO_CLIENT_ID }}
+          KOMMO_CLIENT_SECRET: ${{ secrets.KOMMO_CLIENT_SECRET }}
+          ZOHO_CLIENT_ID: ${{ vars.ZOHO_CLIENT_ID }}
+          ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
+          QUOTA_WRITES_PER_DAY: ${{ vars.QUOTA_WRITES_PER_DAY }}
+        run: deploy/ci-deploy.sh stand "$DEPLOY_SHA"
+      - name: /health answers with this commit
+        run: |
+          test "$(curl -fsS --max-time 10 https://apps-stand.alnuzum.com/health | jq -r .version)" = "$DEPLOY_SHA"
+    env:
+      # the head commit of the pull request, not the merge commit GitHub builds
+      DEPLOY_SHA: ${{ github.event.pull_request.head.sha }}
+
+  deploy-prod:
+    name: Deploy to production
+    needs: [lint, test, compose, gitleaks]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://apps.alnuzum.com
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build, ship, start
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SECRET_KEYS: ${{ secrets.SECRET_KEYS }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          KOMMO_CLIENT_ID: ${{ vars.KOMMO_CLIENT_ID }}
+          KOMMO_CLIENT_SECRET: ${{ secrets.KOMMO_CLIENT_SECRET }}
+          ZOHO_CLIENT_ID: ${{ vars.ZOHO_CLIENT_ID }}
+          ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
+          QUOTA_WRITES_PER_DAY: ${{ vars.QUOTA_WRITES_PER_DAY }}
+        run: deploy/ci-deploy.sh prod "$GITHUB_SHA"
+      - name: /health answers with this commit
+        run: |
+          test "$(curl -fsS --max-time 10 https://apps.alnuzum.com/health | jq -r .version)" = "$GITHUB_SHA"

@@ -1,0 +1,7 @@
+[Unit]
+Description=Watch the apps server and tell Telegram when something changes
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/apps-watchdog

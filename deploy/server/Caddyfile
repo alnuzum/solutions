@@ -1,0 +1,60 @@
+{
+	email dev@alnuzum.com
+	servers {
+		protocols h1 h2
+	}
+}
+
+# access log per site as JSON lines; the query string (OAuth codes) and the Referer never reach it,
+# Cookie and Authorization are redacted by Caddy itself
+(access) {
+	log {
+		output file /var/log/caddy/{args[0]}.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?_"
+				request>headers>Referer delete
+			}
+		}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+# the platform: CRM hooks take at most 64 KB (no CRM sends more), anything else 1 MB; the admin API
+# (/connections) answers only from inside the server
+(platform) {
+	@hooks path /hooks/*
+	request_body @hooks {
+		max_size 64KB
+	}
+	request_body {
+		max_size 1MB
+	}
+	@admin path /connections /connections/*
+	respond @admin 404
+}
+
+apps.alnuzum.com {
+	import access prod
+	import platform
+	reverse_proxy platform-prod:8000
+}
+
+apps-stand.alnuzum.com {
+	import access stand
+	import platform
+	reverse_proxy platform-stand:8000
+}
+
+# test Odoo Community for checking the Odoo connection through the interface
+odoo-e2e.alnuzum.com {
+	import access odoo
+	reverse_proxy odoo:8069
+}

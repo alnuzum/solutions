@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Forced command of the apps-backup user on the backup host: store one dump from stdin. It never replaces
+# or deletes a stored dump, so a stolen key cannot push real backups out; apps-backup-prune removes old
+# ones by the date in their names. The client says "<name> <size> <sha256>"; the dump must be exactly
+# that, a pg_dump custom archive, and named within 15 minutes of now, or nothing is kept.
+set -euo pipefail
+DIR=/var/backups/apps
+LIMIT=$((2 * 1024 * 1024 * 1024))
+FREE_FLOOR=$((2 * 1024 * 1024))   # KiB that must stay free after the dump
+read -r name size sum extra <<<"${SSH_ORIGINAL_COMMAND:-}"
+[[ "$name" =~ ^(prod|stand)-([0-9]{8})T([0-9]{2})([0-9]{2})Z\.dump$ ]] || { echo "refused: name"; exit 2; }
+stamp=$(date -u -d "${BASH_REMATCH[2]} ${BASH_REMATCH[3]}:${BASH_REMATCH[4]}" +%s 2>/dev/null) || { echo "refused: name"; exit 2; }
+skew=$(( $(date -u +%s) - stamp ))
+[ "${skew#-}" -le 900 ] || { echo "refused: the time in the name is not now"; exit 2; }
+[[ "$size" =~ ^[0-9]{1,10}$ ]] && [ "$size" -le "$LIMIT" ] || { echo "refused: size"; exit 2; }
+[[ "$sum" =~ ^[0-9a-f]{64}$ ]] && [ -z "${extra:-}" ] || { echo "refused: arguments"; exit 2; }
+[ ! -e "$DIR/$name" ] || { echo "refused: $name exists"; exit 2; }
+free=$(df --output=avail -k "$DIR" | tail -1 | tr -dc 0-9)
+[ $((free - size / 1024)) -ge "$FREE_FLOOR" ] || { echo "refused: disk"; exit 3; }
+umask 077
+tmp="$(mktemp "$DIR/.incoming.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+head -c "$((size + 1))" > "$tmp"
+[ "$(stat -c %s "$tmp")" = "$size" ] || { echo "refused: got a different size"; exit 3; }
+[ "$(sha256sum "$tmp" | cut -d' ' -f1)" = "$sum" ] || { echo "refused: checksum"; exit 3; }
+[ "$(head -c 5 "$tmp")" = PGDMP ] || { echo "refused: not a pg_dump archive"; exit 3; }
+# a hard link fails if the name exists by now: never a replace, even in a race
+ln "$tmp" "$DIR/$name" 2>/dev/null || { echo "refused: $name exists"; exit 2; }
+echo "stored $name $size"

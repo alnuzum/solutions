@@ -1,7 +1,7 @@
 [project]
 name = "alnuzum-platform"
 version = "0.1.0"
-description = "Platform services for Al-Nuzum solutions: CRM connections, health"
+description = "Platform of Al-Nuzum solutions: CRM connections through the browser, sessions, health"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
 dependencies = [
@@ -13,6 +13,8 @@ dependencies = [
     "alembic>=1.14",
     "cryptography>=44",
     "pydantic-settings>=2.6",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.20",
 ]
 
 [project.scripts]

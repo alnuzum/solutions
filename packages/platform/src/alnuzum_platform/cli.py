@@ -36,7 +36,18 @@ def main(argv: list[str] | None = None) -> int:
         count = asyncio.run(rotate(settings.database_url, settings.secret_keys.get_secret_value()))
         print(f"re-encrypted: {count}")
     if args.cmd == "serve":
-        uvicorn.run("alnuzum_platform.api:create_app", factory=True, host=args.host, port=args.port)
+        # behind Caddy only (no published port): the client address comes from X-Forwarded-For.
+        # The access log is off: query strings carry OAuth codes; Caddy keeps its own log without them.
+        uvicorn.run(
+            "alnuzum_platform.api:create_app",
+            factory=True,
+            host=args.host,
+            port=args.port,
+            proxy_headers=True,
+            forwarded_allow_ips="*",
+            access_log=False,
+            server_header=False,
+        )
     return 0
 
 
