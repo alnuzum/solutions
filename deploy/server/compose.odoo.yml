@@ -2,7 +2,7 @@
 # Database manager is off, the only database is `e2e`.
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     restart: unless-stopped
     environment:
       POSTGRES_USER: odoo
@@ -17,7 +17,7 @@ services:
     networks: [internal]
     mem_limit: 384m
   odoo:
-    image: odoo:19.0-20261102
+    image: odoo:19.0-20261102@sha256:5e755c725b3c43cf0be16d579904e1418300db3a2c44952f928eaddbcb0cc16d
     restart: unless-stopped
     command: ["--database=e2e", "--db-filter=^e2e$$", "--no-database-list", "--proxy-mode"]
     environment:

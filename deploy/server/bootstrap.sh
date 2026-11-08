@@ -10,7 +10,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -q
-apt-get install -yq ca-certificates curl jq ufw fail2ban unattended-upgrades
+apt-get install -yq ca-certificates curl jq skopeo ufw fail2ban unattended-upgrades
 
 # --- Docker from the official repository ---
 if ! command -v docker >/dev/null; then
@@ -50,20 +50,26 @@ install -m 0644 "$HERE/20auto-upgrades" /etc/apt/apt.conf.d/20auto-upgrades
 install -m 0644 "$HERE/52alnuzum-unattended" /etc/apt/apt.conf.d/52alnuzum-unattended
 systemctl enable --now unattended-upgrades
 
-# --- deploy user: no password, two keys, each forced into one environment ---
-id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash deploy
-usermod -aG docker deploy
-passwd -l deploy >/dev/null
-install -d -m 0700 -o deploy -g deploy /home/deploy/.ssh
-{
-  echo "restrict,command=\"/usr/local/bin/apps-deploy stand\" ${STAND_KEY}"
-  echo "restrict,command=\"/usr/local/bin/apps-deploy prod\" ${PROD_KEY}"
-} > /home/deploy/.ssh/authorized_keys
-chown deploy:deploy /home/deploy/.ssh/authorized_keys
-chmod 0600 /home/deploy/.ssh/authorized_keys
+install -d -m 0755 /srv/apps
+
+# --- deploy users: one per environment, no password, one key each, forced into apps-deploy ---
+if id deploy >/dev/null 2>&1; then pkill -u deploy || true; userdel -f -r deploy; fi
+for env in stand prod; do
+  user="deploy-$env"
+  key="$STAND_KEY"; [ "$env" = prod ] && key="$PROD_KEY"
+  id "$user" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$user"
+  usermod -aG docker "$user"
+  passwd -l "$user" >/dev/null
+  install -d -m 0700 -o "$user" -g "$user" "/home/$user/.ssh"
+  echo "restrict,command=\"/usr/local/bin/apps-deploy $env\" $key" > "/home/$user/.ssh/authorized_keys"
+  chown "$user:$user" "/home/$user/.ssh/authorized_keys"
+  chmod 0600 "/home/$user/.ssh/authorized_keys"
+  # the other environment's user cannot read this one's secrets
+  install -d -m 0700 -o "$user" -g "$user" "/srv/apps/$env"
+done
 
 # --- layout ---
-install -d -m 0755 -o deploy -g deploy /srv/apps /srv/apps/prod /srv/apps/stand /srv/apps/edge
+install -d -m 0755 -o root -g root /srv/apps /srv/apps/edge
 install -d -m 0750 /etc/alnuzum /var/lib/alnuzum
 install -m 0755 "$HERE/apps-deploy" /usr/local/bin/apps-deploy
 install -m 0644 "$HERE/compose.app.yml" /srv/apps/compose.app.yml

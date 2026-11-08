@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Forced command of the `deploy` user. authorized_keys pins the environment:
-#   restrict,command="/usr/local/bin/apps-deploy stand" <key used by pull requests>
-#   restrict,command="/usr/local/bin/apps-deploy prod"  <key used by pushes to main>
-# The client may ask only for
-#   deploy <40-hex sha>   with a tar on stdin holding image.tar.gz and app.env
+# Forced command of the deploy users. Each environment has its own Unix user and key:
+#   /home/deploy-stand/.ssh/authorized_keys: restrict,command="/usr/local/bin/apps-deploy stand" <pull requests>
+#   /home/deploy-prod/.ssh/authorized_keys:  restrict,command="/usr/local/bin/apps-deploy prod"  <pushes to main>
+# One command per ssh call:
+#   env <sha>     stdin: KEY=VALUE text (at most 64 KiB) — the secrets of the deploy of <sha>
+#   image <sha>   stdin: a `docker save` archive (at most 1 GiB) — stored as alnuzum/platform-<env>:<sha>
+#                 whatever names the archive itself carries; nothing from the client is unpacked to disk
+#   deploy <sha>  run that image with that env; roll back when it is not healthy
 #   status
-# The compose file and Caddy are installed by an administrator (bootstrap), never by a deploy:
-# a pull request can change the image, not how it runs.
+# The compose file, Caddy and the base images (pinned by digest) are installed by an administrator, never by
+# a deploy: a pull request changes the image of the stand, not how anything runs.
 set -euo pipefail
-trap '' HUP   # a dropped connection after the upload must not stop a deploy half-way
+trap '' HUP   # a dropped connection must not stop a deploy half-way
 
 ENV_NAME="${1:-}"
 case "$ENV_NAME" in
@@ -16,77 +19,90 @@ case "$ENV_NAME" in
   stand) HOST="apps-stand.alnuzum.com" ;;
   *) echo "unknown environment" >&2; exit 2 ;;
 esac
+[ "$(id -un)" = "deploy-$ENV_NAME" ] || { echo "apps-deploy $ENV_NAME runs only as deploy-$ENV_NAME" >&2; exit 2; }
 DIR="/srv/apps/$ENV_NAME"
+REPO="alnuzum/platform-$ENV_NAME"
 COMPOSE=(docker compose -p "apps-$ENV_NAME" -f /srv/apps/compose.app.yml --env-file "$DIR/.env")
 ALLOWED='^(POSTGRES_PASSWORD|SECRET_KEYS|SESSION_SECRET|ADMIN_TOKEN|KOMMO_CLIENT_ID|KOMMO_CLIENT_SECRET|ZOHO_CLIENT_ID|ZOHO_CLIENT_SECRET|QUOTA_WRITES_PER_DAY)$'
 SAFE_VALUE='^[A-Za-z0-9+/=:,._@-]*$'
+umask 077
 
+usage() { echo "usage: env <sha> | image <sha> | deploy <sha> | status" >&2; exit 2; }
 read -r -a ARGS <<< "${SSH_ORIGINAL_COMMAND:-}"
+CMD="${ARGS[0]:-}"
+
 exec 9>"$DIR/.lock"
 flock -w 900 9
 
-case "${ARGS[0]:-}:${#ARGS[@]}" in
-  status:1)
-    cat "$DIR/current" 2>/dev/null || echo "none"
-    "${COMPOSE[@]}" ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null || true
-    exit 0 ;;
-  deploy:2) ;;
-  *) echo "usage: deploy <sha> | status" >&2; exit 2 ;;
-esac
+if [ "$CMD" = status ] && [ "${#ARGS[@]}" -eq 1 ]; then
+  cat "$DIR/current" 2>/dev/null || echo "none"
+  "${COMPOSE[@]}" ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null || true
+  exit 0
+fi
+[ "${#ARGS[@]}" -eq 2 ] || usage
 SHA="${ARGS[1]}"
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "bad sha" >&2; exit 2; }
-
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-head -c 1073741824 | tar -x -C "$TMP" --no-same-owner --no-same-permissions image.tar.gz app.env
-[ -s "$TMP/image.tar.gz" ] && [ -s "$TMP/app.env" ] || { echo "payload incomplete" >&2; exit 2; }
 
-# app.env: only known keys, values without quotes, spaces or $ (compose would interpolate them)
-umask 077
-: > "$TMP/env.checked"
-while IFS= read -r line || [ -n "$line" ]; do
-  [ -z "$line" ] && continue
-  key="${line%%=*}"; value="${line#*=}"
-  [[ "$line" == *=* && "$key" =~ $ALLOWED && "$value" =~ $SAFE_VALUE ]] || { echo "app.env: refused line for ${key:0:40}" >&2; exit 2; }
-  printf '%s=%s\n' "$key" "$value" >> "$TMP/env.checked"
-done < "$TMP/app.env"
-for need in POSTGRES_PASSWORD SECRET_KEYS SESSION_SECRET; do
-  grep -q "^$need=." "$TMP/env.checked" || { echo "app.env: $need missing" >&2; exit 2; }
-done
-printf 'APP_ENV=%s\nPUBLIC_URL=https://%s\nIMAGE_TAG=%s\n' "$ENV_NAME" "$HOST" "$SHA" >> "$TMP/env.checked"
+case "$CMD" in
+env)
+  head -c 65537 > "$TMP/in"
+  [ "$(stat -c %s "$TMP/in")" -le 65536 ] || { echo "env: too large" >&2; exit 2; }
+  : > "$TMP/env"
+  n=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    [ -z "$line" ] && continue
+    key="${line%%=*}"; value="${line#*=}"
+    # the refused line is named by its number only: it may hold a secret
+    [[ "$line" == *=* && "$key" =~ $ALLOWED && "$value" =~ $SAFE_VALUE ]] || { echo "env: line $n refused" >&2; exit 2; }
+    printf '%s=%s\n' "$key" "$value" >> "$TMP/env"
+  done < "$TMP/in"
+  for need in POSTGRES_PASSWORD SECRET_KEYS SESSION_SECRET; do
+    grep -q "^$need=." "$TMP/env" || { echo "env: $need missing" >&2; exit 2; }
+  done
+  install -m 0600 "$TMP/env" "$DIR/env.$SHA"
+  ls -1t "$DIR"/env.* 2>/dev/null | tail -n +4 | xargs -r rm -f
+  echo "env for $SHA stored" ;;
+image)
+  head -c 1073741825 > "$TMP/image.tar"
+  [ "$(stat -c %s "$TMP/image.tar")" -le 1073741824 ] || { echo "image: too large" >&2; exit 2; }
+  # skopeo reads the archive in-process and writes one image under the name given here
+  skopeo copy --quiet "docker-archive:$TMP/image.tar" "docker-daemon:$REPO:$SHA" >&2 \
+    || { echo "image: not a single-image docker archive" >&2; exit 2; }
+  echo "image $REPO:$SHA loaded" ;;
+deploy)
+  [ -f "$DIR/env.$SHA" ] || { echo "deploy: no env for $SHA" >&2; exit 2; }
+  docker image inspect "$REPO:$SHA" >/dev/null 2>&1 || { echo "deploy: no image $REPO:$SHA" >&2; exit 2; }
+  cp "$DIR/env.$SHA" "$TMP/next"
+  printf 'APP_ENV=%s\nPUBLIC_URL=https://%s\nIMAGE_TAG=%s\n' "$ENV_NAME" "$HOST" "$SHA" >> "$TMP/next"
+  [ -f "$DIR/.env" ] && cp -p "$DIR/.env" "$DIR/.env.prev"
+  install -m 0600 "$TMP/next" "$DIR/.env"
 
-gunzip -c "$TMP/image.tar.gz" | docker load -q >/dev/null
-docker image inspect "alnuzum-platform:$SHA" >/dev/null || { echo "image alnuzum-platform:$SHA not in the payload" >&2; exit 2; }
-
-[ -f "$DIR/.env" ] && cp -p "$DIR/.env" "$DIR/.env.prev"
-install -m 0600 "$TMP/env.checked" "$DIR/.env"
-
-rollback() {
-  echo "deploy of $SHA failed: $1" >&2
-  if [ -f "$DIR/.env.prev" ]; then
-    cp -p "$DIR/.env.prev" "$DIR/.env"
-    "${COMPOSE[@]}" up -d --wait --wait-timeout 180 >&2 || true
-    echo "rolled back to $(cat "$DIR/current" 2>/dev/null)" >&2
-  fi
-  exit 1
-}
-
-"${COMPOSE[@]}" up -d --wait --wait-timeout 120 db || rollback "database did not start"
-"${COMPOSE[@]}" run --rm --no-deps platform alnuzum-platform migrate || rollback "migrations failed"
-"${COMPOSE[@]}" up -d --wait --wait-timeout 180 platform || rollback "platform is not healthy"
-
-ok=""
-for _ in $(seq 1 20); do
-  body="$(curl -fsS --max-time 5 --resolve "$HOST:443:127.0.0.1" "https://$HOST/health" 2>/dev/null || true)"
-  if [ "$(jq -r '.status + " " + .version' <<< "${body:-{\}}" 2>/dev/null)" = "ok $SHA" ]; then ok=1; break; fi
-  sleep 3
-done
-[ -n "$ok" ] || rollback "https://$HOST/health does not answer ok with version $SHA"
-
-echo "$SHA" > "$DIR/current"
-# keep the running image and the previous one
-docker image ls alnuzum-platform --format '{{.Tag}}' | grep -vx -e "$SHA" -e "$(grep -s '^IMAGE_TAG=' "$DIR/.env.prev" | cut -d= -f2)" \
-  | while read -r old; do
-      docker ps -a --format '{{.Image}}' | grep -qx "alnuzum-platform:$old" || docker image rm -f "alnuzum-platform:$old" >/dev/null 2>&1 || true
-    done
-echo "deployed $SHA to $ENV_NAME"
+  rollback() {
+    echo "deploy of $SHA failed: $1" >&2
+    if [ -f "$DIR/.env.prev" ]; then
+      cp -p "$DIR/.env.prev" "$DIR/.env"
+      "${COMPOSE[@]}" up -d --wait --wait-timeout 180 >&2 || true
+      echo "rolled back to $(cat "$DIR/current" 2>/dev/null)" >&2
+    fi
+    exit 1
+  }
+  "${COMPOSE[@]}" up -d --wait --wait-timeout 120 db >&2 || rollback "database did not start"
+  "${COMPOSE[@]}" run --rm --no-deps platform alnuzum-platform migrate >&2 || rollback "migrations failed"
+  "${COMPOSE[@]}" up -d --wait --wait-timeout 180 platform >&2 || rollback "platform is not healthy"
+  ok=""
+  for _ in $(seq 1 20); do
+    body="$(curl -fsS --max-time 5 --resolve "$HOST:443:127.0.0.1" "https://$HOST/health" 2>/dev/null || true)"
+    if [ "$(jq -r '(.status // "") + " " + (.version // "")' <<< "${body:-{\}}" 2>/dev/null)" = "ok $SHA" ]; then ok=1; break; fi
+    sleep 3
+  done
+  [ -n "$ok" ] || rollback "https://$HOST/health does not answer ok with version $SHA"
+  echo "$SHA" > "$DIR/current"
+  keep_prev="$(grep -s '^IMAGE_TAG=' "$DIR/.env.prev" | cut -d= -f2 || true)"
+  docker image ls "$REPO" --format '{{.Tag}}' | grep -vx -e "$SHA" -e "${keep_prev:-none}" \
+    | while read -r old; do docker image rm "$REPO:$old" >/dev/null 2>&1 || true; done
+  echo "deployed $SHA to $ENV_NAME" ;;
+*) usage ;;
+esac
