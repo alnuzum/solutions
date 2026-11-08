@@ -65,11 +65,19 @@ class CRM(ABC):
         """By e-mail ignoring case, then by phone digits."""
 
     @abstractmethod
+    async def link_contact(self, contact_id: str, company_id: str) -> bool:
+        """Link the contact to the company if it has none; True when a link was made."""
+
+    @abstractmethod
     async def create_contact(self, contact: ContactIn, *, company_id: str | None = None) -> str: ...
 
     async def find_or_create_contact(self, contact: ContactIn, *, company_id: str | None = None) -> Ref:
+        """A found contact without a company is linked to ``company_id``; one that already
+        belongs to a company keeps it."""
         found = await self.find_contact(contact)
         if found is not None:
+            if company_id:
+                await self.link_contact(found, company_id)
             return Ref(found, False)
         return await self._create_contact_ref(contact, company_id)
 
@@ -142,6 +150,17 @@ def same_email(a: str | None, b: str | None) -> bool:
 def require_one(company_id: str | None, contact_id: str | None, crm: str) -> None:
     if bool(company_id) == bool(contact_id):
         raise ValueError(f"{crm}: pass exactly one of company_id and contact_id")
+
+
+_DIGITS = re.compile(r"[0-9]{1,19}")
+
+
+def record_id(value: str | None, crm: str) -> str:
+    """A CRM record id that may go into a URL path: ASCII digits only, so it cannot leave its path
+    segment (``1/../../settings`` is refused before any request)."""
+    if value is None or not _DIGITS.fullmatch(value):
+        raise ValueError(f"{crm}: a record id is digits only, got {value!r}")
+    return value
 
 
 def dec(value: object) -> Decimal | None:

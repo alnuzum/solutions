@@ -1,7 +1,7 @@
 {
  "meta": {
   "crm": "kommo",
-  "run_id": "3796f233"
+  "run_id": "aed5933e"
  },
  "calls": [
   {
@@ -15,7 +15,7 @@
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/companies?query=332639283",
+   "url": "https://example.kommo.com/api/v4/companies?query=333232446&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -24,7 +24,7 @@
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/companies?query=E2E+Co+3796f233",
+   "url": "https://example.kommo.com/api/v4/companies?query=E2E+Co+aed5933e&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -37,39 +37,39 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":4585446,\"is_deleted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":4605412,\"is_deleted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/companies?query=E2E+CO+3796F233",
+   "url": "https://example.kommo.com/api/v4/companies?query=E2E+CO+AED5933E&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=E2E+CO+3796F233&page=1&limit=250\"}},\"_embedded\":{\"companies\":[{\"id\":4585446,\"name\":\"E2E Co 3796f233\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171144,\"updated_at\":1794171144,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"332639283\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?query=E2E+CO+3796F233&page=1&limit=250\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=E2E+CO+AED5933E&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":4605412,\"name\":\"E2E Co aed5933e\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173986,\"updated_at\":1794173986,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"333232446\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?query=E2E+CO+AED5933E&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/companies?query=E2E+CO+3796F233",
+   "url": "https://example.kommo.com/api/v4/companies?query=E2E+CO+AED5933E&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=E2E+CO+3796F233&page=1&limit=250\"}},\"_embedded\":{\"companies\":[{\"id\":4585446,\"name\":\"E2E Co 3796f233\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171144,\"updated_at\":1794171144,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"332639283\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?query=E2E+CO+3796F233&page=1&limit=250\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=E2E+CO+AED5933E&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":4605412,\"name\":\"E2E Co aed5933e\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173986,\"updated_at\":1794173986,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"333232446\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?query=E2E+CO+AED5933E&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/companies?query=332639283",
+   "url": "https://example.kommo.com/api/v4/companies?query=333232446&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=332639283&page=1&limit=250\"}},\"_embedded\":{\"companies\":[{\"id\":4585446,\"name\":\"E2E Co 3796f233\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171144,\"updated_at\":1794171144,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"332639283\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?query=332639283&page=1&limit=250\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=333232446&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":4605412,\"name\":\"E2E Co aed5933e\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173986,\"updated_at\":1794173986,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"333232446\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?query=333232446&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/contacts?query=e2e-3796f233%40example.com",
+   "url": "https://example.kommo.com/api/v4/companies?query=433232446&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -78,7 +78,25 @@
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/contacts?query=902639283",
+   "url": "https://example.kommo.com/api/v4/companies?query=E2E+Co+aed5933e&limit=250&page=1",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies?query=E2E+Co+aed5933e&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":4605412,\"name\":\"E2E Co aed5933e\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173986,\"updated_at\":1794173986,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"333232446\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?query=E2E+Co+aed5933e&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/contacts?query=e2e-aed5933e%40example.com&limit=250&page=1",
+   "op": "",
+   "status": 204,
+   "content_type": "text/html; charset=UTF-8",
+   "body": "",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/contacts?query=903232446&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -91,34 +109,88 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":4585450,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4585450\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":4605414,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605414\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/contacts?query=E2E-3796F233%40EXAMPLE.COM",
+   "url": "https://example.kommo.com/api/v4/contacts?query=E2E-AED5933E%40EXAMPLE.COM&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=E2E-3796F233%40EXAMPLE.COM&page=1&limit=250\"}},\"_embedded\":{\"contacts\":[{\"id\":4585450,\"name\":\"E2E Person 3796f233\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171146,\"updated_at\":1794171146,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-3796f233@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4585450?query=E2E-3796F233%40EXAMPLE.COM&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=E2E-AED5933E%40EXAMPLE.COM&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":4605414,\"name\":\"E2E Person aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173989,\"updated_at\":1794173989,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605414?query=E2E-AED5933E%40EXAMPLE.COM&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/contacts?query=902639283",
+   "url": "https://example.kommo.com/api/v4/contacts?query=903232446&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=902639283&page=1&limit=250\"}},\"_embedded\":{\"contacts\":[{\"id\":4585450,\"name\":\"E2E Person 3796f233\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171146,\"updated_at\":1794171146,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-3796f233@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4585450?query=902639283&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=903232446&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":4605414,\"name\":\"E2E Person aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173989,\"updated_at\":1794173989,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605414?query=903232446&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/contacts?query=e2e-3796f233%40example.com",
+   "url": "https://example.kommo.com/api/v4/contacts?query=e2e-aed5933e%40example.com&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=e2e-3796f233%40example.com&page=1&limit=250\"}},\"_embedded\":{\"contacts\":[{\"id\":4585450,\"name\":\"E2E Person 3796f233\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171146,\"updated_at\":1794171146,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-3796f233@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4585450?query=e2e-3796f233%40example.com&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=e2e-aed5933e%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":4605414,\"name\":\"E2E Person aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173989,\"updated_at\":1794173989,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605414?query=e2e-aed5933e%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.kommo.com/api/v4/contacts",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":4605416,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416\"}}}]}}",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/contacts?query=e2e-lone-aed5933e%40example.com&limit=250&page=1",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=e2e-lone-aed5933e%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":4605416,\"name\":\"E2E Lone aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173990,\"updated_at\":1794173990,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416?query=e2e-lone-aed5933e%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/contacts?query=e2e-lone-aed5933e%40example.com&limit=250&page=1",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts?query=e2e-lone-aed5933e%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":4605416,\"name\":\"E2E Lone aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173990,\"updated_at\":1794173990,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416?query=e2e-lone-aed5933e%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/contacts/4605416",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"id\":4605416,\"name\":\"E2E Lone aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173990,\"updated_at\":1794173990,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416?page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.kommo.com/api/v4/contacts/4605416/link",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":4605412,\"to_entity_type\":\"companies\",\"metadata\":null}]}}",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/contacts/4605416",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"id\":4605416,\"name\":\"E2E Lone aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173990,\"updated_at\":1794173992,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416?page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[{\"id\":4605412,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?page=1&limit=250\"}}}]}}",
    "binary": false
   },
   {
@@ -145,34 +217,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements\"}},\"_embedded\":{\"elements\":[{\"id\":136810,\"name\":\"E2E product 3796f233\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794171148,\"updated_at\":1794171148,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-3796f233\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136810?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements",
-   "op": "",
-   "status": 200,
-   "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements\"}},\"_embedded\":{\"elements\":[{\"id\":136812,\"name\":\"E2E service 3796f233\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794171149,\"updated_at\":1794171149,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136812?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://example.kommo.com/api/v4/leads",
-   "op": "",
-   "status": 200,
-   "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":2006398,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398\"}}}]}}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://example.kommo.com/api/v4/leads/2006398/link",
-   "op": "",
-   "status": 200,
-   "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":136810,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":2,\"catalog_id\":16312,\"price_id\":480140}},{\"to_entity_id\":136812,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":3,\"catalog_id\":16312,\"price_id\":480140}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements\"}},\"_embedded\":{\"elements\":[{\"id\":136822,\"name\":\"E2E product aed5933e\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173994,\"updated_at\":1794173994,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-aed5933e\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136822?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
@@ -181,7 +226,43 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":37163783,\"name\":\"example\",\"subdomain\":\"example\",\"language\":\"en\",\"created_at\":1794171150,\"created_by\":0,\"updated_at\":1794171150,\"updated_by\":0,\"current_user_id\":16078955,\"country\":\"UZ\",\"currency\":\"UZS\",\"currency_symbol\":\"soʻm\",\"customers_mode\":\"disabled\",\"is_unsorted_on\":true,\"mobile_feature_version\":0,\"is_loss_reason_enabled\":true,\"is_helpbot_enabled\":false,\"is_technical_account\":false,\"contact_name_display_order\":1,\"drive_url\":\"https://drive-c.kommo.com\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/account\"}}}",
+   "body": "{\"id\":37163783,\"name\":\"example\",\"subdomain\":\"example\",\"language\":\"en\",\"created_at\":1794173995,\"created_by\":0,\"updated_at\":1794173995,\"updated_by\":0,\"current_user_id\":16078955,\"country\":\"UZ\",\"currency\":\"UZS\",\"currency_symbol\":\"soʻm\",\"customers_mode\":\"disabled\",\"is_unsorted_on\":true,\"mobile_feature_version\":0,\"is_loss_reason_enabled\":true,\"is_helpbot_enabled\":false,\"is_technical_account\":false,\"contact_name_display_order\":1,\"drive_url\":\"https://drive-c.kommo.com\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/account\"}}}",
+   "binary": false
+  },
+  {
+   "method": "GET",
+   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements?filter%5Bid%5D%5B%5D=136822&limit=250",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements?filter%5Bid%5D%5B0%5D=136822&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":136822,\"name\":\"E2E product aed5933e\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173994,\"updated_at\":1794173994,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-aed5933e\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136822?filter%5Bid%5D%5B0%5D=136822&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements\"}},\"_embedded\":{\"elements\":[{\"id\":136824,\"name\":\"E2E service aed5933e\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173995,\"updated_at\":1794173995,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136824?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.kommo.com/api/v4/leads",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":2026444,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444\"}}}]}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.kommo.com/api/v4/leads/2026444/link",
+   "op": "",
+   "status": 200,
+   "content_type": "application/hal+json",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":136822,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":2,\"catalog_id\":16312,\"price_id\":480140}},{\"to_entity_id\":136824,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":3,\"catalog_id\":16312,\"price_id\":480140}}]}}",
    "binary": false
   },
   {
@@ -190,7 +271,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=UTF-8",
-   "body": "{\"max_file_size\":314572800,\"max_part_size\":524288,\"session_id\":320359225,\"upload_url\":\"https://drive-g.kommo.com/upload/UPLOAD\"}\n",
+   "body": "{\"max_file_size\":314572800,\"max_part_size\":524288,\"session_id\":320362511,\"upload_url\":\"https://drive-g.kommo.com/upload/UPLOAD\"}\n",
    "binary": false
   },
   {
@@ -199,12 +280,12 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=UTF-8",
-   "body": "{\"_links\":{\"download\":{\"href\":\"https://drive-g.kommo.com/download/fdef60f7-6d37-5ef5-9b27-6d06b429be9e/34f4b2c9-e3d7-424d-ba33-1cd09d4eae45/e2e-3796f233.txt\"},\"download_version\":{\"href\":\"https://drive-g.kommo.com/download/fdef60f7-6d37-5ef5-9b27-6d06b429be9e/34f4b2c9-e3d7-424d-ba33-1cd09d4eae45/b337ad7c-15be-4269-8d9d-8c86d99f6c49/e2e-3796f233.txt\"},\"self\":{\"href\":\"https://drive-g.kommo.com/v1.0/files/34f4b2c9-e3d7-424d-ba33-1cd09d4eae45\"}},\"created_at\":1794171152,\"created_by\":{\"type\":\"internal\",\"id\":16078955},\"deleted_at\":null,\"deleted_by\":null,\"has_multiple_versions\":false,\"id\":2527460251,\"is_trashed\":false,\"metadata\":{\"extension\":\"txt\",\"mime_type\":\"text/plain\"},\"name\":\"e2e-3796f233\",\"previews\":null,\"sanitized_name\":\"e2e-3796f233\",\"session_id\":320359225,\"size\":15,\"source_id\":null,\"type\":\"file\",\"updated_at\":1794171152,\"updated_by\":{\"type\":\"internal\",\"id\":16078955},\"uuid\":\"34f4b2c9-e3d7-424d-ba33-1cd09d4eae45\",\"version_uuid\":\"b337ad7c-15be-4269-8d9d-8c86d99f6c49\"}\n",
+   "body": "{\"_links\":{\"download\":{\"href\":\"https://drive-g.kommo.com/download/fdef60f7-6d37-5ef5-9b27-6d06b429be9e/d4097b63-000a-4448-a6a6-9acd9e8175af/e2e-aed5933e.txt\"},\"download_version\":{\"href\":\"https://drive-g.kommo.com/download/fdef60f7-6d37-5ef5-9b27-6d06b429be9e/d4097b63-000a-4448-a6a6-9acd9e8175af/acf97072-edd6-42ef-8290-186c30f239ab/e2e-aed5933e.txt\"},\"self\":{\"href\":\"https://drive-g.kommo.com/v1.0/files/d4097b63-000a-4448-a6a6-9acd9e8175af\"}},\"created_at\":1794173999,\"created_by\":{\"type\":\"internal\",\"id\":16078955},\"deleted_at\":null,\"deleted_by\":null,\"has_multiple_versions\":false,\"id\":2527490601,\"is_trashed\":false,\"metadata\":{\"extension\":\"txt\",\"mime_type\":\"text/plain\"},\"name\":\"e2e-aed5933e\",\"previews\":null,\"sanitized_name\":\"e2e-aed5933e\",\"session_id\":320362511,\"size\":15,\"source_id\":null,\"type\":\"file\",\"updated_at\":1794173999,\"updated_by\":{\"type\":\"internal\",\"id\":16078955},\"uuid\":\"d4097b63-000a-4448-a6a6-9acd9e8175af\",\"version_uuid\":\"acf97072-edd6-42ef-8290-186c30f239ab\"}\n",
    "binary": false
   },
   {
    "method": "PUT",
-   "url": "https://example.kommo.com/api/v4/leads/2006398/files",
+   "url": "https://example.kommo.com/api/v4/leads/2026444/files",
    "op": "",
    "status": 202,
    "content_type": "text/html; charset=UTF-8",
@@ -217,7 +298,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/notes\"}},\"_embedded\":{\"notes\":[{\"id\":343264,\"entity_id\":2006398,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398/notes/343264\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/notes\"}},\"_embedded\":{\"notes\":[{\"id\":343480,\"entity_id\":2026444,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444/notes/343480\"}}}]}}",
    "binary": false
   },
   {
@@ -226,70 +307,70 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":135324,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks/135324\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":135386,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks/135386\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/leads/2006398?with=catalog_elements",
+   "url": "https://example.kommo.com/api/v4/leads/2026444?with=catalog_elements",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":2006398,\"name\":\"E2E deal 3796f233\",\"price\":280,\"price_with_minor_units\":280.75,\"responsible_user_id\":16078955,\"group_id\":0,\"status_id\":113891199,\"pipeline_id\":14739439,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171149,\"updated_at\":1794171153,\"closed_at\":null,\"closest_task_at\":1794257553,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":37163783,\"labor_cost\":null,\"is_price_computed\":true,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398?with=catalog_elements&page=1&limit=250\"}},\"_embedded\":{\"tags\":[{\"id\":14176,\"name\":\"e2e\",\"color\":null}],\"catalog_elements\":[{\"id\":136810,\"metadata\":{\"quantity\":2.5,\"catalog_id\":16312,\"price_id\":480140},\"account_id\":37163783},{\"id\":136812,\"metadata\":{\"quantity\":3,\"catalog_id\":16312,\"price_id\":480140},\"account_id\":37163783}],\"companies\":[{\"id\":4585446,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?with=catalog_elements&page=1&limit=250\"}}}]}}",
+   "body": "{\"id\":2026444,\"name\":\"E2E deal aed5933e\",\"price\":280,\"price_with_minor_units\":280.75,\"responsible_user_id\":16078955,\"group_id\":0,\"status_id\":113891199,\"pipeline_id\":14739439,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173996,\"updated_at\":1794174000,\"closed_at\":null,\"closest_task_at\":1794260399,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":37163783,\"labor_cost\":null,\"is_price_computed\":true,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444?with=catalog_elements&page=1&limit=250\"}},\"_embedded\":{\"tags\":[{\"id\":14176,\"name\":\"e2e\",\"color\":null}],\"catalog_elements\":[{\"id\":136822,\"metadata\":{\"quantity\":2.5,\"catalog_id\":16312,\"price_id\":480140},\"account_id\":37163783},{\"id\":136824,\"metadata\":{\"quantity\":3,\"catalog_id\":16312,\"price_id\":480140},\"account_id\":37163783}],\"companies\":[{\"id\":4605412,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?with=catalog_elements&page=1&limit=250\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements?filter%5Bid%5D%5B%5D=136810&filter%5Bid%5D%5B%5D=136812&limit=250",
+   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements?filter%5Bid%5D%5B%5D=136822&filter%5Bid%5D%5B%5D=136824&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements?filter%5Bid%5D%5B0%5D=136810&filter%5Bid%5D%5B1%5D=136812&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":136810,\"name\":\"E2E product 3796f233\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794171148,\"updated_at\":1794171148,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-3796f233\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136810?filter%5Bid%5D%5B0%5D=136810&filter%5Bid%5D%5B1%5D=136812&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}},{\"id\":136812,\"name\":\"E2E service 3796f233\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794171149,\"updated_at\":1794171149,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136812?filter%5Bid%5D%5B0%5D=136810&filter%5Bid%5D%5B1%5D=136812&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements?filter%5Bid%5D%5B0%5D=136822&filter%5Bid%5D%5B1%5D=136824&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":136822,\"name\":\"E2E product aed5933e\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173994,\"updated_at\":1794173994,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-aed5933e\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136822?filter%5Bid%5D%5B0%5D=136822&filter%5Bid%5D%5B1%5D=136824&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}},{\"id\":136824,\"name\":\"E2E service aed5933e\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173995,\"updated_at\":1794173995,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136824?filter%5Bid%5D%5B0%5D=136822&filter%5Bid%5D%5B1%5D=136824&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/companies/4585446?with=leads",
+   "url": "https://example.kommo.com/api/v4/companies/4605412?with=leads",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":4585446,\"name\":\"E2E Co 3796f233\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171144,\"updated_at\":1794171144,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"332639283\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":2006398,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398?with=leads&page=1&limit=250\"}}}]}}",
+   "body": "{\"id\":4605412,\"name\":\"E2E Co aed5933e\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173986,\"updated_at\":1794173986,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":482642,\"field_name\":\"INN\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"333232446\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":2026444,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444?with=leads&page=1&limit=250\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B%5D=2006398&limit=250",
+   "url": "https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B%5D=2026444&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B0%5D=2006398&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":2006398,\"name\":\"E2E deal 3796f233\",\"price\":280,\"price_with_minor_units\":280.75,\"responsible_user_id\":16078955,\"group_id\":0,\"status_id\":113891199,\"pipeline_id\":14739439,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171149,\"updated_at\":1794171153,\"closed_at\":null,\"closest_task_at\":1794257553,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":37163783,\"labor_cost\":null,\"is_price_computed\":true,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398?filter%5Bid%5D%5B0%5D=2006398&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":14176,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":4585446,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?filter%5Bid%5D%5B0%5D=2006398&limit=250&page=1\"}}}]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B0%5D=2026444&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":2026444,\"name\":\"E2E deal aed5933e\",\"price\":280,\"price_with_minor_units\":280.75,\"responsible_user_id\":16078955,\"group_id\":0,\"status_id\":113891199,\"pipeline_id\":14739439,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173996,\"updated_at\":1794174000,\"closed_at\":null,\"closest_task_at\":1794260399,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":37163783,\"labor_cost\":null,\"is_price_computed\":true,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444?filter%5Bid%5D%5B0%5D=2026444&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":14176,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":4605412,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?filter%5Bid%5D%5B0%5D=2026444&limit=250&page=1\"}}}]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/contacts/4585450?with=leads",
+   "url": "https://example.kommo.com/api/v4/contacts/4605414?with=leads",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":4585450,\"name\":\"E2E Person 3796f233\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171146,\"updated_at\":1794171146,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-3796f233@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 263 92 83\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4585450?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":2006398,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398?with=leads&page=1&limit=250\"}}}],\"companies\":[]}}",
+   "body": "{\"id\":4605414,\"name\":\"E2E Person aed5933e\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":16078955,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173989,\"updated_at\":1794173989,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":480110,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-aed5933e@example.com\",\"enum_id\":354268,\"enum_code\":\"WORK\"}]},{\"field_id\":480108,\"field_name\":\"Phone\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 90 323 24 46\",\"enum_id\":354256,\"enum_code\":\"WORK\"}]}],\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605414?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":2026444,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444?with=leads&page=1&limit=250\"}}}],\"companies\":[]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B%5D=2006398&limit=250",
+   "url": "https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B%5D=2026444&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B0%5D=2006398&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":2006398,\"name\":\"E2E deal 3796f233\",\"price\":280,\"price_with_minor_units\":280.75,\"responsible_user_id\":16078955,\"group_id\":0,\"status_id\":113891199,\"pipeline_id\":14739439,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794171149,\"updated_at\":1794171153,\"closed_at\":null,\"closest_task_at\":1794257553,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":37163783,\"labor_cost\":null,\"is_price_computed\":true,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398?filter%5Bid%5D%5B0%5D=2006398&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":14176,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":4585446,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446?filter%5Bid%5D%5B0%5D=2006398&limit=250&page=1\"}}}]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads?filter%5Bid%5D%5B0%5D=2026444&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":2026444,\"name\":\"E2E deal aed5933e\",\"price\":280,\"price_with_minor_units\":280.75,\"responsible_user_id\":16078955,\"group_id\":0,\"status_id\":113891199,\"pipeline_id\":14739439,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173996,\"updated_at\":1794174000,\"closed_at\":null,\"closest_task_at\":1794260399,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":37163783,\"labor_cost\":null,\"is_price_computed\":true,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444?filter%5Bid%5D%5B0%5D=2026444&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":14176,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":4605412,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412?filter%5Bid%5D%5B0%5D=2026444&limit=250&page=1\"}}}]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements?page=1&limit=50&query=E2E+product+3796f233",
+   "url": "https://example.kommo.com/api/v4/catalogs/16312/elements?page=1&limit=50&query=E2E+product+aed5933e",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements?page=1&limit=50&query=E2E+product+3796f233\"}},\"_embedded\":{\"elements\":[{\"id\":136810,\"name\":\"E2E product 3796f233\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794171148,\"updated_at\":1794171148,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-3796f233\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136810?page=1&limit=50&query=E2E+product+3796f233\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements?page=1&limit=50&query=E2E+product+aed5933e\"}},\"_embedded\":{\"elements\":[{\"id\":136822,\"name\":\"E2E product aed5933e\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173994,\"updated_at\":1794173994,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":480140,\"field_name\":\"Price\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}]},{\"field_id\":480136,\"field_name\":\"SKU\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-aed5933e\"}]}],\"catalog_id\":16312,\"account_id\":37163783,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/catalogs/16312/elements/136822?page=1&limit=50&query=E2E+product+aed5933e\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
@@ -307,7 +388,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":135324,\"updated_at\":1794171156,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks/135324\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":135386,\"updated_at\":1794174003,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/tasks/135386\"}}}]}}",
    "binary": false
   },
   {
@@ -316,7 +397,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":2006398,\"updated_at\":1794171156,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2006398\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":2026444,\"updated_at\":1794174003,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/leads/2026444\"}}}]}}",
    "binary": false
   },
   {
@@ -325,7 +406,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":4585450,\"name\":\"E2E Person 3796f233\",\"updated_at\":1794171157,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4585450\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":4605414,\"name\":\"E2E Person aed5933e\",\"updated_at\":1794174004,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605414\"}}},{\"id\":4605416,\"name\":\"E2E Lone aed5933e\",\"updated_at\":1794174004,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/contacts/4605416\"}}}]}}",
    "binary": false
   },
   {
@@ -334,7 +415,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":4585446,\"name\":\"E2E Co 3796f233\",\"updated_at\":1794171157,\"is_deleted\":false,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4585446\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":4605412,\"name\":\"E2E Co aed5933e\",\"updated_at\":1794174005,\"is_deleted\":false,\"_links\":{\"self\":{\"href\":\"https://example.kommo.com/api/v4/companies/4605412\"}}}]}}",
    "binary": false
   }
  ]

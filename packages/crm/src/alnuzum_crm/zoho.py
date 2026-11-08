@@ -18,7 +18,17 @@ from urllib.parse import quote
 
 import httpx
 
-from alnuzum_crm.base import CRM, dec, digits, norm_name, require_one, same_email, same_name, same_phone
+from alnuzum_crm.base import (
+    CRM,
+    dec,
+    digits,
+    norm_name,
+    record_id,
+    require_one,
+    same_email,
+    same_name,
+    same_phone,
+)
 from alnuzum_crm.errors import (
     CrmAuthError,
     CrmError,
@@ -103,6 +113,9 @@ class ZohoCRM(CRM):
         self._inn_field = inn_field
         self._inn_checked = inn_field is not None
         self._stages: dict[str, str] | None = None
+
+    def _id(self, value: str | None) -> str:
+        return record_id(value, self.kind.value)
 
     async def aclose(self) -> None:
         await self._core.aclose()
@@ -232,6 +245,12 @@ class ZohoCRM(CRM):
             r
             for r in await self._search("Accounts", f"criteria={quote(crit)}")
             if same_name(str(r.get("Account_Name", "")), company.name)
+            # a name match counts only when the company has no INN or the same one
+            and (
+                not company.inn
+                or not inn_field
+                or digits(str(r.get(inn_field) or "")) in ("", digits(company.inn))
+            )
         ]
         return str(min(hits, key=lambda r: int(r["id"]))["id"]) if hits else None
 
@@ -267,6 +286,18 @@ class ZohoCRM(CRM):
             if hits:
                 return str(min(hits, key=lambda r: int(r["id"]))["id"])
         return None
+
+    async def link_contact(self, contact_id: str, company_id: str) -> bool:
+        data = await self._request(
+            "GET", f"/Contacts/{self._id(contact_id)}", params={"fields": "Account_Name"}
+        )
+        if not data:
+            raise CrmNotFound(f"contact {contact_id} not found", crm=self.kind.value, status=204)
+        if (data["data"][0] or {}).get("Account_Name"):
+            return False
+        record = {"Account_Name": {"id": self._id(company_id)}}
+        await self._request("PUT", f"/Contacts/{contact_id}", json={"data": [record]})
+        return True
 
     @staticmethod
     def _contact_record(contact: ContactIn, company_id: str | None) -> dict[str, Any]:
@@ -399,16 +430,16 @@ class ZohoCRM(CRM):
         )
 
     async def _quote_ids(self, deal_id: str) -> list[str]:
-        data = await self._request("GET", f"/Deals/{deal_id}/Quotes", params={"fields": "id"})
+        data = await self._request("GET", f"/Deals/{self._id(deal_id)}/Quotes", params={"fields": "id"})
         return [str(r["id"]) for r in (data or {}).get("data") or []]
 
     async def get_deal(self, deal_id: str) -> Deal:
-        data = await self._request("GET", f"/Deals/{deal_id}")
+        data = await self._request("GET", f"/Deals/{self._id(deal_id)}")
         if not data:
             raise CrmNotFound(f"deal {deal_id} not found", crm=self.kind.value, status=204)
         lines: list[DealLine] = []
         for qid in await self._quote_ids(deal_id):
-            quote_row = (await self._request("GET", f"/Quotes/{qid}"))["data"][0]
+            quote_row = (await self._request("GET", f"/Quotes/{self._id(qid)}"))["data"][0]
             for item in quote_row.get("Quoted_Items") or []:
                 product = item.get("Product_Name") or {}
                 lines.append(
@@ -425,7 +456,11 @@ class ZohoCRM(CRM):
         self, *, company_id: str | None = None, contact_id: str | None = None, limit: int = 200
     ) -> list[Deal]:
         require_one(company_id, contact_id, self.kind.value)
-        path = f"/Accounts/{company_id}/Deals" if company_id else f"/Contacts/{contact_id}/Deals"
+        path = (
+            f"/Accounts/{self._id(company_id)}/Deals"
+            if company_id
+            else f"/Contacts/{self._id(contact_id)}/Deals"
+        )
         fields = "id,Deal_Name,Amount,Stage,Closing_Date,Created_Time,Currency"
         stages, page = await self._stage_types(), 1
         rows: list[dict[str, Any]] = []
@@ -444,12 +479,17 @@ class ZohoCRM(CRM):
 
     async def attach_file(self, deal_id: str, file: FileIn) -> str:
         data = await self._request(
-            "POST", f"/Deals/{deal_id}/Attachments", files={"file": (file.name, file.content, file.mime_type)}
+            "POST",
+            f"/Deals/{self._id(deal_id)}/Attachments",
+            files={"file": (file.name, file.content, file.mime_type)},
         )
         return str(data["data"][0]["details"]["id"])
 
     async def add_note(self, deal_id: str, text: str) -> str:
-        record = {"Note_Content": text, "Parent_Id": {"module": {"api_name": "Deals"}, "id": deal_id}}
+        record = {
+            "Note_Content": text,
+            "Parent_Id": {"module": {"api_name": "Deals"}, "id": self._id(deal_id)},
+        }
         return await self._create("Notes", record)
 
     async def add_task(self, deal_id: str, task: TaskIn) -> str:
@@ -457,7 +497,7 @@ class ZohoCRM(CRM):
             "Subject": task.text[:250],
             "Description": task.text,
             "Due_Date": task.due.date().isoformat(),
-            "What_Id": {"id": deal_id},
+            "What_Id": {"id": self._id(deal_id)},
             "$se_module": "Deals",
         }
         if task.responsible_id:
@@ -468,7 +508,8 @@ class ZohoCRM(CRM):
 
     async def _delete(self, module: str, ids: list[str]) -> None:
         for i in range(0, len(ids), 100):
-            await self._request("DELETE", f"/{module}", params={"ids": ",".join(ids[i : i + 100])})
+            batch = [self._id(x) for x in ids[i : i + 100]]
+            await self._request("DELETE", f"/{module}", params={"ids": ",".join(batch)})
 
     async def discard(self, leftovers: Leftovers) -> None:
         quotes: list[str] = []

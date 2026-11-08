@@ -22,7 +22,17 @@ from typing import Any, ClassVar
 
 import httpx
 
-from alnuzum_crm.base import CRM, E2E_TAG, dec, digits, require_one, same_email, same_name, same_phone
+from alnuzum_crm.base import (
+    CRM,
+    E2E_TAG,
+    dec,
+    digits,
+    record_id,
+    require_one,
+    same_email,
+    same_name,
+    same_phone,
+)
 from alnuzum_crm.errors import (
     CrmAuthError,
     CrmError,
@@ -195,13 +205,19 @@ class Odoo(CRM):
             rows = await self._read(
                 "res.partner", [["is_company", "=", True], ["vat", "ilike", want]], ["vat"], order="id"
             )
-            ids = [r["id"] for r in rows if digits(r.get("vat") or "").endswith(want)]
+            ids = [r["id"] for r in rows if digits(r.get("vat") or "") == want]
             if ids:
                 return str(ids[0])
         # =ilike with escaped wildcards, then an exact comparison: a pattern never merges records
         domain = [["is_company", "=", True], ["name", "=ilike", like_literal(company.name.strip())]]
-        rows = await self._read("res.partner", domain, ["name"], order="id", limit=50)
-        ids = [r["id"] for r in rows if same_name(str(r.get("name") or ""), company.name)]
+        rows = await self._read("res.partner", domain, ["name", "vat"], order="id", limit=50)
+        ids = [
+            r["id"]
+            for r in rows
+            if same_name(str(r.get("name") or ""), company.name)
+            # a name match counts only when the company has no INN or the same one
+            and (not company.inn or digits(r.get("vat") or "") in ("", digits(company.inn)))
+        ]
         return str(ids[0]) if ids else None
 
     async def create_company(self, company: CompanyIn) -> str:
@@ -235,6 +251,23 @@ class Odoo(CRM):
             if ids:
                 return str(ids[0])
         return None
+
+    async def link_contact(self, contact_id: str, company_id: str) -> bool:
+        crm = self.kind.value
+        rows = await self._read("res.partner", [["id", "=", int(record_id(contact_id, crm))]], ["parent_id"])
+        if not rows:
+            raise CrmNotFound(f"contact {contact_id} not found", crm=crm)
+        if rows[0].get("parent_id"):
+            return False
+        await self.kw(
+            "res.partner", "write", [[int(contact_id)], {"parent_id": int(record_id(company_id, crm))}]
+        )
+        return True
+
+    async def server_version(self) -> str:
+        """Odoo version; needs no login (used to check that the address is an Odoo)."""
+        info = await self._rpc("common", "version")
+        return str((info or {}).get("server_version", ""))
 
     async def create_contact(self, contact: ContactIn, *, company_id: str | None = None) -> str:
         vals: dict[str, Any] = {"name": contact.name, "is_company": False}
@@ -290,8 +323,34 @@ class Odoo(CRM):
             ids.append(found[0] if found else int(await self.kw("crm.tag", "create", [{"name": name}])))
         return ids
 
+    async def _pricelist_for(self, currency: str | None) -> int | None:
+        """None for the company currency, a pricelist in ``currency`` otherwise, or a refusal."""
+        if not currency:
+            return None
+        crm = self.kind.value
+        found = await self._search(
+            "res.currency", [["name", "=", currency.upper()]], limit=1, context={"active_test": False}
+        )
+        if not found:
+            raise CrmUnsupported(f"currency {currency} is not known to this Odoo", crm=crm)
+        company = await self._read("res.company", [], ["currency_id"], limit=1)
+        if company and company[0].get("currency_id") and company[0]["currency_id"][0] == found[0]:
+            return None
+        lists = await self._search("product.pricelist", [["currency_id", "=", found[0]]], limit=1)
+        if not lists:
+            raise CrmUnsupported(
+                f"no pricelist in {currency}: add one in Sales or use the company currency", crm=crm
+            )
+        return lists[0]
+
     async def create_deal(self, deal: DealIn) -> CreatedDeal:
         partner = deal.contact_id or deal.company_id
+        pricelist = await self._pricelist_for(deal.currency)
+        if pricelist and not deal.lines:
+            raise CrmUnsupported(
+                f"an opportunity keeps the company currency; {deal.currency} needs lines (a quotation)",
+                crm=self.kind.value,
+            )
         if deal.lines and not await self._has_model_field("sale.order", "opportunity_id"):
             raise CrmUnsupported(
                 "deal lines need the Sales and CRM link (module sale_crm)", crm=self.kind.value
@@ -326,7 +385,13 @@ class Odoo(CRM):
                     "name": line.name,
                 }
                 order_lines.append([0, 0, values])
-            order = {"partner_id": int(partner or 0), "opportunity_id": lead_id, "order_line": order_lines}
+            order: dict[str, Any] = {
+                "partner_id": int(partner or 0),
+                "opportunity_id": lead_id,
+                "order_line": order_lines,
+            }
+            if pricelist:
+                order["pricelist_id"] = pricelist
             await self.kw("sale.order", "create", [order])
         return CreatedDeal(str(lead_id), tuple(created))
 

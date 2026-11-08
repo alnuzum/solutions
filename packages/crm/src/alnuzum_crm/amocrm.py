@@ -24,6 +24,7 @@ from alnuzum_crm.base import (
     dec,
     digits,
     norm_name,
+    record_id,
     require_one,
     same_email,
     same_name,
@@ -75,6 +76,12 @@ def _error_text(resp: httpx.Response) -> str:
     if errors:
         parts.append(str(errors)[:300])
     return "; ".join(parts)[:500] or (resp.reason_phrase or "error")
+
+
+def _inn_compatible(want: str | None, have: list[str]) -> bool:
+    """A name match counts only when the company has no INN or the same one."""
+    known = [digits(v) for v in have if digits(v)]
+    return not want or not known or digits(want) in known
 
 
 def _platform_url(url: str) -> bool:
@@ -172,6 +179,18 @@ class AmoCRM(CRM):
         result: list[dict[str, Any]] = (data or {}).get("_embedded", {}).get(key, [])
         return result
 
+    async def _search(self, path: str, key: str, text: str, *, max_pages: int = 20) -> list[dict[str, Any]]:
+        """Every page of a substring search: an exact match may sit beyond the first 250 hits."""
+        out: list[dict[str, Any]] = []
+        for page in range(1, max_pages + 1):
+            data = await self._request("GET", path, params={"query": text, "limit": 250, "page": page})
+            if not data:
+                break
+            out += data.get("_embedded", {}).get(key, [])
+            if not data.get("_links", {}).get("next"):
+                break
+        return out
+
     async def _first_id(self, method: str, url: str, key: str, body: Any) -> str:
         items = await self._embedded(method, url, key, json=body)
         if not items:
@@ -224,7 +243,7 @@ class AmoCRM(CRM):
         inn_field = await self._inn_field() if company.inn else None
         if company.inn and inn_field:
             want = digits(company.inn)
-            hits = await self._embedded("GET", "/api/v4/companies", "companies", params={"query": want})
+            hits = await self._search("/api/v4/companies", "companies", want)
             ids = [
                 int(c["id"])
                 for c in hits
@@ -232,8 +251,13 @@ class AmoCRM(CRM):
             ]
             if ids:
                 return str(min(ids))
-        hits = await self._embedded("GET", "/api/v4/companies", "companies", params={"query": company.name})
-        ids = [int(c["id"]) for c in hits if same_name(str(c.get("name", "")), company.name)]
+        hits = await self._search("/api/v4/companies", "companies", company.name)
+        ids = [
+            int(c["id"])
+            for c in hits
+            if same_name(str(c.get("name", "")), company.name)
+            and _inn_compatible(company.inn, _field_values(c, field_id=inn_field) if inn_field else [])
+        ]
         return str(min(ids)) if ids else None
 
     async def create_company(self, company: CompanyIn) -> str:
@@ -250,9 +274,7 @@ class AmoCRM(CRM):
 
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
-            hits = await self._embedded(
-                "GET", "/api/v4/contacts", "contacts", params={"query": contact.email.strip()}
-            )
+            hits = await self._search("/api/v4/contacts", "contacts", contact.email.strip())
             ids = [
                 int(c["id"])
                 for c in hits
@@ -262,7 +284,7 @@ class AmoCRM(CRM):
                 return str(min(ids))
         phone = digits(contact.phone)
         if len(phone) >= 7:
-            hits = await self._embedded("GET", "/api/v4/contacts", "contacts", params={"query": phone[-9:]})
+            hits = await self._search("/api/v4/contacts", "contacts", phone[-9:])
             ids = [
                 int(c["id"])
                 for c in hits
@@ -271,6 +293,16 @@ class AmoCRM(CRM):
             if ids:
                 return str(min(ids))
         return None
+
+    async def link_contact(self, contact_id: str, company_id: str) -> bool:
+        found = await self._request("GET", f"/api/v4/contacts/{record_id(contact_id, self.kind.value)}")
+        if not found:
+            raise CrmNotFound(f"contact {contact_id} not found", crm=self.kind.value, status=204)
+        if found.get("_embedded", {}).get("companies"):
+            return False
+        link = [{"to_entity_id": int(record_id(company_id, self.kind.value)), "to_entity_type": "companies"}]
+        await self._request("POST", f"/api/v4/contacts/{int(contact_id)}/link", json=link)
+        return True
 
     async def create_contact(self, contact: ContactIn, *, company_id: str | None = None) -> str:
         fields: list[dict[str, Any]] = []
@@ -341,9 +373,38 @@ class AmoCRM(CRM):
 
     # --- deals ---
 
+    async def _check_deal(self, deal: DealIn) -> None:
+        """amoCRM keeps one currency per account, one link per product and the price on the
+        product: a deal that needs more is refused instead of being written wrong."""
+        crm = self.kind.value
+        account_currency = await self._currency()
+        if deal.currency and account_currency and deal.currency.upper() != account_currency.upper():
+            raise CrmUnsupported(
+                f"the account currency is {account_currency}; a deal in {deal.currency} cannot be kept",
+                crm=crm,
+            )
+        product_ids = [record_id(x.product_id, crm) for x in deal.lines if x.product_id]
+        if len(product_ids) != len(set(product_ids)):
+            raise CrmUnsupported("a product is linked to a deal once: merge its lines", crm=crm)
+        if product_ids:
+            elements = await self._elements(int(i) for i in product_ids)
+            for line in deal.lines:
+                if not line.product_id:
+                    continue
+                prices = _field_values(elements.get(int(line.product_id), {}), code="PRICE")
+                catalog = dec(prices[0]) if prices else None
+                if catalog != line.unit_price:
+                    raise CrmUnsupported(
+                        f"line {line.name!r}: price {line.unit_price} differs from "
+                        f"the catalog price {catalog}; "
+                        "amoCRM keeps the price on the product",
+                        crm=crm,
+                    )
+
     async def create_deal(self, deal: DealIn) -> CreatedDeal:
         cat = await self._catalog() if deal.lines else None
         price_field = await self._price_field_id() if deal.lines else None
+        await self._check_deal(deal)
         new_lines = [line for line in deal.lines if not line.product_id]
         created: list[str] = []
         if new_lines:
@@ -361,7 +422,7 @@ class AmoCRM(CRM):
         new_ids = iter(created)
         for line in deal.lines:
             pid = int(line.product_id) if line.product_id else int(next(new_ids))
-            quantities[pid] = quantities.get(pid, Decimal(0)) + line.quantity
+            quantities[pid] = line.quantity
         if quantities:
             links = []
             for pid, qty in quantities.items():

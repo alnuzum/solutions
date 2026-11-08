@@ -4,10 +4,12 @@ import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 
 from alnuzum_crm.amocrm import AmoCRM, Kommo
 from alnuzum_crm.bitrix24 import Bitrix24, parse_webhook
+from alnuzum_crm.netguard import GuardedTransport
 from alnuzum_crm.oauth import zoho_refresh
 from alnuzum_crm.odoo import Odoo
 from alnuzum_crm.testing import Scrubber, describe_jsonrpc, run_conformance
@@ -23,6 +25,7 @@ FULL_RUN = [
     "company deduplicated by name",
     "company deduplicated by INN",
     "contact deduplicated by e-mail and phone",
+    "found contact linked to the company",
     "deal with lines created",
     "file attached",
     "note added",
@@ -112,3 +115,17 @@ async def test_odoo(run_id: str, recording: Callable[..., Recording]) -> None:
         run_id,
         Scrubber({env["ODOO_URL"].rstrip("/"): "https://odoo.example.com", env["ODOO_PASSWORD"]: "KEY"}),
     )
+
+
+async def test_odoo_through_the_network_guard() -> None:
+    """The production path: an https Odoo on the internet, reached only through the guard."""
+    crm = Odoo(os.environ.get("ODOO_PUBLIC_URL", "https://www.odoo.com"), "none", "none", "none")
+    async with crm:
+        assert (await crm.server_version()).strip()
+
+
+async def test_guard_reaches_a_host_listed_ipv6_first() -> None:
+    """A host whose DNS gives IPv6 first is reached from a network without IPv6 (CI runners, Docker)."""
+    async with httpx.AsyncClient(transport=GuardedTransport(), timeout=20) as client:
+        resp = await client.get("https://nextcloud.com/", follow_redirects=False)
+    assert resp.status_code < 500

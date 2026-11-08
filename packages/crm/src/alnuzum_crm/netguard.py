@@ -61,7 +61,8 @@ async def resolve_public(host: str, port: int) -> list[str]:
         infos = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except OSError as exc:
         raise BlockedAddress(f"{host} does not resolve") from exc
-    ips = sorted({str(info[4][0]) for info in infos})
+    # IPv4 first: containers often have no IPv6 route, and the DNS order is not a preference
+    ips = sorted({str(info[4][0]) for info in infos}, key=lambda ip: (":" in ip, ip))
     if not ips or not all(is_public(ip) for ip in ips):
         raise BlockedAddress(f"{host} resolves to a non-public address")
     return ips
@@ -108,9 +109,16 @@ class _GuardedBackend(httpcore.AsyncNetworkBackend):
         socket_options: Iterable[Any] | None = None,
     ) -> httpcore.AsyncNetworkStream:
         ips = await resolve_public(host, port)
-        return await self._inner.connect_tcp(
-            ips[0], port, timeout=timeout, local_address=local_address, socket_options=socket_options
-        )
+        # every address was vetted above; try them in turn, connecting only to vetted addresses
+        last: Exception | None = None
+        for ip in ips:
+            try:
+                return await self._inner.connect_tcp(
+                    ip, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except (httpcore.ConnectError, httpcore.ConnectTimeout, OSError) as exc:
+                last = exc
+        raise last or httpcore.ConnectError(f"no address of {host}")
 
     async def connect_unix_socket(
         self,

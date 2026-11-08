@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from alnuzum_crm.base import CRM, dec, digits, require_one, same_name
+from alnuzum_crm.base import CRM, dec, digits, record_id, require_one, same_name
 from alnuzum_crm.errors import (
     CrmAuthError,
     CrmError,
@@ -220,12 +220,24 @@ class Bitrix24(CRM):
             ids = [int(r["ENTITY_ID"]) for r in reqs or []]
             if ids:
                 return str(min(ids))
-        rows = await self._result(
+        rows = await self._list(
             "crm.company.list",
             {"filter": {"TITLE": company.name}, "select": ["ID", "TITLE"], "order": {"ID": "ASC"}},
+            5000,
         )
-        ids = [int(r["ID"]) for r in rows or [] if same_name(str(r.get("TITLE", "")), company.name)]
-        return str(min(ids)) if ids else None
+        ids = sorted(int(r["ID"]) for r in rows if same_name(str(r.get("TITLE", "")), company.name))
+        if ids and company.inn:
+            # a name match counts only when the company has no INN or the same one
+            reqs = await self._list(
+                "crm.requisite.list",
+                {"filter": {"ENTITY_TYPE_ID": 4, "ENTITY_ID": ids}, "select": ["ENTITY_ID", "RQ_INN"]},
+                5000,
+            )
+            other = {
+                int(r["ENTITY_ID"]) for r in reqs if digits(r.get("RQ_INN")) not in ("", digits(company.inn))
+            }
+            ids = [i for i in ids if i not in other]
+        return str(ids[0]) if ids else None
 
     async def _org_preset(self) -> int | None:
         if self._preset is None:
@@ -271,6 +283,15 @@ class Bitrix24(CRM):
                 return str(min(ids))
         return None
 
+    async def link_contact(self, contact_id: str, company_id: str) -> bool:
+        crm = self.kind.value
+        bound = await self._result("crm.contact.company.items.get", {"id": int(record_id(contact_id, crm))})
+        if bound:
+            return False
+        fields = {"COMPANY_ID": int(record_id(company_id, crm))}
+        await self._result("crm.contact.company.add", {"id": int(contact_id), "fields": fields})
+        return True
+
     async def create_contact(self, contact: ContactIn, *, company_id: str | None = None) -> str:
         fields: dict[str, Any] = {"NAME": contact.name}
         if contact.email:
@@ -303,8 +324,10 @@ class Bitrix24(CRM):
         }
         if query:
             params["filter"] = {"%NAME": query}
+        start = params["start"]
         data = await self.call("crm.product.list", params)
-        rows = [r for r in data.get("result") or [] if isinstance(r, dict)][:limit]
+        page = [r for r in data.get("result") or [] if isinstance(r, dict)]
+        rows = page[:limit]
         items = tuple(
             Product(
                 id=str(r["ID"]),
@@ -316,6 +339,9 @@ class Bitrix24(CRM):
             )
             for r in rows
         )
+        # Bitrix24 pages by 50 from any offset: a smaller limit continues right after the last row
+        if len(page) > limit:
+            return Page(items, str(start + limit))
         nxt = data.get("next")
         return Page(items, str(nxt) if nxt is not None else None)
 

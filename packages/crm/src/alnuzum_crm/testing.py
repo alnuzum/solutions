@@ -224,6 +224,11 @@ async def run_conformance(
             renamed = CompanyIn(name=f"E2E other {run_id}", inn=inn)
             found = await _poll(lambda: crm.find_company(renamed), sleep)
             _check(found == co.id, "company found by INN under another name")
+            other_inn = f"4{inn[1:]}"
+            _check(
+                await crm.find_company(CompanyIn(name=name, inn=other_inn)) is None,
+                "a company with the same name and another INN is another legal entity",
+            )
             done.append("company deduplicated by INN")
 
         ct = await crm.find_or_create_contact(
@@ -239,6 +244,15 @@ async def run_conformance(
         again = await crm.find_or_create_contact(ContactIn(name="Someone", email=email))
         _check(again == Ref(ct.id, False), "find_or_create reuses the contact")
         done.append("contact deduplicated by e-mail and phone")
+
+        lone_email = f"e2e-lone-{run_id}@example.com"
+        lone = await crm.create_contact(ContactIn(name=f"E2E Lone {run_id}", email=lone_email))
+        got.contact_ids.append(lone)
+        await _poll(lambda: crm.find_contact(ContactIn(name="x", email=lone_email)), sleep)
+        linked = await crm.find_or_create_contact(ContactIn(name="x", email=lone_email), company_id=co.id)
+        _check(linked == Ref(lone, False), "the contact without a company is found")
+        _check(not await crm.link_contact(lone, co.id), "the found contact is now linked to the company")
+        done.append("found contact linked to the company")
 
         product_id = await crm.create_product(
             ProductIn(f"E2E product {run_id}", Decimal(100), f"E2E-{run_id}")
