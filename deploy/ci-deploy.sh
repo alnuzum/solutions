@@ -12,6 +12,9 @@ dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 printf '%s\n' "$DEPLOY_SSH_KEY" > "$dir/key"
 printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$dir/known_hosts"
+# a malformed variable reads as "Host key verification failed"; say what is wrong instead
+ssh-keygen -F "$DEPLOY_HOST" -f "$dir/known_hosts" >/dev/null ||
+  { echo "DEPLOY_KNOWN_HOSTS has no key line for $DEPLOY_HOST (want: '$DEPLOY_HOST[,ip...] <type> <key>')" >&2; exit 1; }
 remote() {
   ssh -i "$dir/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
     -o UserKnownHostsFile="$dir/known_hosts" -o ServerAliveInterval=15 "deploy-$ENV_NAME@$DEPLOY_HOST" "$@"

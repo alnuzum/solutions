@@ -89,18 +89,16 @@ class Net:
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         host, path = request.url.host, request.url.path
-        if path == "/oauth2/access_token" and host.endswith(".amocrm.ru"):
+        if path == "/oauth2/access_token" and host == "acme.amocrm.ru":
             return httpx.Response(
                 200, json={"access_token": "AT-amo", "refresh_token": "RT-amo", "expires_in": 86400}
             )
-        if path == "/oauth2/access_token" and host.endswith(".kommo.com"):
+        if path == "/oauth2/access_token" and host == "acme.kommo.com":
             return httpx.Response(
                 200, json={"access_token": "AT-kommo", "refresh_token": "RT-kommo", "expires_in": 86400}
             )
         if path == "/api/v4/account":
-            return httpx.Response(
-                200, json={"id": 4242 if host.endswith("kommo.com") else 777, "name": "Acme"}
-            )
+            return httpx.Response(200, json={"id": 4242 if host == "acme.kommo.com" else 777, "name": "Acme"})
         if host.startswith("accounts.zoho") and path == "/oauth/v2/token":
             return httpx.Response(
                 200,
@@ -903,3 +901,64 @@ async def test_revoke_is_only_for_zoho_and_never_raises(app: FastAPI, net: Net) 
         CrmKind.ZOHO, {"refresh_token": "RT-zoho", "accounts_server": "accounts.zoho.com"}
     )
     assert [r.url.host for r in net.requests] == ["accounts.zoho.com"]
+
+
+# --- where a redirect may go ---------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "/ru",
+        "/en/connections/2f1c0f3e-8f1e-4f5b-9a57-0f2b8c1d9e10?n=quota",
+        "/ru/connections/2f1c0f3e-8f1e-4f5b-9a57-0f2b8c1d9e10?n=rejected&code=BAD%20TITLE",
+        "https://www.amocrm.ru/oauth/?state=s&mode=popup&scopes[]=crm",
+        "https://www.kommo.com/oauth?client_id=c&state=s",
+        "https://accounts.zoho.com/oauth/v2/auth?client_id=c",
+    ],
+)
+def test_redirect_goes_to_our_pages_and_consent_windows(location: str) -> None:
+    from alnuzum_platform.web.routes import redirect
+
+    resp = redirect(location)
+    assert (resp.status_code, resp.headers["location"]) == (303, location)
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "//evil.example/ru",
+        "/\\evil.example",
+        "/ru/../..//evil.example",
+        "/de",
+        "https://evil.example/",
+        "https://www.amocrm.ru.evil.example/oauth",
+        "https://evil.example/https://www.kommo.com/",
+        "http://www.amocrm.ru/oauth/",
+        "https://user@www.kommo.com/oauth",
+        "https://www.kommo.com:8443/oauth",
+        "javascript:alert(1)",
+        "",
+    ],
+)
+def test_redirect_refuses_any_other_address(location: str) -> None:
+    from alnuzum_platform.web.routes import PageError, redirect
+
+    with pytest.raises(PageError) as caught:
+        redirect(location)
+    assert caught.value.status == 400
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/%2F%2Fevil.example",
+        "/%5Cevil.example/connect/kommo/start",
+        "/evil.example/connections/2f1c0f3e-8f1e-4f5b-9a57-0f2b8c1d9e10",
+        "/https:%2F%2Fevil.example/connect/zoho/start",
+    ],
+)
+async def test_no_address_in_the_path_becomes_a_location(app: FastAPI, path: str) -> None:
+    resp = await Browser(app).http.get(path, follow_redirects=False)
+    assert resp.status_code == 404
+    assert "location" not in resp.headers

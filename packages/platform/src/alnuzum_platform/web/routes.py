@@ -12,9 +12,11 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import uuid
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
@@ -43,6 +45,12 @@ log = logging.getLogger("alnuzum_platform.web")
 
 NOTICES = ("quota", "auth", "unavailable", "rejected")
 
+# Where a page may send the browser: one of our own pages, or the consent window of a CRM.
+_OWN_PAGE = re.compile(r"/(?:ru|en)(?:/[A-Za-z0-9_-]+)*(?:\?[A-Za-z0-9_=&%.-]*)?")
+CONSENT_HOSTS = frozenset({"www.amocrm.ru", "www.kommo.com", "accounts.zoho.com"})
+# the language as our own constant, never the string that came in the address
+_LANG_OF = {code: code for code in LANGS}
+
 
 class PageError(Exception):
     def __init__(self, status: int, title: str, text: str, lang: str = "ru", **fmt: str) -> None:
@@ -61,9 +69,20 @@ def _crm(value: str, allowed: tuple[CrmKind, ...] = tuple(CrmKind)) -> CrmKind:
 
 
 def _lang(value: str) -> str:
-    if value not in LANGS:
-        raise PageError(404, "e_404_t", "e_404")
-    return value
+    try:
+        return _LANG_OF[value]
+    except KeyError:
+        raise PageError(404, "e_404_t", "e_404") from None
+
+
+def redirect(location: str) -> RedirectResponse:
+    """303 to one of our own pages or to a CRM's consent window. Anything else is refused, so no value
+    that reaches a ``Location`` can send the browser to another site."""
+    if not _OWN_PAGE.fullmatch(location):
+        parts = urlsplit(location)
+        if parts.scheme != "https" or parts.netloc != parts.hostname or parts.hostname not in CONSENT_HOSTS:
+            raise PageError(400, "e_404_t", "e_404")
+    return RedirectResponse(location, status_code=303)
 
 
 def _conn_id(value: str, lang: str) -> uuid.UUID:
@@ -169,7 +188,7 @@ def build_router(
 
     @router.get("/")
     async def root(request: Request) -> RedirectResponse:
-        return RedirectResponse(f"/{pick_lang(request.headers.get('accept-language'))}", status_code=303)
+        return redirect(f"/{pick_lang(request.headers.get('accept-language'))}")
 
     @router.get("/{lang}")
     async def index(request: Request, lang: str) -> HTMLResponse:
@@ -188,7 +207,7 @@ def build_router(
             raise PageError(503, "e_404_t", "e_not_configured", lang, crm=texts(lang)[f"crm_{kind.value}"])
         sid = ensure_session(request)
         state = await store_of(request).create_state(Sessions.owner(sid), kind, lang)
-        return RedirectResponse(connectors.authorize_url(kind, state), status_code=303)
+        return redirect(connectors.authorize_url(kind, state))
 
     @router.post("/{lang}/connect/{crm}")
     async def connect_form(request: Request, lang: str, crm: str) -> Response:
@@ -220,7 +239,7 @@ def build_router(
             meta=linked.meta,
         )
         log.info("connected %s %s", info.crm.value, info.id)
-        return RedirectResponse(f"/{lang}/connections/{info.id}", status_code=303)
+        return redirect(f"/{lang}/connections/{info.id}")
 
     @router.get("/oauth/{crm}/callback")
     async def oauth_callback(request: Request, crm: str) -> Response:
@@ -251,7 +270,7 @@ def build_router(
             meta=linked.meta,
         )
         log.info("connected %s %s", info.crm.value, info.id)
-        return RedirectResponse(f"/{lang}/connections/{info.id}", status_code=303)
+        return redirect(f"/{lang}/connections/{info.id}")
 
     @router.post("/hooks/amocrm/secrets")
     async def amocrm_secrets(request: Request) -> PlainTextResponse:
@@ -311,9 +330,9 @@ def build_router(
         try:
             write_id = await st.start_write(info.id, Sessions.owner(sid), "test_deal", settings_quota)
         except QuotaExceeded:
-            return RedirectResponse(f"{back}?n=quota", status_code=303)
+            return redirect(f"{back}?n=quota")
         except ConnectionDisabled:
-            return RedirectResponse(back, status_code=303)
+            return redirect(back)
         notice = ""
         try:
             secrets = await st.secrets(info.id)
@@ -331,9 +350,9 @@ def build_router(
             elif code == "unavailable":
                 notice = "?n=unavailable"
             else:
-                notice = f"?n=rejected&code={code}"
+                notice = "?" + urlencode({"n": "rejected", "code": code})
             log.info("check of %s failed: %s", info.id, code)
-        return RedirectResponse(back + notice, status_code=303)
+        return redirect(back + notice)
 
     @router.post("/{lang}/connections/{conn_id}/disable")
     async def disable(request: Request, lang: str, conn_id: str) -> RedirectResponse:
@@ -345,7 +364,7 @@ def build_router(
         if held:
             await connectors.revoke(info.crm, held)
         log.info("disconnected %s %s", info.crm.value, info.id)
-        return RedirectResponse(f"/{lang}/connections/{info.id}", status_code=303)
+        return redirect(f"/{lang}/connections/{info.id}")
 
     return router
 
