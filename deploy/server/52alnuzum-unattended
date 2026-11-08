@@ -1,0 +1,4 @@
+// security origins come from 50unattended-upgrades; reboot only when an update needs it, at night (UTC)
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "23:30";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
