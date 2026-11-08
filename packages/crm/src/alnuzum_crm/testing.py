@@ -1,0 +1,318 @@
+"""Record live CRM traffic, replay it in tests, and the conformance scenario every adapter passes.
+
+A recording keeps only what a test needs to replay: method, URL, a short description of a
+JSON-RPC call, status, content type and body. Request bodies and headers (tokens) are never kept,
+and every known secret and host is replaced by a placeholder before anything is written.
+"""
+
+import asyncio
+import base64
+import json
+import re
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from alnuzum_crm.base import CRM
+from alnuzum_crm.errors import CrmNotFound
+from alnuzum_crm.types import (
+    CompanyIn,
+    ContactIn,
+    DealIn,
+    DealLine,
+    DealStatus,
+    FileIn,
+    Leftovers,
+    Product,
+    ProductIn,
+    Ref,
+    TaskIn,
+)
+
+Describe = Callable[[httpx.Request], str]
+
+
+def describe_jsonrpc(request: httpx.Request) -> str:
+    """ "object.execute_kw crm.lead create" for an Odoo JSON-RPC call, "" for anything else."""
+    try:
+        body = json.loads(request.content or b"null")
+        params = body["params"]
+        args = params.get("args") or []
+        op = f"{params['service']}.{params['method']}"
+        if params["method"] == "execute_kw":
+            op += f" {args[3]} {args[4]}"
+        return str(op)
+    except (ValueError, KeyError, TypeError, IndexError):
+        return ""
+
+
+@dataclass
+class Scrubber:
+    """Replaces secrets and real hosts with placeholders; longer values first."""
+
+    replacements: dict[str, str] = field(default_factory=dict)
+    patterns: list[tuple[str, str]] = field(default_factory=list)
+
+    def __call__(self, text: str) -> str:
+        for value in sorted(self.replacements, key=len, reverse=True):
+            if value:
+                text = text.replace(value, self.replacements[value])
+        for pattern, repl in self.patterns:
+            text = re.sub(pattern, repl, text)
+        return text
+
+
+class Recorder(httpx.AsyncBaseTransport):
+    def __init__(self, inner: httpx.AsyncBaseTransport, *, describe: Describe | None = None) -> None:
+        self.inner = inner
+        self.describe = describe or (lambda _r: "")
+        self.calls: list[dict[str, Any]] = []
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        op = self.describe(request)
+        resp = await self.inner.handle_async_request(request)
+        body = await resp.aread()
+        ctype = resp.headers.get("content-type", "")
+        is_text = "json" in ctype or ctype.startswith("text/") or not body
+        self.calls.append(
+            {
+                "method": request.method,
+                "url": str(request.url),
+                "op": op,
+                "status": resp.status_code,
+                "content_type": ctype,
+                "body": body.decode() if is_text else base64.b64encode(body).decode(),
+                "binary": not is_text,
+            }
+        )
+        return httpx.Response(
+            resp.status_code, headers={"content-type": ctype}, content=body, request=request
+        )
+
+    async def aclose(self) -> None:
+        await self.inner.aclose()
+
+    def save(self, path: Path, meta: dict[str, Any], scrub: Scrubber) -> None:
+        calls = [
+            {**c, "url": scrub(c["url"]), "body": c["body"] if c["binary"] else scrub(c["body"])}
+            for c in self.calls
+        ]
+        doc = {"meta": meta, "calls": calls}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n")
+
+
+class ReplayMismatch(AssertionError):
+    pass
+
+
+class Replayer(httpx.AsyncBaseTransport):
+    """Serves a recording in order; a request that differs from the recorded one fails the test."""
+
+    def __init__(self, path: Path, *, describe: Describe | None = None) -> None:
+        doc = json.loads(path.read_text())
+        self.meta: dict[str, Any] = doc["meta"]
+        self.calls: list[dict[str, Any]] = doc["calls"]
+        self.describe = describe or (lambda _r: "")
+        self.position = 0
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        if self.position >= len(self.calls):
+            raise ReplayMismatch(f"unexpected request #{self.position + 1}: {request.method} {request.url}")
+        call = self.calls[self.position]
+        got = (request.method, str(request.url), self.describe(request))
+        want = (call["method"], call["url"], call["op"])
+        if got != want:
+            raise ReplayMismatch(f"request #{self.position + 1}: got {got}, recorded {want}")
+        self.position += 1
+        body = base64.b64decode(call["body"]) if call["binary"] else call["body"].encode()
+        return httpx.Response(
+            call["status"], headers={"content-type": call["content_type"]}, content=body, request=request
+        )
+
+    @property
+    def exhausted(self) -> bool:
+        return self.position == len(self.calls)
+
+
+class ConformanceError(AssertionError):
+    pass
+
+
+def _check(ok: bool, what: str) -> None:
+    if not ok:
+        raise ConformanceError(what)
+
+
+Sleep = Callable[[float], Awaitable[None]]
+
+#: a record id that does not exist in the test accounts, per CRM
+MISSING_IDS = {"amocrm": "999999999", "kommo": "999999999", "bitrix24": "999999999", "odoo": "999999999"}
+MISSING_IDS["zoho"] = "111111111111111111"
+
+
+@dataclass
+class Collected:
+    deal_ids: list[str] = field(default_factory=list)
+    contact_ids: list[str] = field(default_factory=list)
+    company_ids: list[str] = field(default_factory=list)
+    product_ids: list[str] = field(default_factory=list)
+    task_ids: list[str] = field(default_factory=list)
+
+    def leftovers(self) -> Leftovers:
+        return Leftovers(
+            tuple(self.deal_ids),
+            tuple(self.contact_ids),
+            tuple(self.company_ids),
+            tuple(self.product_ids),
+            tuple(self.task_ids),
+        )
+
+
+async def _poll[T](
+    probe: Callable[[], Awaitable[T | None]], sleep: Sleep, *, tries: int = 30, pause: float = 3.0
+) -> T | None:
+    """Search indexes of some CRMs (Zoho) lag behind writes by seconds."""
+    for attempt in range(tries):
+        found = await probe()
+        if found is not None:
+            return found
+        if attempt + 1 < tries:
+            await sleep(pause)
+    return None
+
+
+def run_numbers(run_id: str) -> tuple[str, str]:
+    """INN (9 digits) and phone tail (7 digits) unique to a run: amoCRM never deletes contacts,
+    so a fixed test phone would match the contacts of earlier runs."""
+    n = int(run_id, 16)
+    return f"3{n % 10**8:08d}", f"{n % 10**7:07d}"
+
+
+async def run_conformance(
+    crm: CRM,
+    run_id: str,
+    *,
+    sleep: Sleep = asyncio.sleep,
+    now: datetime | None = None,
+    keep: bool = False,
+) -> list[str]:
+    """Create everything, read it back, remove it. Returns the names of the passed steps."""
+    done: list[str] = []
+    got = Collected()
+    inn, tail = run_numbers(run_id)
+    phone = f"+998 90 {tail[:3]} {tail[3:5]} {tail[5:]}"
+    name = f"E2E Co {run_id}"
+    email = f"e2e-{run_id}@example.com"
+    try:
+        co = await crm.find_or_create_company(CompanyIn(name=name, inn=inn, phone=phone))
+        _check(co.created, "a new company is created")
+        got.company_ids.append(co.id)
+        done.append("company created")
+
+        found = await _poll(lambda: crm.find_company(CompanyIn(name=name.upper())), sleep)
+        _check(found == co.id, f"company found by name in another case ({found!r} != {co.id!r})")
+        again = await crm.find_or_create_company(CompanyIn(name=name.upper()))
+        _check(again == Ref(co.id, False), "find_or_create reuses the company")
+        done.append("company deduplicated by name")
+        if "inn" in crm.capabilities:
+            renamed = CompanyIn(name=f"E2E other {run_id}", inn=inn)
+            found = await _poll(lambda: crm.find_company(renamed), sleep)
+            _check(found == co.id, "company found by INN under another name")
+            other_inn = f"4{inn[1:]}"
+            _check(
+                await crm.find_company(CompanyIn(name=name, inn=other_inn)) is None,
+                "a company with the same name and another INN is another legal entity",
+            )
+            done.append("company deduplicated by INN")
+
+        ct = await crm.find_or_create_contact(
+            ContactIn(name=f"E2E Person {run_id}", email=email, phone=phone), company_id=co.id
+        )
+        _check(ct.created, "a new contact is created")
+        got.contact_ids.append(ct.id)
+        found = await _poll(lambda: crm.find_contact(ContactIn(name="x", email=email.upper())), sleep)
+        _check(found == ct.id, "contact found by e-mail in another case")
+        other_format = f"99890{tail}"
+        found = await _poll(lambda: crm.find_contact(ContactIn(name="x", phone=other_format)), sleep)
+        _check(found == ct.id, "contact found by phone in another format")
+        again = await crm.find_or_create_contact(ContactIn(name="Someone", email=email))
+        _check(again == Ref(ct.id, False), "find_or_create reuses the contact")
+        done.append("contact deduplicated by e-mail and phone")
+
+        lone_email = f"e2e-lone-{run_id}@example.com"
+        lone = await crm.create_contact(ContactIn(name=f"E2E Lone {run_id}", email=lone_email))
+        got.contact_ids.append(lone)
+        await _poll(lambda: crm.find_contact(ContactIn(name="x", email=lone_email)), sleep)
+        linked = await crm.find_or_create_contact(ContactIn(name="x", email=lone_email), company_id=co.id)
+        _check(linked == Ref(lone, False), "the contact without a company is found")
+        _check(not await crm.link_contact(lone, co.id), "the found contact is now linked to the company")
+        done.append("found contact linked to the company")
+
+        product_id = await crm.create_product(
+            ProductIn(f"E2E product {run_id}", Decimal(100), f"E2E-{run_id}")
+        )
+        got.product_ids.append(product_id)
+        lines = (
+            DealLine(f"E2E product {run_id}", Decimal("2.5"), Decimal(100), product_id=product_id),
+            DealLine(f"E2E service {run_id}", Decimal(3), Decimal("10.25")),
+        )
+        deal_in = DealIn(f"E2E deal {run_id}", lines, company_id=co.id, contact_id=ct.id, tags=("e2e",))
+        created = await crm.create_deal(deal_in)
+        got.deal_ids.append(created.id)
+        got.product_ids.extend(created.product_ids)
+        done.append("deal with lines created")
+
+        await crm.attach_file(created.id, FileIn(f"e2e-{run_id}.txt", b"hello from e2e\n", "text/plain"))
+        done.append("file attached")
+        await crm.add_note(created.id, f"E2E note {run_id}")
+        done.append("note added")
+        due = (now or datetime.now(UTC)) + timedelta(days=1)
+        got.task_ids.append(await crm.add_task(created.id, TaskIn(f"E2E task {run_id}", due)))
+        done.append("task added")
+
+        deal = await crm.get_deal(created.id)
+        _check(deal.title == deal_in.title, "deal title reads back")
+        _check(deal.status is DealStatus.OPEN, "new deal is open")
+        _check(
+            sorted((d.quantity, d.unit_price) for d in deal.lines)
+            == sorted((d.quantity, d.unit_price) for d in lines),
+            f"deal lines read back: {deal.lines!r}",
+        )
+        # amoCRM keeps whole numbers and recounts the budget from linked products, dropping kopecks
+        exact = "fractional_amount" in crm.capabilities
+        diff = abs((deal.amount or Decimal(0)) - deal_in.amount)
+        _check(diff == 0 if exact else diff < 1, f"deal amount {deal.amount} vs {deal_in.amount}")
+        done.append("deal read back with lines")
+
+        by_company = [d.id for d in await crm.deal_history(company_id=co.id)]
+        by_contact = [d.id for d in await crm.deal_history(contact_id=ct.id)]
+        _check(created.id in by_company and created.id in by_contact, "deal is in the client's history")
+        done.append("deal history read")
+
+        async def catalog_hit() -> Product | None:
+            page = await crm.list_products(query=f"E2E product {run_id}")
+            return next((p for p in page.items if p.id == product_id), None)
+
+        hit = await _poll(catalog_hit, sleep)
+        _check(hit is not None, "product found in the catalog")
+        _check(hit is not None and hit.price in (None, Decimal(100)), f"catalog price {hit and hit.price}")
+        done.append("catalog read")
+
+        try:
+            await crm.get_deal(MISSING_IDS[crm.kind.value])
+        except CrmNotFound:
+            done.append("missing deal is CrmNotFound")
+        else:
+            raise ConformanceError("a missing deal raises CrmNotFound")
+    finally:
+        if not keep:
+            await crm.discard(got.leftovers())
+    if not keep:
+        done.append("test records removed")
+    return done

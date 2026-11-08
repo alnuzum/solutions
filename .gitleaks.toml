@@ -1,0 +1,22 @@
+# gitleaks: the default rules plus the two secrets this repository works with most.
+title = "Al-Nuzum solutions"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "bitrix24-inbound-webhook"
+description = "Bitrix24 inbound webhook: its key is the last path segment"
+regex = '''bitrix24\.[a-z.]{2,10}/rest/\d{1,10}/([A-Za-z0-9]{8,64})'''
+secretGroup = 1
+keywords = ["bitrix24"]
+
+[[rules.allowlists]]
+description = "placeholders of tests and recorded traffic"
+regexes = ['''^(WEBHOOKTOKEN|abcdef123456|supersecret123)$''']
+
+[[rules]]
+id = "zoho-oauth-token"
+description = "Zoho OAuth access or refresh token"
+regex = '''\b1000\.[a-f0-9]{32}\.[a-f0-9]{32}\b'''
+keywords = ["1000."]
