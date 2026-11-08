@@ -227,3 +227,30 @@ async def test_rotate_keys(store: ConnectionStore, engine: AsyncEngine) -> None:
 async def test_unknown_connection(store: ConnectionStore) -> None:
     with pytest.raises(ConnectionNotFound):
         await store.secrets(uuid.uuid4())
+
+
+async def test_adapter_on_a_stored_connection_refreshes_after_401(store: ConnectionStore) -> None:
+    """Store and adapter together: a refused token is refreshed once, saved, and the call repeated."""
+    import httpx
+
+    from alnuzum_crm.amocrm import AmoCRM
+    from alnuzum_crm.types import CompanyIn
+
+    info = await store.create("acme", CrmKind.AMOCRM, "acme", amo_secrets("access-1", "refresh-1", LATER))
+    refresher = CountingRefresher(delay=0)
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers["authorization"])
+        if request.headers["authorization"] == "Bearer access-1":
+            return httpx.Response(401, json={"title": "Unauthorized"})
+        return httpx.Response(204)
+
+    crm = AmoCRM(
+        "acme", store.token_source(info.id, refresher), rate=1000, transport=httpx.MockTransport(handler)
+    )
+    async with crm:
+        assert await crm.find_company(CompanyIn("Acme")) is None
+    assert seen[:2] == ["Bearer access-1", "Bearer access-2"]
+    assert refresher.calls == 1
+    assert (await store.secrets(info.id))["refresh_token"] == "refresh-2"
