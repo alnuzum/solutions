@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block body %}
+<div class="head"><div><h1>{{ title }}</h1><p>{{ text }}</p></div></div>
+<p><a class="btn" href="/{{ lang }}">{{ t.home }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></a></p>
+{% endblock %}

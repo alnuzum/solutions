@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="head">
+  <div><h1>{{ t.title }}</h1><p>{{ t.lead }}</p></div>
+</div>
+
+<div class="grid">
+ <section class="side">
+  <nav class="tabs" aria-label="{{ t.pick }}">
+    {% for k in crms %}<a href="/{{ lang }}/connect/{{ k }}"{% if k == crm %} aria-current="page"{% endif %}><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}</a>{% endfor %}
+  </nav>
+
+  <div class="plate" id="connect">
+    <h2><svg class="ic" aria-hidden="true"><use href="#c-{{ crm }}"/></svg>{{ t['crm_' ~ crm] }}</h2>
+    {% if form_error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[form_error] }}</p>{% endif %}
+    {% if oauth %}
+      <p>{{ t[crm ~ '_text'] }}</p>
+      <p class="sub">{{ t.oauth_note.format(crm=t['crm_' ~ crm]) }}</p>
+      {% if configured %}
+      <a class="btn" href="/{{ lang }}/connect/{{ crm }}/start">{{ t.connect.format(crm=t['crm_' ~ crm]) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></a>
+      {% else %}
+      <p class="err">{{ t.e_not_configured.format(crm=t['crm_' ~ crm]) }}</p>
+      {% endif %}
+      <small><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[crm ~ '_hint'] }}</small>
+    {% elif crm == "bitrix24" %}
+      <p>{{ t.bitrix24_text }}</p>
+      <form method="post" action="/{{ lang }}/connect/bitrix24" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>{{ t.webhook }}<input name="webhook_url" type="url" required inputmode="url" spellcheck="false" placeholder="https://portal.bitrix24.ru/rest/1/…/"></label>
+        <button class="btn" type="submit">{{ t.connect.format(crm=t.crm_bitrix24) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+      </form>
+      <small><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.bitrix24_hint }}</small>
+    {% else %}
+      <p>{{ t.odoo_text }}</p>
+      <form method="post" action="/{{ lang }}/connect/odoo" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label>{{ t.odoo_url }}<input name="url" type="url" required spellcheck="false" placeholder="https://mycompany.odoo.com" value="{{ typed.url if typed else '' }}"></label>
+        <div class="two">
+          <label>{{ t.odoo_db }}<input name="database" required spellcheck="false" value="{{ typed.database if typed else '' }}"></label>
+          <label>{{ t.odoo_login }}<input name="login" required spellcheck="false" value="{{ typed.login if typed else '' }}"></label>
+        </div>
+        <label>{{ t.odoo_key }}<input name="api_key" type="password" required spellcheck="false" autocomplete="off"></label>
+        <button class="btn" type="submit">{{ t.connect.format(crm=t.crm_odoo) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+      </form>
+      <small><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.odoo_hint }}</small>
+    {% endif %}
+  </div>
+ </section>
+
+ <section class="card">
+  <h2>{{ t.yours }}</h2>
+  {% if connections %}
+  <ul class="conns">
+    {% for c in connections %}
+    <li><a href="/{{ lang }}/connections/{{ c.id }}">
+      <svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg>
+      <span><b>{{ t['crm_' ~ c.crm.value] }}</b><small>{{ c.label }}</small></span>
+      <em class="st st-{{ c.status }}">{{ t['st_' ~ c.status] }}</em>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">{{ t.none_yet }}</p>{% endif %}
+  <div class="kept"><h3><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>{{ t.how_kept }}</h3><p>{{ t.how_kept_text }}</p></div>
+ </section>
+</div>
+{% endblock %}
