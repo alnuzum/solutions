@@ -42,9 +42,17 @@ from alnuzum_crm.types import CompanyIn, ContactIn, DealIn, DealLine
 
 async with Bitrix24(webhook_url) as crm:
     company = await crm.find_or_create_company(CompanyIn("Acme LLC", inn="301234567"))
-    contact = await crm.find_or_create_contact(ContactIn("Jane Doe", email="jane@acme.example"), company_id=company.id)
-    deal = await crm.create_deal(DealIn("Order 42", (DealLine("Widget", Decimal(2), Decimal(10)),),
-                                       company_id=company.id, contact_id=contact.id))
+    contact = await crm.find_or_create_contact(
+        ContactIn("Jane Doe", email="jane@acme.example"), company_id=company.id
+    )
+    deal = await crm.create_deal(
+        DealIn(
+            "Order 42",
+            (DealLine("Widget", Decimal(2), Decimal(10)),),
+            company_id=company.id,
+            contact_id=contact.id,
+        )
+    )
 ```
 
 Every adapter (`AmoCRM`, `Kommo`, `Bitrix24`, `ZohoCRM`, `Odoo`) implements the same methods; where the
