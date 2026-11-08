@@ -1,0 +1,9 @@
+[Unit]
+Description=apps-backup at 22:30 UTC
+
+[Timer]
+OnCalendar=*-*-* 22:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

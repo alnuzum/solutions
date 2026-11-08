@@ -101,7 +101,8 @@ deploy)
   [ -n "$ok" ] || rollback "https://$HOST/health does not answer ok with version $SHA"
   echo "$SHA" > "$DIR/current"
   keep_prev="$(grep -s '^IMAGE_TAG=' "$DIR/.env.prev" | cut -d= -f2 || true)"
-  docker image ls "$REPO" --format '{{.Tag}}' | grep -vx -e "$SHA" -e "${keep_prev:-none}" \
+  # nothing to remove is not a failure (grep finds no line on a repeated deploy of the same commit)
+  { docker image ls "$REPO" --format '{{.Tag}}' | grep -vx -e "$SHA" -e "${keep_prev:-none}" || true; } \
     | while read -r old; do docker image rm "$REPO:$old" >/dev/null 2>&1 || true; done
   echo "deployed $SHA to $ENV_NAME" ;;
 *) usage ;;

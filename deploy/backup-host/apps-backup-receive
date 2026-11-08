@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Forced command of the apps-backup user on the backup host: store one dump from stdin, keep the last 14
+# of each environment.
+# The client says "<name> <size> <sha256>"; the dump must be exactly that, or nothing is kept.
+set -euo pipefail
+DIR=/var/backups/apps
+KEEP=14
+LIMIT=$((2 * 1024 * 1024 * 1024))
+read -r name size sum extra <<<"${SSH_ORIGINAL_COMMAND:-}"
+[[ "$name" =~ ^(prod|stand)-[0-9]{8}T[0-9]{4}Z\.dump$ ]] || { echo "refused: name"; exit 2; }
+env_name="${BASH_REMATCH[1]}"
+[[ "$size" =~ ^[0-9]{1,10}$ ]] && [ "$size" -le "$LIMIT" ] || { echo "refused: size"; exit 2; }
+[[ "$sum" =~ ^[0-9a-f]{64}$ ]] && [ -z "${extra:-}" ] || { echo "refused: arguments"; exit 2; }
+umask 077
+tmp="$(mktemp "$DIR/.incoming.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+head -c "$((size + 1))" > "$tmp"
+[ "$(stat -c %s "$tmp")" = "$size" ] || { echo "refused: got a different size"; exit 3; }
+[ "$(sha256sum "$tmp" | cut -d' ' -f1)" = "$sum" ] || { echo "refused: checksum"; exit 3; }
+mv "$tmp" "$DIR/$name"
+ls -1t "$DIR/$env_name"-*.dump | tail -n +$((KEEP + 1)) | xargs -r rm -f
+echo "stored $name $size"

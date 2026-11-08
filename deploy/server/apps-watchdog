@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Every minute (apps-watchdog.timer, as root): restart what Docker reports unhealthy and tell Telegram when
+# the set of problems changes: a new problem, or all clear. Problems:
+#   died       a container of ours exited on its own (crash, OOM, kill -9); Docker's restart policy restarts it
+#   stopped    a container of ours is not running
+#   unhealthy  its healthcheck fails; restarted here
+#   down       https://<site>/health (or the Odoo login) does not answer through the public address
+#   5xx        five or more 5xx answers on a site within five minutes (Caddy access logs)
+#   disk       the root filesystem is 85 % full or more
+#   backup     no good nightly dump of production for 26 hours (apps-backup)
+# Needs /etc/alnuzum/alerts.env (0600): TELEGRAM_ALERT_TOKEN, TELEGRAM_ALERT_CHAT.
+set -uo pipefail
+. /etc/alnuzum/alerts.env
+LIB=/var/lib/alnuzum
+STATE="$LIB/watchdog.state"
+SINCE="$LIB/watchdog.since"
+LABEL=label=alnuzum.autoheal=true
+now=$(date +%s)
+since=$(cat "$SINCE" 2>/dev/null || echo $((now - 60)))
+problems=()
+
+# containers that died on their own since the last run; a stop (deploy, admin) is not a death
+stopped_by_hand=$(docker events --since "$since" --until "$now" --filter type=container --filter "$LABEL" \
+  --filter event=stop --format '{{.Actor.Attributes.name}}' | sort -u)
+while read -r name code; do
+  [ -n "$name" ] || continue
+  grep -qxF "$name" <<<"$stopped_by_hand" && continue
+  problems+=("died: $name (exit $code), Docker restarts it")
+done < <(docker events --since "$since" --until "$now" --filter type=container --filter "$LABEL" \
+  --filter event=die --format '{{.Actor.Attributes.name}} {{.Actor.Attributes.exitCode}}' | sort -u)
+
+for name in $(docker ps -a --filter "$LABEL" --filter status=exited --filter status=dead --format '{{.Names}}'); do
+  problems+=("stopped: $name is not running")
+done
+
+for name in $(docker ps --filter "$LABEL" --filter health=unhealthy --format '{{.Names}}'); do
+  docker restart "$name" >/dev/null 2>&1
+  problems+=("unhealthy: $name, restarted")
+done
+
+check() {  # url, what the answer must contain
+  local _
+  for _ in 1 2 3; do
+    curl -fsS --max-time 10 "$1" 2>/dev/null | grep -q "$2" && return 0
+    sleep 5
+  done
+  return 1
+}
+# an environment that was never deployed is not watched yet
+deployed() { [ -f "/srv/apps/$1/current" ]; }
+deployed prod && { check https://apps.alnuzum.com/health '"status":"ok"' || problems+=("down: https://apps.alnuzum.com/health"); }
+deployed stand && { check https://apps-stand.alnuzum.com/health '"status":"ok"' || problems+=("down: https://apps-stand.alnuzum.com/health"); }
+if docker ps --format '{{.Names}}' | grep -q '^odoo-e2e-odoo-'; then
+  check https://odoo-e2e.alnuzum.com/web/login 'o_login' || problems+=("down: https://odoo-e2e.alnuzum.com")
+fi
+
+for site in prod stand; do
+  log="/var/log/caddy/$site.log"
+  deployed "$site" && [ -f "$log" ] || continue
+  n=$(tail -n 20000 "$log" | jq -R --argjson t $((now - 300)) \
+    'fromjson? | select(.ts >= $t and (.status // 0) >= 500) | 1' 2>/dev/null | wc -l)
+  [ "$n" -ge 5 ] && problems+=("5xx: $site answered $n errors in 5 minutes")
+done
+
+used=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+[ "$used" -ge 85 ] && problems+=("disk: / is ${used}% full")
+
+if ! deployed prod; then
+  :
+elif [ -f "$LIB/backup.ok" ]; then
+  age=$(( (now - $(stat -c %Y "$LIB/backup.ok")) / 3600 ))
+  [ "$age" -ge 26 ] && problems+=("backup: last good dump of production is ${age} h old")
+else
+  problems+=("backup: no good dump of production yet")
+fi
+
+# "died" and "unhealthy" are events: they are told once and do not hold the state
+current=$(printf '%s\n' "${problems[@]+"${problems[@]}"}" | sed '/^$/d' | sort)
+held=$(grep -vE '^(died|unhealthy):' <<<"$current" || true)
+previous=$(cat "$STATE" 2>/dev/null || true)
+new=$(comm -13 <(echo "$previous") <(echo "$current") | sed '/^$/d')
+
+send() {
+  curl -fsS -o /dev/null --max-time 15 "https://api.telegram.org/bot${TELEGRAM_ALERT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_ALERT_CHAT}" --data-urlencode "text=$1"
+}
+stamp="$(hostname) $(date -u +%H:%M) UTC"
+if [ -n "$new" ]; then
+  send "ALERT apps ($stamp):
+$new" || exit 1
+elif [ -n "$previous" ] && [ -z "$held" ]; then
+  send "OK apps ($stamp): all clear" || exit 1
+fi
+printf '%s\n' "$held" | sed '/^$/d' > "$STATE"
+echo "$now" > "$SINCE"
+[ -z "$current" ] || printf '%s\n' "$current"

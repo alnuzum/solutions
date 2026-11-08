@@ -2,7 +2,8 @@
 # Hardening and runtime of the apps server (Ubuntu 24.04). Idempotent; run as root:
 #   bootstrap.sh "<public key that deploys stand>" "<public key that deploys prod>"
 # Afterwards: keys only (root by key, no passwords), ufw 22/80/443, fail2ban on sshd, security updates
-# on their own, Docker with rotated logs, user `deploy` that can do nothing but run apps-deploy.
+# on their own, Docker with rotated logs, one deploy user per environment that can do nothing but run
+# apps-deploy, a watchdog every minute and a nightly dump of production.
 set -euo pipefail
 STAND_KEY="${1:?public key of the stand deploy}"
 PROD_KEY="${2:?public key of the prod deploy}"
@@ -75,6 +76,21 @@ install -m 0755 "$HERE/apps-deploy" /usr/local/bin/apps-deploy
 install -m 0644 "$HERE/compose.app.yml" /srv/apps/compose.app.yml
 install -m 0644 "$HERE/compose.edge.yml" /srv/apps/edge/compose.yml
 install -m 0644 "$HERE/Caddyfile" /srv/apps/edge/Caddyfile
+install -m 0644 "$HERE/compose.odoo.yml" /srv/apps/compose.odoo.yml
 install -d -m 0755 /var/log/caddy
 docker compose -p edge -f /srv/apps/edge/compose.yml up -d
+
+# --- watchdog every minute, nightly dump of production to the backup host ---
+# The administrator writes /etc/alnuzum/alerts.env (TELEGRAM_ALERT_TOKEN, TELEGRAM_ALERT_CHAT) and
+# /etc/alnuzum/backup.env (BACKUP_HOST), both 0600, and the backup host's key to backup_known_hosts;
+# the public half of backup_key goes to deploy/backup-host/setup.sh on the backup host.
+install -m 0755 "$HERE/apps-watchdog" /usr/local/bin/apps-watchdog
+install -m 0755 "$HERE/apps-backup" /usr/local/bin/apps-backup
+for unit in apps-watchdog.service apps-watchdog.timer apps-backup.service apps-backup.timer; do
+  install -m 0644 "$HERE/$unit" "/etc/systemd/system/$unit"
+done
+[ -f /etc/alnuzum/backup_key ] || ssh-keygen -q -t ed25519 -N "" -C "apps-backup@$(hostname)" -f /etc/alnuzum/backup_key
+systemctl daemon-reload
+[ -f /etc/alnuzum/alerts.env ] && systemctl enable --now apps-watchdog.timer
+[ -f /etc/alnuzum/backup.env ] && systemctl enable --now apps-backup.timer
 echo "bootstrap done"
