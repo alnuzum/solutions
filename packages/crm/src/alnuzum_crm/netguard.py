@@ -22,11 +22,38 @@ class BlockedAddress(ValueError):
     """The address is not public, or not an https URL."""
 
 
+#: IPv6 forms that carry an IPv4 address (NAT64, 6to4, Teredo, IPv4-compatible): refused whole,
+#: whatever IPv4 address they carry, since a translator on the way may reach an internal one
+TUNNELLED = (
+    ipaddress.IPv6Network("64:ff9b::/96"),
+    ipaddress.IPv6Network("64:ff9b:1::/48"),
+    ipaddress.IPv6Network("2002::/16"),
+    ipaddress.IPv6Network("2001::/32"),
+    ipaddress.IPv6Network("::/96"),
+)
+
+
 def is_public(ip: str) -> bool:
     addr = ipaddress.ip_address(ip)
-    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
-        addr = addr.ipv4_mapped
-    return addr.is_global and not addr.is_multicast
+    if isinstance(addr, ipaddress.IPv6Address):
+        if addr.ipv4_mapped is not None:
+            addr = addr.ipv4_mapped
+        elif (
+            addr.sixtofour is not None
+            or addr.teredo is not None
+            or any(addr in net for net in TUNNELLED)
+            or addr.is_site_local
+        ):
+            return False
+    return (
+        addr.is_global
+        and not addr.is_multicast
+        and not addr.is_reserved
+        and not addr.is_unspecified
+        and not addr.is_private
+        and not addr.is_loopback
+        and not addr.is_link_local
+    )
 
 
 async def resolve_public(host: str, port: int) -> list[str]:
