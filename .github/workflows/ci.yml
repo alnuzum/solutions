@@ -99,4 +99,33 @@ jobs:
           curl -sSfL -o checksums.txt "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_checksums.txt"
           grep " gitleaks_${VERSION}_linux_x64.tar.gz\$" checksums.txt | sed 's/gitleaks_.*$/gitleaks.tgz/' | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks
-          ./gitleaks git --redact --no-banner --log-opts="--all" .
+          mv gitleaks "$RUNNER_TEMP/gitleaks"
+      - name: The rules catch planted secrets
+        run: |
+          planted="$RUNNER_TEMP/planted"; mkdir -p "$planted"
+          python3 - "$planted" <<'PY'
+          import secrets, string, sys
+          a = string.ascii_letters + string.digits
+          key = "".join(secrets.choice(a) for _ in range(16))
+          open(f"{sys.argv[1]}/hook.txt", "w").write(f"https://acme.bitrix24.ru/rest/1/{key}/\n")
+          open(f"{sys.argv[1]}/zoho.txt", "w").write(f"1000.{secrets.token_hex(16)}.{secrets.token_hex(16)}\n")
+          PY
+          if "$RUNNER_TEMP/gitleaks" dir --no-banner --config .gitleaks.toml --report-format json --report-path "$RUNNER_TEMP/planted.json" "$planted"; then
+            echo "planted secrets were not found"; exit 1
+          fi
+          test "$(jq -r '[.[].RuleID] | sort | join(",")' "$RUNNER_TEMP/planted.json")" = "bitrix24-inbound-webhook,zoho-oauth-token"
+      - name: gitleaks over the whole history
+        env:
+          # hosts of the test accounts must never reach the repository
+          HOSTS: ${{ vars.AMOCRM_DOMAIN }} ${{ vars.KOMMO_DOMAIN }} ${{ vars.B24_HOST }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          words = sorted({re.escape(h.split(".")[0]) for h in os.environ["HOSTS"].split() if h})
+          cfg = f'[extend]\npath = "{os.environ["GITHUB_WORKSPACE"]}/.gitleaks.toml"\n'
+          if words:
+              cfg += '\n[[rules]]\nid = "test-account-host"\ndescription = "host of a test CRM account"\n'
+              cfg += "regex = '''(?i)\\b(" + "|".join(words) + ")\\b'''\n"
+          open(os.environ["RUNNER_TEMP"] + "/gitleaks-ci.toml", "w").write(cfg)
+          PY
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --config "$RUNNER_TEMP/gitleaks-ci.toml" --log-opts="--all" .

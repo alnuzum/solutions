@@ -21,7 +21,11 @@ jobs:
   e2e:
     name: Live E2E in five CRMs
     # secrets never reach pull requests from forks
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # and Dependabot pull requests get no Actions secrets: their dependency bump is tested by CI
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
