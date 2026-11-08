@@ -44,6 +44,7 @@ from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.oauth import normalize_amo_domain
 from alnuzum_crm.tokens import TokenSource
 from alnuzum_crm.types import (
+    AccountInfo,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -198,6 +199,14 @@ class AmoCRM(CRM):
         return str(items[0]["id"])
 
     # --- account settings, cached ---
+
+    async def account(self) -> AccountInfo:
+        self._account = None  # a liveness probe: always ask the CRM
+        info = await self._account_info()
+        return AccountInfo(str(info.get("id", "")), str(info.get("name", "")), f"https://{self.domain}")
+
+    def deal_link(self, account: AccountInfo, deal_id: str) -> str:
+        return f"{account.web}/leads/detail/{record_id(deal_id, self.kind.value)}"
 
     async def _account_info(self) -> dict[str, Any]:
         if self._account is None:

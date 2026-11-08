@@ -47,6 +47,20 @@ ZOHO_API_HOSTS = frozenset(
 )
 
 
+# API host of a Zoho data centre → host of its web interface (deal links)
+ZOHO_WEB_HOSTS = {
+    "www.zohoapis.com": "crm.zoho.com",
+    "www.zohoapis.eu": "crm.zoho.eu",
+    "www.zohoapis.in": "crm.zoho.in",
+    "www.zohoapis.com.au": "crm.zoho.com.au",
+    "www.zohoapis.jp": "crm.zoho.jp",
+    "www.zohoapis.com.cn": "crm.zoho.com.cn",
+    "www.zohoapis.sa": "crm.zoho.sa",
+    "www.zohoapis.uk": "crm.zoho.uk",
+    "www.zohoapis.ca": "crm.zohocloud.ca",
+}
+
+
 def normalize_amo_domain(raw: str, kind: CrmKind = CrmKind.AMOCRM) -> str:
     """ "sub", "sub.amocrm.ru", "https://sub.amocrm.ru/leads" → "sub.amocrm.ru"; anything outside
     the CRM's domains is refused, since the domain is where the server sends the token."""

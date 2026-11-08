@@ -44,6 +44,16 @@ class Ref:
 
 
 @dataclass(frozen=True, slots=True)
+class AccountInfo:
+    """The CRM account behind a set of credentials: ``id`` is stable for the account, ``web`` is the
+    address its pages live under (deal links are built from it)."""
+
+    id: str
+    name: str
+    web: str
+
+
+@dataclass(frozen=True, slots=True)
 class DealLine:
     name: str
     quantity: Decimal

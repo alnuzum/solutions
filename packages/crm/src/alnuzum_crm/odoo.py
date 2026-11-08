@@ -19,6 +19,7 @@ import itertools
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, ClassVar
+from urllib.parse import quote
 
 import httpx
 
@@ -45,6 +46,7 @@ from alnuzum_crm.errors import (
 from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.netguard import guarded_transport, split_https_url
 from alnuzum_crm.types import (
+    AccountInfo,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -154,6 +156,16 @@ class Odoo(CRM):
             cls = _ERRORS.get(name.rsplit(".", 1)[-1], CrmError)
             raise cls(text, crm=crm, status=status, code=name or None)
         return data.get("result") if isinstance(data, dict) else None
+
+    async def account(self) -> AccountInfo:
+        self._uid = None  # a liveness probe: authenticate again
+        uid = await self._uid_()
+        return AccountInfo(f"{self.url}|{self.database}|{uid}", self.database, self.url)
+
+    def deal_link(self, account: AccountInfo, deal_id: str) -> str:
+        db = quote(self.database, safe="")
+        lead = record_id(deal_id, self.kind.value)
+        return f"{account.web}/web?db={db}#id={lead}&model=crm.lead&view_type=form"
 
     async def _uid_(self) -> int:
         if self._uid is None:

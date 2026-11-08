@@ -37,6 +37,7 @@ from alnuzum_crm.errors import (
 )
 from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.types import (
+    AccountInfo,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -188,6 +189,14 @@ class Bitrix24(CRM):
         if status >= 500:
             raise CrmUnavailable(text, crm=crm, status=status, code=code)
         raise CrmValidationError(text, crm=crm, status=status, code=code)
+
+    async def account(self) -> AccountInfo:
+        # an empty deal list proves the webhook is alive and has the crm scope
+        await self._result("crm.deal.list", {"filter": {"ID": 0}, "select": ["ID"], "start": -1})
+        return AccountInfo(self.host, self.host, f"https://{self.host}")
+
+    def deal_link(self, account: AccountInfo, deal_id: str) -> str:
+        return f"{account.web}/crm/deal/details/{record_id(deal_id, self.kind.value)}/"
 
     async def _result(self, method: str, params: dict[str, Any] | None = None) -> Any:
         return (await self.call(method, params)).get("result")
