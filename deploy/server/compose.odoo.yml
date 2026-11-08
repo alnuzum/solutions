@@ -1,0 +1,39 @@
+# Test Odoo Community behind Caddy (odoo-e2e.alnuzum.com): `docker compose -p odoo-e2e -f compose.odoo.yml`.
+# Database manager is off, the only database is `e2e`.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: ${ODOO_DB_PASSWORD:?}
+      POSTGRES_DB: postgres
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    mem_limit: 384m
+  odoo:
+    image: odoo:19.0-20261102
+    restart: unless-stopped
+    command: ["--database=e2e", "--db-filter=^e2e$$", "--no-database-list", "--proxy-mode"]
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: ${ODOO_DB_PASSWORD}
+    depends_on:
+      db: { condition: service_healthy }
+    volumes: [data:/var/lib/odoo]
+    networks:
+      internal: {}
+      edge: { aliases: [odoo] }
+    mem_limit: 1g
+volumes:
+  db: {}
+  data: {}
+networks:
+  internal: { internal: true }
+  edge: { name: edge-odoo, external: true }

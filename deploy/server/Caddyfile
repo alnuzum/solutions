@@ -1,0 +1,44 @@
+{
+	email dev@alnuzum.com
+	servers {
+		protocols h1 h2
+	}
+}
+
+# access log per site as JSON lines; the query string (OAuth codes) and the Referer never reach it,
+# Cookie and Authorization are redacted by Caddy itself
+(access) {
+	log {
+		output file /var/log/caddy/{args[0]}.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?_"
+				request>headers>Referer delete
+			}
+		}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+apps.alnuzum.com {
+	import access prod
+	reverse_proxy platform-prod:8000
+}
+
+apps-stand.alnuzum.com {
+	import access stand
+	reverse_proxy platform-stand:8000
+}
+
+# test Odoo Community for checking the Odoo connection through the interface
+odoo-e2e.alnuzum.com {
+	import access odoo
+	reverse_proxy odoo:8069
+}

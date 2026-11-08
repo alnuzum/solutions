@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Forced command of the `deploy` user. authorized_keys pins the environment:
+#   restrict,command="/usr/local/bin/apps-deploy stand" <key used by pull requests>
+#   restrict,command="/usr/local/bin/apps-deploy prod"  <key used by pushes to main>
+# The client may ask only for
+#   deploy <40-hex sha>   with a tar on stdin holding image.tar.gz and app.env
+#   status
+# The compose file and Caddy are installed by an administrator (bootstrap), never by a deploy:
+# a pull request can change the image, not how it runs.
+set -euo pipefail
+trap '' HUP   # a dropped connection after the upload must not stop a deploy half-way
+
+ENV_NAME="${1:-}"
+case "$ENV_NAME" in
+  prod) HOST="apps.alnuzum.com" ;;
+  stand) HOST="apps-stand.alnuzum.com" ;;
+  *) echo "unknown environment" >&2; exit 2 ;;
+esac
+DIR="/srv/apps/$ENV_NAME"
+COMPOSE=(docker compose -p "apps-$ENV_NAME" -f /srv/apps/compose.app.yml --env-file "$DIR/.env")
+ALLOWED='^(POSTGRES_PASSWORD|SECRET_KEYS|SESSION_SECRET|ADMIN_TOKEN|KOMMO_CLIENT_ID|KOMMO_CLIENT_SECRET|ZOHO_CLIENT_ID|ZOHO_CLIENT_SECRET|QUOTA_WRITES_PER_DAY)$'
+SAFE_VALUE='^[A-Za-z0-9+/=:,._@-]*$'
+
+read -r -a ARGS <<< "${SSH_ORIGINAL_COMMAND:-}"
+exec 9>"$DIR/.lock"
+flock -w 900 9
+
+case "${ARGS[0]:-}:${#ARGS[@]}" in
+  status:1)
+    cat "$DIR/current" 2>/dev/null || echo "none"
+    "${COMPOSE[@]}" ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null || true
+    exit 0 ;;
+  deploy:2) ;;
+  *) echo "usage: deploy <sha> | status" >&2; exit 2 ;;
+esac
+SHA="${ARGS[1]}"
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "bad sha" >&2; exit 2; }
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+head -c 1073741824 | tar -x -C "$TMP" --no-same-owner --no-same-permissions image.tar.gz app.env
+[ -s "$TMP/image.tar.gz" ] && [ -s "$TMP/app.env" ] || { echo "payload incomplete" >&2; exit 2; }
+
+# app.env: only known keys, values without quotes, spaces or $ (compose would interpolate them)
+umask 077
+: > "$TMP/env.checked"
+while IFS= read -r line || [ -n "$line" ]; do
+  [ -z "$line" ] && continue
+  key="${line%%=*}"; value="${line#*=}"
+  [[ "$line" == *=* && "$key" =~ $ALLOWED && "$value" =~ $SAFE_VALUE ]] || { echo "app.env: refused line for ${key:0:40}" >&2; exit 2; }
+  printf '%s=%s\n' "$key" "$value" >> "$TMP/env.checked"
+done < "$TMP/app.env"
+for need in POSTGRES_PASSWORD SECRET_KEYS SESSION_SECRET; do
+  grep -q "^$need=." "$TMP/env.checked" || { echo "app.env: $need missing" >&2; exit 2; }
+done
+printf 'APP_ENV=%s\nPUBLIC_URL=https://%s\nIMAGE_TAG=%s\n' "$ENV_NAME" "$HOST" "$SHA" >> "$TMP/env.checked"
+
+gunzip -c "$TMP/image.tar.gz" | docker load -q >/dev/null
+docker image inspect "alnuzum-platform:$SHA" >/dev/null || { echo "image alnuzum-platform:$SHA not in the payload" >&2; exit 2; }
+
+[ -f "$DIR/.env" ] && cp -p "$DIR/.env" "$DIR/.env.prev"
+install -m 0600 "$TMP/env.checked" "$DIR/.env"
+
+rollback() {
+  echo "deploy of $SHA failed: $1" >&2
+  if [ -f "$DIR/.env.prev" ]; then
+    cp -p "$DIR/.env.prev" "$DIR/.env"
+    "${COMPOSE[@]}" up -d --wait --wait-timeout 180 >&2 || true
+    echo "rolled back to $(cat "$DIR/current" 2>/dev/null)" >&2
+  fi
+  exit 1
+}
+
+"${COMPOSE[@]}" up -d --wait --wait-timeout 120 db || rollback "database did not start"
+"${COMPOSE[@]}" run --rm --no-deps platform alnuzum-platform migrate || rollback "migrations failed"
+"${COMPOSE[@]}" up -d --wait --wait-timeout 180 platform || rollback "platform is not healthy"
+
+ok=""
+for _ in $(seq 1 20); do
+  body="$(curl -fsS --max-time 5 --resolve "$HOST:443:127.0.0.1" "https://$HOST/health" 2>/dev/null || true)"
+  if [ "$(jq -r '.status + " " + .version' <<< "${body:-{\}}" 2>/dev/null)" = "ok $SHA" ]; then ok=1; break; fi
+  sleep 3
+done
+[ -n "$ok" ] || rollback "https://$HOST/health does not answer ok with version $SHA"
+
+echo "$SHA" > "$DIR/current"
+# keep the running image and the previous one
+docker image ls alnuzum-platform --format '{{.Tag}}' | grep -vx -e "$SHA" -e "$(grep -s '^IMAGE_TAG=' "$DIR/.env.prev" | cut -d= -f2)" \
+  | while read -r old; do
+      docker ps -a --format '{{.Image}}' | grep -qx "alnuzum-platform:$old" || docker image rm -f "alnuzum-platform:$old" >/dev/null 2>&1 || true
+    done
+echo "deployed $SHA to $ENV_NAME"
