@@ -1,0 +1,287 @@
+{
+ "meta": {
+  "crm": "bitrix24",
+  "run_id": "f7195543"
+ },
+ "calls": [
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.requisite.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794171158,\"finish\":1794171158.189718,\"duration\":0.18971800804138184,\"processing\":0,\"date_start\":\"2026-11-08T23:52:38+03:00\",\"date_finish\":\"2026-11-08T23:52:38+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794171158,\"finish\":1794171158.350496,\"duration\":0.3504960536956787,\"processing\":0,\"date_start\":\"2026-11-08T23:52:38+03:00\",\"date_finish\":\"2026-11-08T23:52:38+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":5,\"time\":{\"start\":1794171158,\"finish\":1794171159.071024,\"duration\":1.071023941040039,\"processing\":1,\"date_start\":\"2026-11-08T23:52:38+03:00\",\"date_finish\":\"2026-11-08T23:52:39+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.29955482482910156}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.requisite.preset.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"1\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_COMPANY#\"},{\"ID\":\"3\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_INDIVIDUAL#\"},{\"ID\":\"5\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_PERSON#\"}],\"total\":3,\"time\":{\"start\":1794171159,\"finish\":1794171159.327164,\"duration\":0.3271639347076416,\"processing\":0,\"date_start\":\"2026-11-08T23:52:39+03:00\",\"date_finish\":\"2026-11-08T23:52:39+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.requisite.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":5,\"time\":{\"start\":1794171159,\"finish\":1794171159.962099,\"duration\":0.9620990753173828,\"processing\":0,\"date_start\":\"2026-11-08T23:52:39+03:00\",\"date_finish\":\"2026-11-08T23:52:39+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"5\",\"TITLE\":\"E2E Co f7195543\"}],\"total\":1,\"time\":{\"start\":1794171160,\"finish\":1794171160.33175,\"duration\":0.33174991607666016,\"processing\":0,\"date_start\":\"2026-11-08T23:52:40+03:00\",\"date_finish\":\"2026-11-08T23:52:40+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"5\",\"TITLE\":\"E2E Co f7195543\"}],\"total\":1,\"time\":{\"start\":1794171160,\"finish\":1794171160.954455,\"duration\":0.9544548988342285,\"processing\":0,\"date_start\":\"2026-11-08T23:52:40+03:00\",\"date_finish\":\"2026-11-08T23:52:40+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.requisite.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ENTITY_ID\":\"5\"}],\"total\":1,\"time\":{\"start\":1794171161,\"finish\":1794171161.336369,\"duration\":0.33636903762817383,\"processing\":0,\"date_start\":\"2026-11-08T23:52:41+03:00\",\"date_finish\":\"2026-11-08T23:52:41+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.duplicate.findbycomm.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"time\":{\"start\":1794171161,\"finish\":1794171161.939917,\"duration\":0.9399170875549316,\"processing\":0,\"date_start\":\"2026-11-08T23:52:41+03:00\",\"date_finish\":\"2026-11-08T23:52:41+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.duplicate.findbycomm.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"time\":{\"start\":1794171162,\"finish\":1794171162.328113,\"duration\":0.3281130790710449,\"processing\":0,\"date_start\":\"2026-11-08T23:52:42+03:00\",\"date_finish\":\"2026-11-08T23:52:42+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":7,\"time\":{\"start\":1794171162,\"finish\":1794171163.082615,\"duration\":1.0826148986816406,\"processing\":1,\"date_start\":\"2026-11-08T23:52:42+03:00\",\"date_finish\":\"2026-11-08T23:52:43+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.26030683517456055}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.duplicate.findbycomm.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"CONTACT\":[7]},\"time\":{\"start\":1794171163,\"finish\":1794171163.337607,\"duration\":0.33760690689086914,\"processing\":0,\"date_start\":\"2026-11-08T23:52:43+03:00\",\"date_finish\":\"2026-11-08T23:52:43+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.duplicate.findbycomm.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"CONTACT\":[7]},\"time\":{\"start\":1794171163,\"finish\":1794171163.941013,\"duration\":0.9410130977630615,\"processing\":0,\"date_start\":\"2026-11-08T23:52:43+03:00\",\"date_finish\":\"2026-11-08T23:52:43+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.duplicate.findbycomm.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"CONTACT\":[7]},\"time\":{\"start\":1794171164,\"finish\":1794171164.335636,\"duration\":0.3356359004974365,\"processing\":0,\"date_start\":\"2026-11-08T23:52:44+03:00\",\"date_finish\":\"2026-11-08T23:52:44+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.currency.base.get.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":\"RUB\",\"time\":{\"start\":1794171164,\"finish\":1794171164.941445,\"duration\":0.9414451122283936,\"processing\":0,\"date_start\":\"2026-11-08T23:52:44+03:00\",\"date_finish\":\"2026-11-08T23:52:44+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.product.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":11,\"time\":{\"start\":1794171165,\"finish\":1794171165.442438,\"duration\":0.44243788719177246,\"processing\":0,\"date_start\":\"2026-11-08T23:52:45+03:00\",\"date_finish\":\"2026-11-08T23:52:45+03:00\",\"operating_reset_at\":1794171720,\"operating\":0.10433816909790039}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":9,\"time\":{\"start\":1794171165,\"finish\":1794171166.254873,\"duration\":1.2548730373382568,\"processing\":1,\"date_start\":\"2026-11-08T23:52:45+03:00\",\"date_finish\":\"2026-11-08T23:52:46+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.6232078075408936}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.productrows.set.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":true,\"time\":{\"start\":1794171166,\"finish\":1794171166.614112,\"duration\":0.6141119003295898,\"processing\":0,\"date_start\":\"2026-11-08T23:52:46+03:00\",\"date_finish\":\"2026-11-08T23:52:46+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.37189412117004395}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.timeline.comment.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":49,\"time\":{\"start\":1794171166,\"finish\":1794171167.145523,\"duration\":1.1455230712890625,\"processing\":1,\"date_start\":\"2026-11-08T23:52:46+03:00\",\"date_finish\":\"2026-11-08T23:52:47+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.42047905921936035}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.timeline.comment.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":51,\"time\":{\"start\":1794171167,\"finish\":1794171167.400818,\"duration\":0.4008181095123291,\"processing\":0,\"date_start\":\"2026-11-08T23:52:47+03:00\",\"date_finish\":\"2026-11-08T23:52:47+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.42047905921936035}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.activity.todo.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"id\":5},\"time\":{\"start\":1794171167,\"finish\":1794171168.044085,\"duration\":1.0440850257873535,\"processing\":1,\"date_start\":\"2026-11-08T23:52:47+03:00\",\"date_finish\":\"2026-11-08T23:52:48+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.1517810821533203}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.get.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"ID\":\"9\",\"TITLE\":\"E2E deal f7195543\",\"TYPE_ID\":\"SALE\",\"STAGE_ID\":\"NEW\",\"PREVIOUS_STAGE_ID\":\"\",\"PROBABILITY\":null,\"CURRENCY_ID\":\"RUB\",\"OPPORTUNITY\":\"280.75\",\"IS_MANUAL_OPPORTUNITY\":\"Y\",\"TAX_VALUE\":\"0.00\",\"LEAD_ID\":null,\"COMPANY_ID\":\"5\",\"CONTACT_ID\":\"7\",\"MYCOMPANY_ID\":\"0\",\"QUOTE_ID\":null,\"BEGINDATE\":\"2026-11-08T03:00:00+03:00\",\"CLOSEDATE\":\"2026-11-15T03:00:00+03:00\",\"ASSIGNED_BY_ID\":\"1\",\"CREATED_BY_ID\":\"1\",\"MODIFY_BY_ID\":\"1\",\"DATE_CREATE\":\"2026-11-08T23:52:45+03:00\",\"DATE_MODIFY\":\"2026-11-08T23:52:45+03:00\",\"OPENED\":\"Y\",\"CLOSED\":\"N\",\"COMMENTS\":null,\"ADDITIONAL_INFO\":null,\"LOCATION_ID\":null,\"CATEGORY_ID\":\"0\",\"STAGE_SEMANTIC_ID\":\"P\",\"IS_NEW\":\"Y\",\"IS_RECURRING\":\"N\",\"IS_RETURN_CUSTOMER\":\"N\",\"IS_REPEATED_APPROACH\":\"N\",\"SOURCE_ID\":\"\",\"SOURCE_DESCRIPTION\":null,\"ORIGINATOR_ID\":null,\"ORIGIN_ID\":null,\"MOVED_BY_ID\":\"1\",\"MOVED_TIME\":\"2026-11-08T23:52:45+03:00\",\"LAST_ACTIVITY_TIME\":\"2026-11-08T23:52:45+03:00\",\"UTM_SOURCE\":null,\"UTM_MEDIUM\":null,\"UTM_CAMPAIGN\":null,\"UTM_CONTENT\":null,\"UTM_TERM\":null,\"LAST_COMMUNICATION_TIME\":null,\"REPEAT_SALE_SEGMENT_ID\":null,\"LAST_ACTIVITY_BY\":\"1\"},\"time\":{\"start\":1794171168,\"finish\":1794171168.405984,\"duration\":0.40598392486572266,\"processing\":0,\"date_start\":\"2026-11-08T23:52:48+03:00\",\"date_finish\":\"2026-11-08T23:52:48+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.productrows.get.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"13\",\"OWNER_ID\":\"9\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":11,\"PRODUCT_NAME\":\"E2E product f7195543\",\"ORIGINAL_PRODUCT_NAME\":\"E2E product f7195543\",\"PRODUCT_DESCRIPTION\":null,\"PRICE\":100,\"PRICE_EXCLUSIVE\":100,\"PRICE_NETTO\":100,\"PRICE_BRUTTO\":100,\"PRICE_ACCOUNT\":\"100.00000000\",\"QUANTITY\":2.5,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null},{\"ID\":\"15\",\"OWNER_ID\":\"9\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":0,\"PRODUCT_NAME\":\"E2E service f7195543\",\"ORIGINAL_PRODUCT_NAME\":null,\"PRODUCT_DESCRIPTION\":null,\"PRICE\":10.25,\"PRICE_EXCLUSIVE\":10.25,\"PRICE_NETTO\":10.25,\"PRICE_BRUTTO\":10.25,\"PRICE_ACCOUNT\":\"10.25000000\",\"QUANTITY\":3,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null}],\"time\":{\"start\":1794171168,\"finish\":1794171168.985226,\"duration\":0.9852259159088135,\"processing\":0,\"date_start\":\"2026-11-08T23:52:48+03:00\",\"date_finish\":\"2026-11-08T23:52:48+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"9\",\"TITLE\":\"E2E deal f7195543\",\"OPPORTUNITY\":\"280.75000000\",\"CURRENCY_ID\":\"RUB\",\"STAGE_SEMANTIC_ID\":\"P\",\"CLOSED\":\"N\",\"CLOSEDATE\":\"2026-11-15T03:00:00+03:00\",\"DATE_CREATE\":\"2026-11-08T23:52:45+03:00\"}],\"total\":1,\"time\":{\"start\":1794171169,\"finish\":1794171169.402619,\"duration\":0.4026188850402832,\"processing\":0,\"date_start\":\"2026-11-08T23:52:49+03:00\",\"date_finish\":\"2026-11-08T23:52:49+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"9\",\"TITLE\":\"E2E deal f7195543\",\"OPPORTUNITY\":\"280.75000000\",\"CURRENCY_ID\":\"RUB\",\"STAGE_SEMANTIC_ID\":\"P\",\"CLOSED\":\"N\",\"CLOSEDATE\":\"2026-11-15T03:00:00+03:00\",\"DATE_CREATE\":\"2026-11-08T23:52:45+03:00\"}],\"total\":1,\"time\":{\"start\":1794171169,\"finish\":1794171169.976512,\"duration\":0.9765119552612305,\"processing\":0,\"date_start\":\"2026-11-08T23:52:49+03:00\",\"date_finish\":\"2026-11-08T23:52:49+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.product.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"11\",\"NAME\":\"E2E product f7195543\",\"XML_ID\":\"E2E-f7195543\",\"PRICE\":null,\"CURRENCY_ID\":null}],\"total\":1,\"time\":{\"start\":1794171170,\"finish\":1794171170.403561,\"duration\":0.4035611152648926,\"processing\":0,\"date_start\":\"2026-11-08T23:52:50+03:00\",\"date_finish\":\"2026-11-08T23:52:50+03:00\",\"operating_reset_at\":1794171720,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.get.json",
+   "op": "",
+   "status": 400,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"error\":\"\",\"error_description\":\"Not found\"}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.delete.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":true,\"time\":{\"start\":1794171171,\"finish\":1794171171.846006,\"duration\":0.846005916595459,\"processing\":0,\"date_start\":\"2026-11-08T23:52:51+03:00\",\"date_finish\":\"2026-11-08T23:52:51+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.7579829692840576}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.delete.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":true,\"time\":{\"start\":1794171171,\"finish\":1794171172.180775,\"duration\":1.1807749271392822,\"processing\":1,\"date_start\":\"2026-11-08T23:52:51+03:00\",\"date_finish\":\"2026-11-08T23:52:52+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.6061110496520996}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.delete.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":true,\"time\":{\"start\":1794171172,\"finish\":1794171172.717251,\"duration\":0.7172510623931885,\"processing\":0,\"date_start\":\"2026-11-08T23:52:52+03:00\",\"date_finish\":\"2026-11-08T23:52:52+03:00\",\"operating_reset_at\":1794171360,\"operating\":0.5998528003692627}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.product.delete.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":true,\"time\":{\"start\":1794171172,\"finish\":1794171173.469581,\"duration\":1.469580888748169,\"processing\":1,\"date_start\":\"2026-11-08T23:52:52+03:00\",\"date_finish\":\"2026-11-08T23:52:53+03:00\",\"operating_reset_at\":1794171360,\"operating\":1.0640013217926025}}",
+   "binary": false
+  }
+ ]
+}
