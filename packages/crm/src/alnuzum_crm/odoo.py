@@ -22,7 +22,7 @@ from typing import Any, ClassVar
 
 import httpx
 
-from alnuzum_crm.base import CRM, E2E_TAG, dec, digits, require_one, same_phone
+from alnuzum_crm.base import CRM, E2E_TAG, dec, digits, require_one, same_email, same_name, same_phone
 from alnuzum_crm.errors import (
     CrmAuthError,
     CrmError,
@@ -33,6 +33,7 @@ from alnuzum_crm.errors import (
     CrmValidationError,
 )
 from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
+from alnuzum_crm.netguard import guarded_transport, split_https_url
 from alnuzum_crm.types import (
     CompanyIn,
     ContactIn,
@@ -60,6 +61,11 @@ _ERRORS: dict[str, type[CrmError]] = {
 _ids = itertools.count(1)
 
 
+def like_literal(value: str) -> str:
+    """A value for ``=ilike`` that matches only itself: % _ and backslash are escaped."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _dt(value: Any) -> datetime | None:
     if not value:
         return None
@@ -85,7 +91,11 @@ class Odoo(CRM):
     ) -> None:
         """``trusted_url`` skips the https and public-address checks: only for an address the
         operator configured (a local test Odoo), never for one a user typed in."""
-        self.url = url.rstrip("/")
+        if trusted_url:
+            self.url = url.rstrip("/")
+        else:
+            _, _, self.url = split_https_url(url)
+            transport = transport or guarded_transport()
         self.database = database
         self._login = login
         self._key = api_key
@@ -188,12 +198,10 @@ class Odoo(CRM):
             ids = [r["id"] for r in rows if digits(r.get("vat") or "").endswith(want)]
             if ids:
                 return str(ids[0])
-        ids = await self._search(
-            "res.partner",
-            [["is_company", "=", True], ["name", "=ilike", company.name.strip()]],
-            order="id",
-            limit=1,
-        )
+        # =ilike with escaped wildcards, then an exact comparison: a pattern never merges records
+        domain = [["is_company", "=", True], ["name", "=ilike", like_literal(company.name.strip())]]
+        rows = await self._read("res.partner", domain, ["name"], order="id", limit=50)
+        ids = [r["id"] for r in rows if same_name(str(r.get("name") or ""), company.name)]
         return str(ids[0]) if ids else None
 
     async def create_company(self, company: CompanyIn) -> str:
@@ -208,12 +216,9 @@ class Odoo(CRM):
 
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
-            ids = await self._search(
-                "res.partner",
-                [["is_company", "=", False], ["email", "=ilike", contact.email.strip()]],
-                order="id",
-                limit=1,
-            )
+            domain = [["is_company", "=", False], ["email", "=ilike", like_literal(contact.email.strip())]]
+            rows = await self._read("res.partner", domain, ["email"], order="id", limit=50)
+            ids = [r["id"] for r in rows if same_email(str(r.get("email") or ""), contact.email)]
             if ids:
                 return str(ids[0])
         phone = digits(contact.phone)

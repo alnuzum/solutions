@@ -95,6 +95,9 @@ def parse_webhook(url: str) -> tuple[str, str]:
         raise ValueError("a Bitrix24 webhook is an https address")
     if parts.query or parts.fragment:
         raise ValueError("a Bitrix24 webhook has no query")
+    suffix = next((s for s in CLOUD_SUFFIXES if host.endswith(s)), None)
+    if suffix is None or not _PORTAL.match(host[: -len(suffix)]):
+        raise ValueError("not a Bitrix24 cloud portal")
     m = _PATH.match(parts.path)
     if not m:
         raise ValueError("not an inbound webhook address (/rest/<user>/<token>/)")

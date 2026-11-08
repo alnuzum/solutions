@@ -18,7 +18,7 @@ from urllib.parse import quote
 
 import httpx
 
-from alnuzum_crm.base import CRM, dec, digits, norm_name, require_one, same_name, same_phone
+from alnuzum_crm.base import CRM, dec, digits, norm_name, require_one, same_email, same_name, same_phone
 from alnuzum_crm.errors import (
     CrmAuthError,
     CrmError,
@@ -223,7 +223,8 @@ class ZohoCRM(CRM):
         inn_field = await self._inn() if company.inn else None
         if company.inn and inn_field:
             crit = f"({inn_field}:equals:{_criteria_value(digits(company.inn))})"
-            hits = await self._search("Accounts", f"criteria={quote(crit)}")
+            found = await self._search("Accounts", f"criteria={quote(crit)}")
+            hits = [r for r in found if digits(str(r.get(inn_field) or "")) == digits(company.inn)]
             if hits:
                 return str(min(hits, key=lambda r: int(r["id"]))["id"])
         crit = f"(Account_Name:equals:{_criteria_value(company.name)})"
@@ -252,7 +253,8 @@ class ZohoCRM(CRM):
 
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
-            hits = await self._search("Contacts", f"email={quote(contact.email.strip())}")
+            found = await self._search("Contacts", f"email={quote(contact.email.strip())}")
+            hits = [r for r in found if same_email(r.get("Email"), contact.email)]
             if hits:
                 return str(min(hits, key=lambda r: int(r["id"]))["id"])
         phone = digits(contact.phone)
