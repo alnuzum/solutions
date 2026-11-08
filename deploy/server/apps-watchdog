@@ -15,21 +15,23 @@ LIB=/var/lib/alnuzum
 STATE="$LIB/watchdog.state"
 SINCE="$LIB/watchdog.since"
 LABEL=label=alnuzum.autoheal=true
+# one-off containers (the migrations of a deploy) exit by design
+SERVICE=label=com.docker.compose.oneoff=False
 now=$(date +%s)
 since=$(cat "$SINCE" 2>/dev/null || echo $((now - 60)))
 problems=()
 
 # containers that died on their own since the last run; a stop (deploy, admin) is not a death
-stopped_by_hand=$(docker events --since "$since" --until "$now" --filter type=container --filter "$LABEL" \
+stopped_by_hand=$(docker events --since "$since" --until "$now" --filter type=container --filter "$LABEL" --filter "$SERVICE" \
   --filter event=stop --format '{{.Actor.Attributes.name}}' | sort -u)
 while read -r name code; do
   [ -n "$name" ] || continue
   grep -qxF "$name" <<<"$stopped_by_hand" && continue
   problems+=("died: $name (exit $code), Docker restarts it")
-done < <(docker events --since "$since" --until "$now" --filter type=container --filter "$LABEL" \
+done < <(docker events --since "$since" --until "$now" --filter type=container --filter "$LABEL" --filter "$SERVICE" \
   --filter event=die --format '{{.Actor.Attributes.name}} {{.Actor.Attributes.exitCode}}' | sort -u)
 
-for name in $(docker ps -a --filter "$LABEL" --filter status=exited --filter status=dead --format '{{.Names}}'); do
+for name in $(docker ps -a --filter "$LABEL" --filter "$SERVICE" --filter status=exited --filter status=dead --format '{{.Names}}'); do
   problems+=("stopped: $name is not running")
 done
 
@@ -57,7 +59,11 @@ fi
 for site in prod stand; do
   log="/var/log/caddy/$site.log"
   deployed "$site" && [ -f "$log" ] || continue
-  n=$(tail -n 20000 "$log" | jq -R --argjson t $((now - 300)) \
+  # the restart of a deploy answers 502 for a moment: count only after the last deploy finished
+  t=$((now - 300))
+  done_at=$(stat -c %Y "/srv/apps/$site/current")
+  [ "$done_at" -gt "$t" ] && t=$done_at
+  n=$(tail -n 20000 "$log" | jq -R --argjson t "$t" \
     'fromjson? | select(.ts >= $t and (.status // 0) >= 500) | 1' 2>/dev/null | wc -l)
   [ "$n" -ge 5 ] && problems+=("5xx: $site answered $n errors in 5 minutes")
 done
