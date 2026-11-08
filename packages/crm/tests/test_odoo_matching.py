@@ -42,3 +42,17 @@ async def test_contact_email_with_wildcards_matches_nothing_else(email: str) -> 
 async def test_contact_found_by_email_ignoring_case() -> None:
     async with _odoo(FakeOdoo(PARTNERS)) as crm:
         assert await crm.find_contact(ContactIn("x", email="Jane.Doe@CORP.com")) == "6"
+
+
+async def test_wildcards_are_escaped_in_the_query() -> None:
+    fake = FakeOdoo(PARTNERS)
+    async with _odoo(fake) as crm:
+        await crm.find_company(CompanyIn("Acme_Co 100%"))
+        await crm.find_contact(ContactIn("x", email="a_b@c.com"))
+    sent = [
+        term[2]
+        for _model, _method, args in fake.calls
+        for term in args[0]
+        if isinstance(term, list) and term[1] == "=ilike"
+    ]
+    assert sent == ["Acme\\_Co 100\\%", "a\\_b@c.com"]
