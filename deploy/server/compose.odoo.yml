@@ -19,14 +19,16 @@ services:
   odoo:
     image: odoo:19.0-20261102@sha256:5e755c725b3c43cf0be16d579904e1418300db3a2c44952f928eaddbcb0cc16d
     restart: unless-stopped
-    command: ["--database=e2e", "--db-filter=^e2e$$", "--no-database-list", "--proxy-mode"]
-    environment:
-      HOST: db
-      USER: odoo
-      PASSWORD: ${ODOO_DB_PASSWORD}
+    # The image's entrypoint passes the database password as a command-line argument, which every
+    # process on the host sees; odoo itself reads it from /srv/apps/odoo/odoo.conf (0600, owner = the
+    # image's odoo user) instead. A shell: `docker compose ... run --rm odoo shell -c /etc/odoo/odoo.conf`.
+    entrypoint: ["odoo"]
+    command: ["--config=/etc/odoo/odoo.conf", "--database=e2e", "--db-filter=^e2e$$", "--no-database-list", "--proxy-mode"]
     depends_on:
       db: { condition: service_healthy }
-    volumes: [data:/var/lib/odoo]
+    volumes:
+      - data:/var/lib/odoo
+      - /srv/apps/odoo/odoo.conf:/etc/odoo/odoo.conf:ro
     networks:
       internal: {}
       edge: { aliases: [odoo] }

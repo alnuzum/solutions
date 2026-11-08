@@ -7,6 +7,7 @@ A session is a random id in a signed cookie. The database never sees the id itse
 import base64
 import hashlib
 import hmac
+import ipaddress
 import secrets
 import time
 from collections import defaultdict
@@ -84,7 +85,21 @@ class RateLimiter:
         self._counts: dict[tuple[str, str, int], int] = defaultdict(int)
         self._window = 0
 
+    @staticmethod
+    def client(ip: str) -> str:
+        """An IPv6 client usually holds a whole /64, so the /64 is one client."""
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return ip
+        if isinstance(addr, ipaddress.IPv6Address):
+            if addr.ipv4_mapped is not None:
+                return str(addr.ipv4_mapped)
+            return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+        return str(addr)
+
     def allow(self, ip: str, method: str, now: float | None = None) -> bool:
+        ip = self.client(ip)
         window = int((now if now is not None else time.time()) // 60)
         if window != self._window:
             self._counts.clear()
@@ -141,7 +156,10 @@ def make_middleware(
         if sessions is not None:
             request.state.sid = sessions.verify(request.cookies.get(sessions.cookie))
         response = await call_next(request)
-        if sessions is not None and request.state.issue_cookie and request.state.sid:
+        # a new session gets its cookie; a known one has it renewed on every page, so it lasts
+        # SESSION_DAYS from the last visit, not from the first
+        is_page = response.headers.get("content-type", "").startswith("text/html")
+        if sessions is not None and request.state.sid and (request.state.issue_cookie or is_page):
             sessions.set_cookie(response, request.state.sid)
         for name, value in SECURITY_HEADERS.items():
             response.headers.setdefault(name, value)

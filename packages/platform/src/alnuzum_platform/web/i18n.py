@@ -12,9 +12,11 @@ _T: dict[str, tuple[str, str]] = {
     "title": ("Подключите свою CRM", "Connect your CRM"),
     "lead": (
         "Решения Al-Nuzum работают на данных вашей CRM. Регистрация не нужна: подключение живёт в этом "
-        "браузере, видно только ему и отключается одной кнопкой.",
+        "браузере, видно только ему и отключается одной кнопкой. Если 30 дней не открывать эту страницу, "
+        "подключение отключится само и ключи будут стёрты.",
         "Al-Nuzum solutions work on the data of your CRM. No sign-up: a connection lives in this browser, "
-        "only this browser sees it, and one button turns it off.",
+        "only this browser sees it, and one button turns it off. If this page is not opened for 30 days, "
+        "the connection turns itself off and its keys are erased.",
     ),
     "pick": ("Ваша CRM", "Your CRM"),
     "yours": ("Ваши подключения", "Your connections"),

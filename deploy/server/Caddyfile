@@ -27,13 +27,29 @@
 	}
 }
 
+# the platform: CRM hooks take at most 64 KB (no CRM sends more), anything else 1 MB; the admin API
+# (/connections) answers only from inside the server
+(platform) {
+	@hooks path /hooks/*
+	request_body @hooks {
+		max_size 64KB
+	}
+	request_body {
+		max_size 1MB
+	}
+	@admin path /connections /connections/*
+	respond @admin 404
+}
+
 apps.alnuzum.com {
 	import access prod
+	import platform
 	reverse_proxy platform-prod:8000
 }
 
 apps-stand.alnuzum.com {
 	import access stand
+	import platform
 	reverse_proxy platform-stand:8000
 }
 

@@ -16,7 +16,7 @@ import re
 import uuid
 from collections.abc import Mapping
 from typing import Any
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
@@ -50,6 +50,17 @@ _OWN_PAGE = re.compile(r"/(?:ru|en)(?:/[A-Za-z0-9_-]+)*(?:\?[A-Za-z0-9_=&%.-]*)?
 CONSENT_HOSTS = frozenset({"www.amocrm.ru", "www.kommo.com", "accounts.zoho.com"})
 # the language as our own constant, never the string that came in the address
 _LANG_OF = {code: code for code in LANGS}
+
+
+HOOK_BODY_LIMIT = 64 * 1024
+
+
+class HookRefused(Exception):
+    """A CRM hook got a body that no CRM sends: too large or not parseable."""
+
+    def __init__(self, status: int) -> None:
+        super().__init__(status)
+        self.status = status
 
 
 class PageError(Exception):
@@ -106,16 +117,24 @@ async def _params(request: Request) -> dict[str, str]:
     out = {k: v for k, v in request.query_params.items()}
     if request.method == "POST":
         kind = request.headers.get("content-type", "")
+        declared = request.headers.get("content-length", "0")
+        if not declared.isdigit() or int(declared) > HOOK_BODY_LIMIT:
+            raise HookRefused(413)
+        body = b""
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > HOOK_BODY_LIMIT:
+                raise HookRefused(413)
+        # junk from anybody is a 400, never a 500: 5xx wake the alert
         try:
             if kind.startswith("application/json"):
-                body = json.loads(await request.body() or b"{}")
-                if isinstance(body, dict):
-                    out |= {str(k): str(v) for k, v in body.items() if isinstance(v, str | int)}
+                data = json.loads(body or b"{}")
+                if isinstance(data, dict):
+                    out |= {str(k): str(v) for k, v in data.items() if isinstance(v, str | int)}
             else:
-                form = await request.form()
-                out |= {k: v for k, v in form.items() if isinstance(v, str)}
-        except (ValueError, UnicodeDecodeError):
-            pass
+                out |= {k: v[-1] for k, v in parse_qs(body.decode(), max_num_fields=50).items()}
+        except (ValueError, UnicodeDecodeError, RecursionError):
+            raise HookRefused(400) from None
     return out
 
 
@@ -172,6 +191,7 @@ def build_router(
         request: Request, lang: str, crm: CrmKind, *, status: int = 200, **ctx: Any
     ) -> HTMLResponse:
         sid = ensure_session(request)
+        await store_of(request).touch(Sessions.owner(sid))
         conns = [c for c in await store_of(request).list(Sessions.owner(sid)) if c.status != "disabled"]
         return page(
             request,
@@ -306,6 +326,7 @@ def build_router(
     async def connection(request: Request, lang: str, conn_id: str) -> HTMLResponse:
         lang = _lang(lang)
         sid, info = await own(request, lang, conn_id)
+        await store_of(request).touch(Sessions.owner(sid))
         writes = await store_of(request).writes(info.id, Sessions.owner(sid), 10)
         notice = request.query_params.get("n")
         return page(

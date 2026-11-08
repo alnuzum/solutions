@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from alnuzum_crm.bitrix24 import parse_webhook
@@ -306,6 +306,51 @@ class ConnectionStore:
                 row.status = status
             row.last_error = error
             row.checked_at = datetime.now(UTC)
+
+    async def touch(self, owner: str) -> None:
+        """The session opened a page: its connections are seen (written at most once an hour)."""
+        async with self._sessions.begin() as session:
+            await session.execute(
+                update(CrmConnection)
+                .where(
+                    CrmConnection.owner == owner,
+                    CrmConnection.status != "disabled",
+                    CrmConnection.seen_at < func.now() - timedelta(hours=1),
+                )
+                .values(seen_at=func.now())
+            )
+
+    async def expire_unseen(self, days: int) -> Sequence[tuple[CrmKind, dict[str, str]]]:
+        """Erase the keys of connections their session has not opened for ``days`` (its cookie is gone
+        by then, so nobody could disconnect them), and of ones waiting for a reconnect as long. Returns
+        the secrets they held, to revoke them at the CRM."""
+        age = timedelta(days=days)
+        held: list[tuple[CrmKind, dict[str, str]]] = []
+        async with self._sessions.begin() as session:
+            rows = await session.execute(
+                select(CrmConnection)
+                .where(
+                    CrmConnection.status != "disabled",
+                    or_(
+                        CrmConnection.seen_at < func.now() - age,
+                        and_(
+                            CrmConnection.status == "reauth_required",
+                            CrmConnection.updated_at < func.now() - age,
+                        ),
+                    ),
+                )
+                .with_for_update()
+            )
+            for row in rows.scalars():
+                if row.secret is not None:
+                    held.append(
+                        (
+                            CrmKind(row.crm),
+                            json.loads(self._keyring.decrypt(row.secret, _aad(row.id, row.crm))),
+                        )
+                    )
+                self._erase(row, "expired")
+        return held
 
     async def list_active(self, limit: int = 500) -> Sequence[ConnectionInfo]:
         async with self._sessions() as session:

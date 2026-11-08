@@ -52,9 +52,9 @@ jobs:
         ports: ["8069:8069"]
     env:
       E2E_REQUIRE_ALL: "1"
-      AMOCRM_DOMAIN: ${{ vars.AMOCRM_DOMAIN }}
+      AMOCRM_DOMAIN: ${{ secrets.AMOCRM_DOMAIN }}
       AMOCRM_TOKEN: ${{ secrets.AMOCRM_TOKEN }}
-      KOMMO_DOMAIN: ${{ vars.KOMMO_DOMAIN }}
+      KOMMO_DOMAIN: ${{ secrets.KOMMO_DOMAIN }}
       KOMMO_TOKEN: ${{ secrets.KOMMO_TOKEN }}
       B24_WEBHOOK: ${{ secrets.B24_WEBHOOK }}
       ZOHO_CLIENT_ID: ${{ secrets.ZOHO_CLIENT_ID }}

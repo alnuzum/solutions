@@ -424,7 +424,7 @@ async def test_crm_message_never_reaches_the_journal(
     b = Browser(app)
     conn_id = await b.connect_bitrix24()
     fake.fail = CrmValidationError(
-        "field TITLE: 'Иванов Иван +998901234567'", crm="bitrix24", code="BAD_TITLE"
+        "field TITLE: 'Иванов Иван +998001234567'", crm="bitrix24", code="BAD_TITLE"
     )
     resp = await b.post(f"/ru/connections/{conn_id}/check", csrf=await b.csrf())
     assert resp.headers["location"].endswith("?n=rejected&code=BAD_TITLE")
@@ -962,3 +962,86 @@ async def test_no_address_in_the_path_becomes_a_location(app: FastAPI, path: str
     resp = await Browser(app).http.get(path, follow_redirects=False)
     assert resp.status_code == 404
     assert "location" not in resp.headers
+
+
+# --- narrow check of stage 1b: hooks, sessions that slide, connections nobody sees, IPv6 ---
+
+
+@pytest.mark.parametrize("hook", ["/hooks/amocrm/secrets", "/hooks/kommo/uninstall"])
+async def test_hooks_answer_4xx_to_junk_never_5xx(app: FastAPI, hook: str) -> None:
+    http = Browser(app).http
+    deep = await http.post(hook, content=b"[" * 60_000, headers={"content-type": "application/json"})
+    assert deep.status_code == 400
+    broken = await http.post(hook, content=b'{"state": ', headers={"content-type": "application/json"})
+    assert broken.status_code == 400
+    big = await http.post(
+        hook, content=b"a=" + b"x" * 70_000, headers={"content-type": "application/x-www-form-urlencoded"}
+    )
+    assert big.status_code == 413
+
+
+async def test_session_cookie_slides_on_every_page(app: FastAPI) -> None:
+    b = Browser(app)
+    first = await b.http.get("/ru")
+    assert "Max-Age=2592000" in first.headers["set-cookie"]
+    again = await b.http.get("/ru")
+    renewed = again.headers.get("set-cookie", "")
+    assert "Max-Age=2592000" in renewed
+    assert renewed.split(";")[0] == first.headers["set-cookie"].split(";")[0]
+
+
+async def test_a_page_visit_marks_the_connections_seen(app: FastAPI, engine: AsyncEngine) -> None:
+    b = Browser(app)
+    conn_id = await b.connect_bitrix24()
+    async with engine.begin() as conn:
+        await conn.execute(text("UPDATE crm_connections SET seen_at = now() - interval '2 days'"))
+    await b.http.get("/ru")
+    (fresh,) = await rows(engine, "SELECT seen_at > now() - interval '1 minute' FROM crm_connections")
+    assert fresh == (True,), conn_id
+
+
+async def test_connections_nobody_saw_for_30_days_are_erased(
+    app: FastAPI, engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    b = Browser(app)
+    gone = await b.connect_bitrix24()
+    stale = await b.connect_bitrix24("https://other.bitrix24.ru/rest/1/whsecrettoken123456/")
+    kept = await b.connect_bitrix24("https://third.bitrix24.ru/rest/1/whsecrettoken654321/")
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE crm_connections SET seen_at = now() - interval '31 days' WHERE id = :i"), {"i": gone}
+        )
+        await conn.execute(
+            text(
+                "UPDATE crm_connections SET status = 'reauth_required', updated_at = now() - interval '31 days'"
+                " WHERE id = :i"
+            ),
+            {"i": stale},
+        )
+    revoked: list[str] = []
+
+    async def revoke(crm: CrmKind, held: dict[str, str]) -> None:
+        revoked.append(crm.value)
+
+    monkeypatch.setattr(app.state.connectors, "revoke", revoke)
+    monkeypatch.setattr(app.state.connectors, "adapter", lambda info, secrets, store: FakeCRM())
+    await sweep(app.state.store, app.state.connectors)
+    found = {
+        r[0]: r[1:]
+        for r in await rows(
+            engine, "SELECT id::text, status, secret IS NULL, last_error FROM crm_connections"
+        )
+    }
+    assert found[gone] == ("disabled", True, "expired")
+    assert found[stale] == ("disabled", True, "expired")
+    assert found[kept][:2] == ("active", False)
+    assert revoked == ["bitrix24", "bitrix24"]
+
+
+def test_rate_limit_counts_an_ipv6_slash_64_as_one_client() -> None:
+    lim = RateLimiter(2, 1)
+    assert lim.allow("2001:db8:1:2::1", "GET", 60.0)
+    assert lim.allow("2001:db8:1:2:ffff::9", "GET", 60.0)
+    assert not lim.allow("2001:db8:1:2:aaaa:bbbb:cccc:dddd", "GET", 60.0)
+    assert lim.allow("2001:db8:1:3::1", "GET", 60.0)
+    assert lim.allow("203.0.113.7", "GET", 60.0)

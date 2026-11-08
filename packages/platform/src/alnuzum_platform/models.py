@@ -56,6 +56,8 @@ class CrmConnection(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the last time its session opened a page; nobody sees it for EXPIRE_DAYS -> keys erased
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class OAuthState(Base):

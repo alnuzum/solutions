@@ -127,7 +127,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 14, \"result\": [{\"id\": 7, \"phone\": \"+998 90 673 54 51\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 14, \"result\": [{\"id\": 7, \"phone\": \"+998 00 673 54 51\"}]}",
    "binary": false
   },
   {

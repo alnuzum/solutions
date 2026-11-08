@@ -117,8 +117,8 @@ jobs:
           test "$(jq -r '[.[].RuleID] | sort | join(",")' "$RUNNER_TEMP/planted.json")" = "bitrix24-inbound-webhook,zoho-oauth-token"
       - name: gitleaks over the whole history
         env:
-          # hosts of the test accounts must never reach the repository
-          HOSTS: ${{ vars.AMOCRM_DOMAIN }} ${{ vars.KOMMO_DOMAIN }} ${{ vars.B24_HOST }}
+          # hosts of the test accounts must never reach the repository; secrets, so the log masks them
+          HOSTS: ${{ secrets.AMOCRM_DOMAIN }} ${{ secrets.KOMMO_DOMAIN }} ${{ secrets.B24_HOST }}
         run: |
           python3 - <<'PY'
           import os, re

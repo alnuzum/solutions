@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -31,10 +31,12 @@ from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import make_engine, make_sessionmaker, ping
 from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound, ConnectionStore
 from alnuzum_platform.web.connectors import Connectors
-from alnuzum_platform.web.routes import PageError, build_router, render_error
-from alnuzum_platform.web.security import RateLimiter, Sessions, make_middleware
+from alnuzum_platform.web.routes import HookRefused, PageError, build_router, render_error
+from alnuzum_platform.web.security import SESSION_DAYS, RateLimiter, Sessions, make_middleware
 
 WEB = Path(__file__).parent / "web"
+# a connection its session has not opened for this long is erased: the cookie is gone by then
+EXPIRE_DAYS = SESSION_DAYS
 
 log = logging.getLogger("alnuzum_platform")
 
@@ -90,6 +92,8 @@ async def sweep(store: ConnectionStore, connectors: Connectors) -> tuple[int, in
             await store.mark(info.id, error="internal")
         else:
             await store.mark(info.id)
+    for kind, held in await store.expire_unseen(EXPIRE_DAYS):
+        await connectors.revoke(kind, held)
     await store.purge_states()
     return checked, lost
 
@@ -143,6 +147,10 @@ def create_app(settings: Settings | None = None, *, transport: object | None = N
     @app.exception_handler(PageError)
     async def page_error(request: StarletteRequest, exc: PageError) -> HTMLResponse:
         return render_error(templates, request, exc, settings.app_env)
+
+    @app.exception_handler(HookRefused)
+    async def hook_refused(request: StarletteRequest, exc: HookRefused) -> PlainTextResponse:
+        return PlainTextResponse("refused", status_code=exc.status)
 
     def admin(authorization: Annotated[str | None, Header()] = None) -> None:
         expected = settings.admin_token.get_secret_value()
