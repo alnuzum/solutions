@@ -13,7 +13,7 @@ keywords = ["bitrix24"]
 
 [[rules.allowlists]]
 description = "placeholders of tests and recorded traffic"
-regexes = ['''^(WEBHOOKTOKEN|abcdef123456|supersecret123)$''']
+regexes = ['''^(WEBHOOKTOKEN|abcdef123456|supersecret123|abcdefghijklmnop|whsecrettoken123456)$''']
 
 [[rules]]
 id = "zoho-oauth-token"
