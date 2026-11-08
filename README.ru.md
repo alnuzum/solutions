@@ -32,6 +32,62 @@ uv run pytest                   # юнит и контрактные пробы,
 uv run ruff check . && uv run ruff format --check . && uv run mypy packages
 ```
 
+## Адаптеры CRM
+
+```python
+from decimal import Decimal
+
+from alnuzum_crm.bitrix24 import Bitrix24
+from alnuzum_crm.types import CompanyIn, ContactIn, DealIn, DealLine
+
+async with Bitrix24(webhook_url) as crm:
+    company = await crm.find_or_create_company(CompanyIn("ООО Акме", inn="301234567"))
+    contact = await crm.find_or_create_contact(ContactIn("Иван Петров", email="ivan@acme.example"), company_id=company.id)
+    deal = await crm.create_deal(DealIn("Заказ 42", (DealLine("Товар", Decimal(2), Decimal(10)),),
+                                       company_id=company.id, contact_id=contact.id))
+```
+
+Все адаптеры (`AmoCRM`, `Kommo`, `Bitrix24`, `ZohoCRM`, `Odoo`) реализуют одни и те же методы; чем CRM
+различаются (ИНН, товарные строки, файлы, задачи, удаление), написано в начале модуля каждого адаптера.
+Ошибки приходят типами `CrmAuthError`, `CrmPermissionError`, `CrmNotFound`, `CrmValidationError`,
+`CrmRateLimited`, `CrmUnavailable`, `CrmUnsupported`, и токенов в их тексте нет.
+
+## Тесты
+
+| Уровень | Команда | Когда |
+|---|---|---|
+| юнит и контрактные | `uv run pytest` | на каждый push; контрактные проигрывают записанный трафик последнего живого прогона (`packages/crm/tests/cassettes`) |
+| живые E2E | `uv run pytest -m e2e --tb=short` | push в `main`, pull request и каждую ночь в GitHub Actions: настоящие вызовы в тестовые аккаунты amoCRM, Kommo, Битрикс24, Zoho CRM и в свежий Odoo Community |
+
+Живые E2E берут доступы из окружения (`AMOCRM_DOMAIN`, `AMOCRM_TOKEN`, `KOMMO_DOMAIN`, `KOMMO_TOKEN`,
+`B24_WEBHOOK`, `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN`,
+`ODOO_PASSWORD`); CRM без них пропускается. Odoo локально:
+
+```bash
+docker compose --profile odoo up -d odoo
+uv run python scripts/odoo_bootstrap.py --password "$ODOO_PASSWORD"
+```
+
+`RECORD=1` перезаписывает записи трафика; токены, пути вебхуков, хосты и почты заменяются заглушками.
+
+## Безопасность
+
+- Секреты CRM (токены, адреса вебхуков, API-ключи) хранятся только зашифрованными: AES-256-GCM, один
+  конверт на подключение, привязанный к своей строке: шифртекст, перенесённый в другую строку, не расшифруется.
+- Refresh token тратится один раз даже при многих воркерах: блокировка в процессе и блокировка строки в Postgres.
+- Адреса, которые вводит пользователь: вебхук Битрикс24 только https на облачном портале Битрикс24; адрес
+  Odoo только https на порту 443 и только с публичными адресами после резолва, с повторной проверкой на
+  каждом соединении (DNS rebinding); хосты amoCRM, Kommo и Zoho сверяются со списками их доменов.
+- `/connections` требует `Authorization: Bearer $ADMIN_TOKEN`; без `ADMIN_TOKEN` не пускает никого.
+
+### Ротация ключа шифрования
+
+1. Создать ключ: `python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"`.
+2. Поставить его первым в `SECRET_KEYS`, старый оставить за ним: `SECRET_KEYS=k2:<новый>,k1:<старый>`; перезапустить.
+   Новые секреты шифруются `k2`, старые по-прежнему расшифровываются `k1`.
+3. Перешифровать всё новым ключом: `docker compose exec platform alnuzum-platform rotate-keys`.
+4. Когда повторный запуск печатает `re-encrypted: 0`, убрать `k1` из `SECRET_KEYS` и перезапустить.
+
 ## Лицензия
 
 MIT, см. [LICENSE](LICENSE).

@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint, types, security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: ruff
+        run: uv run ruff check .
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: mypy --strict
+        run: uv run mypy packages
+      - name: bandit
+        run: uv run bandit -c pyproject.toml -r packages scripts -q
+      - name: pip-audit
+        run: |
+          uv export --frozen --no-emit-workspace --no-hashes --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
+          uv run pip-audit --strict --disable-pip --no-deps -r "$RUNNER_TEMP/requirements.txt"
+
+  test:
+    name: Unit and contract tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: alnuzum
+          POSTGRES_PASSWORD: alnuzum-ci
+          POSTGRES_DB: alnuzum
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U alnuzum -d alnuzum"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://alnuzum:alnuzum-ci@localhost:5432/alnuzum
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: pytest (coverage gate 90 %)
+        run: uv run pytest --cov --cov-report=term --cov-fail-under=90
+
+  compose:
+    name: docker compose up, /health
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker compose up -d --build --wait
+      - name: /health answers 200
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8040/health || true)
+            [ "$code" = 200 ] && exit 0
+            sleep 2
+          done
+          docker compose logs platform
+          exit 1
+      - if: always()
+        run: docker compose down -v
+
+  gitleaks:
+    name: Secrets in the whole history
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        env:
+          VERSION: 8.30.1
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o checksums.txt "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_checksums.txt"
+          grep " gitleaks_${VERSION}_linux_x64.tar.gz\$" checksums.txt | sed 's/gitleaks_.*$/gitleaks.tgz/' | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks git --redact --no-banner --log-opts="--all" .

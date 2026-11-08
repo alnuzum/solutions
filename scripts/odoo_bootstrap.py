@@ -28,7 +28,8 @@ def rpc(url: str, service: str, method: str, *args: Any) -> Any:
     if not url.startswith(("http://", "https://")):
         raise ValueError("--url must be http(s)")
     req = urllib.request.Request(f"{url}/jsonrpc", data=body, headers={"Content-Type": "application/json"})  # noqa: S310
-    with urllib.request.urlopen(req, timeout=600) as resp:  # noqa: S310 - the URL is the operator's test Odoo
+    # the scheme is checked above; the URL is the operator's test Odoo
+    with urllib.request.urlopen(req, timeout=600) as resp:  # noqa: S310  # nosec B310
         data = json.loads(resp.read())
     if data.get("error"):
         raise RuntimeError(str(data["error"].get("data", {}).get("message") or data["error"])[:300])

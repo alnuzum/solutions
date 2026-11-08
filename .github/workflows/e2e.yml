@@ -1,0 +1,73 @@
+name: Live E2E
+
+# Real calls into the test accounts of amoCRM, Kommo, Bitrix24 and Zoho CRM, and into a fresh
+# Odoo Community started next to the job. One run at a time: the accounts are shared.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Live E2E in five CRMs
+    # secrets never reach pull requests from forks
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      odoo-db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd "pg_isready -U odoo -d postgres"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+      odoo:
+        image: odoo:19.0-20261102
+        env:
+          HOST: odoo-db
+          USER: odoo
+          PASSWORD: odoo
+        ports: ["8069:8069"]
+    env:
+      E2E_REQUIRE_ALL: "1"
+      AMOCRM_DOMAIN: ${{ vars.AMOCRM_DOMAIN }}
+      AMOCRM_TOKEN: ${{ secrets.AMOCRM_TOKEN }}
+      KOMMO_DOMAIN: ${{ vars.KOMMO_DOMAIN }}
+      KOMMO_TOKEN: ${{ secrets.KOMMO_TOKEN }}
+      B24_WEBHOOK: ${{ secrets.B24_WEBHOOK }}
+      ZOHO_CLIENT_ID: ${{ secrets.ZOHO_CLIENT_ID }}
+      ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
+      ZOHO_REFRESH_TOKEN: ${{ secrets.ZOHO_REFRESH_TOKEN }}
+      ODOO_URL: http://127.0.0.1:8069
+      ODOO_DB: e2e
+      ODOO_LOGIN: admin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Odoo password for this run
+        run: |
+          pw=$(openssl rand -hex 16)
+          echo "::add-mask::$pw"
+          echo "ODOO_PASSWORD=$pw" >> "$GITHUB_ENV"
+      - name: Bootstrap the test Odoo
+        run: uv run python scripts/odoo_bootstrap.py --url "$ODOO_URL" --db "$ODOO_DB" --password "$ODOO_PASSWORD" --wait 300
+      - name: Live E2E
+        # short tracebacks: no frame arguments (request headers) in the log
+        run: uv run pytest -m e2e -v --tb=short -p no:cacheprovider
