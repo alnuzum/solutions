@@ -15,12 +15,24 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from alnuzum_contracts.intake import Block
+from alnuzum_files import FileError
 
 MAX_CLAUSES = 800
+MAX_CLAUSE_CHARS = 5000  # a clause longer than this is no clause a person compares word by word
+MAX_WORD_PAIRS = 4_000_000  # words of ours × words of theirs a word-by-word comparison may walk
 QUOTE = 160  # the longest quote, in characters
 CONTEXT = 3  # words of context around a difference in a quote
 SIMILAR = 0.4  # the share of common words two clauses need to be a pair
 SIMILAR_SAME_NUMBER = 0.2
+
+
+class TooManyClauses(FileError):
+    """Refused, not cut: a cut would read as clauses deleted and hide the changes after it."""
+
+    def __init__(self, n: int) -> None:
+        super().__init__("e_clauses")
+        self.n = n
+
 
 _NUM = re.compile(r"^\s*(?:п\.\s*|пункт\s+)?(\d{1,2}(?:\.\d{1,3}){0,4})(\.|\))?(?=\s|$)", re.IGNORECASE)
 _WORD_NUMBER = re.compile(r"^\s*(?:статья|раздел|article|section|clause)\s+(\d{1,2})\b", re.IGNORECASE)
@@ -115,7 +127,9 @@ def split(blocks: Iterable[Block]) -> list[Clause]:
                 open_.text += " " + text
         last_len = len(text)
     if len(out) > MAX_CLAUSES:
-        out = out[:MAX_CLAUSES]
+        raise TooManyClauses(len(out))
+    if any(len(c.text) > MAX_CLAUSE_CHARS for c in out):
+        raise FileError("e_clause_long")
     return out
 
 
@@ -161,6 +175,10 @@ def hunks(a_text: str, b_text: str) -> list[Hunk]:
     skip_b = len(tokens(b_text[: len(b_text) - len(strip_number(b_text))]))
     ta, tb = ta[skip_a:], tb[skip_b:]
     out: list[Hunk] = []
+    if len(ta) * len(tb) > MAX_WORD_PAIRS:  # the walk is n × m: the whole clause is one fragment
+        if not ta or not tb:
+            return []
+        return [Hunk((ta[0].start, ta[-1].end), (tb[0].start, tb[-1].end))]
     matcher = SequenceMatcher(None, [t.key for t in ta], [t.key for t in tb], autojunk=False)
     # differing runs joined across punctuation alone: «30 (тридцати) рабочих» is one fragment
     groups: list[list[int]] = []
@@ -258,6 +276,25 @@ class Comparison:
     changes: list[Change]
     cosmetic: int  # pairs that differ only in case, quotes, spaces, punctuation or number
     same: int
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "ours": [[c.label, c.key, c.text] for c in self.ours],
+            "theirs": [[c.label, c.key, c.text] for c in self.theirs],
+            "changes": [c.to_json() for c in self.changes],
+            "cosmetic": self.cosmetic,
+            "same": self.same,
+        }
+
+    @classmethod
+    def of(cls, data: dict[str, Any]) -> "Comparison":
+        return cls(
+            [Clause(*c) for c in data["ours"]],
+            [Clause(*c) for c in data["theirs"]],
+            [Change.of(c) for c in data["changes"]],
+            int(data.get("cosmetic") or 0),
+            int(data.get("same") or 0),
+        )
 
 
 def _pairs(ours: list[Clause], theirs: list[Clause]) -> list[tuple[int | None, int | None]]:

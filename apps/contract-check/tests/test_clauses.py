@@ -4,6 +4,7 @@ of the document, cosmetics are not changes."""
 import random
 import time
 
+import pytest
 from alnuzum_contracts.clauses import Clause, compare, hunks, normal, number_of, split, window
 from alnuzum_contracts.intake import Block
 
@@ -168,3 +169,31 @@ def test_forty_pages_compare_in_time() -> None:
     cmp = compare(clauses(big), clauses(theirs))
     assert time.monotonic() - began < 3.0
     assert any(c.kind == "added" for c in cmp.changes)
+
+
+def test_a_long_walk_word_by_word_is_cut_to_the_whole_clause() -> None:
+    """Two clauses of 2 400 equal words but the last: the walk would be n × m; it is one fragment at once."""
+    import time
+
+    from alnuzum_contracts.clauses import MAX_WORD_PAIRS, hunks
+
+    a, b = "слово " * 2400 + "конец", "слово " * 2400 + "иначе"
+    began = time.monotonic()
+    found = hunks(a, b)
+    assert time.monotonic() - began < 1.0
+    assert len(found) == 1 and found[0].a == (0, len(a)) and found[0].b == (0, len(b))
+    assert MAX_WORD_PAIRS < 2401 * 2401
+
+
+def test_over_800_clauses_or_a_clause_over_5000_characters_is_refused() -> None:
+    from alnuzum_contracts.clauses import TooManyClauses
+    from alnuzum_contracts.intake import Block
+
+    from alnuzum_files import FileError
+
+    with pytest.raises(TooManyClauses) as many:
+        split([Block("", "", f"{n}. Пункт {n}.", True) for n in range(1, 802)])
+    assert many.value.n == 801 and many.value.code == "e_clauses"
+    with pytest.raises(FileError) as long:
+        split([Block("", "", "1. " + "а" * 5001, True)])
+    assert long.value.code == "e_clause_long"

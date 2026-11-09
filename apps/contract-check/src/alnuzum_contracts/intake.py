@@ -77,15 +77,14 @@ def read(data: bytes) -> Document:
     if kind == "docx":
         found = docx.read(data, max_chars=MAX_CHARS)
         return Document("docx", [Block(label, key, text, True) for label, key, text in found])
-    if kind == "pdf":
-        reader, texts = pdf_mod.open_pdf(data, MAX_PAGES)
-        if sum(len("".join(t.split())) for t in texts) < MIN_TEXT:
-            if len(texts) > MAX_SCAN_PAGES:
-                raise FileError("e_scan_pages")
-            pdf_mod.pixels(reader)
+    if kind == "pdf":  # its text is read in a child with a memory ceiling, killed on time
+        from alnuzum_contracts import worker
+
+        layer = worker.read_pdf(data)
+        if layer["kind"] == "scan":
             pictures = pdf_mod.rasterize(data, max_pages=MAX_SCAN_PAGES)
             return Document("scan", images=pictures, pages=len(pictures))
-        return Document("pdf", _lines("\n".join(texts)), pages=len(texts))
+        return Document("pdf", [Block(*b) for b in layer["blocks"]], pages=int(layer["pages"]))
     if kind in ("png", "jpeg", "webp"):
         return Document("scan", images=[image_mod.normalize(data)], pages=1)
     if kind == "text":
