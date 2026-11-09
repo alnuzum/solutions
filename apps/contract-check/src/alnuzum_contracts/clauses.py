@@ -341,8 +341,8 @@ def compare(ours: list[Clause], theirs: list[Clause]) -> Comparison:
             changes.append(Change(0, "added", None, j, qb=window(theirs[j].text, [])))
     # a clause deleted in one place and added in another with the same words is moved
     added = {theirs[c.b].norm: c for c in changes if c.kind == "added" and c.b is not None}
-    for c in [c for c in changes if c.kind == "deleted" and c.a is not None]:
-        twin = added.pop(ours[c.a].norm, None)
+    for c in [c for c in changes if c.kind == "deleted"]:
+        twin = added.pop(ours[c.a].norm, None) if c.a is not None else None
         if twin is not None:
             c.kind, c.b, c.qb = "moved", twin.b, twin.qb
             c.topic, c.risk, c.substantive, c.rated = "wording", "low", False, True
