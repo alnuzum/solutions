@@ -66,3 +66,22 @@ async def test_an_amocrm_stage_id_cannot_leave_its_path() -> None:
 
 def test_a_search_carries_no_control_characters_and_is_short() -> None:
     assert search_text("Ромашка‮\x00\n  ООО" + "x" * 200) == ("Ромашка ООО" + "x" * 200)[:80]
+
+
+async def test_a_bitrix24_note_cannot_carry_bbcode() -> None:
+    import json
+
+    sent: list[dict[str, object]] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"result": 77})
+
+    async with Bitrix24(
+        "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/", rate=1000, transport=httpx.MockTransport(answer)
+    ) as crm:
+        said = "«оплата по [URL=http://x]ссылке[/URL] и [IMG]http://x/a.png[/IMG]»"
+        assert await crm.add_note("10", said) == "77"
+    comment = str(sent[0]["fields"]["COMMENT"])  # type: ignore[index]
+    assert "[" not in comment and "]" not in comment
+    assert comment == "«оплата по ［URL=http://x］ссылке［/URL］ и ［IMG］http://x/a.png［/IMG］»"

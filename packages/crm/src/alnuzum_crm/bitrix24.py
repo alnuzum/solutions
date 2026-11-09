@@ -134,6 +134,9 @@ def _semantic(value: Any) -> DealStatus:
 DEAL_FIELDS = ["ID", "TITLE", "STAGE_ID", "STAGE_SEMANTIC_ID", "OPPORTUNITY", "COMPANY_ID", "CONTACT_ID"]
 
 
+NO_BBCODE = str.maketrans({"[": "［", "]": "］"})  # fullwidth brackets read the same, parse as text
+
+
 class Bitrix24(CRM):
     kind: ClassVar[CrmKind] = CrmKind.BITRIX24
     capabilities: ClassVar[frozenset[str]] = frozenset(
@@ -557,7 +560,9 @@ class Bitrix24(CRM):
         return str(await self._result("crm.timeline.comment.add", {"fields": fields}))
 
     async def add_note(self, deal_id: str, text: str) -> str:
-        fields = {"ENTITY_ID": int(deal_id), "ENTITY_TYPE": "deal", "COMMENT": text}
+        # the timeline renders BBCode: a note quoting a person must not become a link or a picture there
+        plain = text.translate(NO_BBCODE)
+        fields = {"ENTITY_ID": int(deal_id), "ENTITY_TYPE": "deal", "COMMENT": plain}
         return str(await self._result("crm.timeline.comment.add", {"fields": fields}))
 
     async def add_task(self, deal_id: str, task: TaskIn) -> str:
