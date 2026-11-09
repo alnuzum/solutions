@@ -786,3 +786,33 @@ async def test_a_retry_after_the_deal_was_created_writes_into_that_deal(
     assert (len(h.crm.companies), len(h.crm.contacts)) == clients  # the client is not looked up again
     ((deal, status),) = await rows(engine, "SELECT deal_id, status FROM orders_runs")
     assert (deal, status) == ("500", "written")
+
+
+async def test_a_long_text_gets_our_page_and_costs_no_run(make: Any, engine: AsyncEngine) -> None:
+    """40 000 Cyrillic letters are 80 KB of UTF-8: the field once hit Starlette's 64 KB part limit."""
+    h = await make(choose_first())
+    b = Browser(h.app)
+    # a table (read without the model) of 200 rows: under MAX_LINES
+    head, line = (
+        "Наименование;Количество\n",
+        "Кабель медный силовой Севкабель, пятьдесят метров, " * 4 + ";50\n",
+    )
+    empty = {"file": ("", b"", "application/octet-stream")}  # what a browser sends without a file
+
+    async def send(text: str) -> httpx.Response:
+        token = await b.csrf()
+        data = {"csrf": token, "target": "demo:bitrix24", "sample": "", "text": text}
+        return await b.http.post("/ru/orders", data=data, files=empty)
+
+    fits = head + line * ((intake.MAX_TEXT - len(head)) // len(line))
+    assert len(fits.encode()) > 64 * 1024
+    read = await send(fits)
+    assert read.status_code == 303, re.findall(
+        r"class=\"err[^>]*>(.*?)</p>", read.text, re.S
+    )  # read as an order
+    for size in (intake.MAX_TEXT + 1, 4 * intake.MAX_TEXT):
+        resp = await send((head + line * 4000)[:size])
+        assert resp.status_code == 413 and "<html" in resp.text
+        assert "Документ слишком длинный для одной заявки." in resp.text
+    # only the text that fitted counts as a run
+    assert len(await rows(engine, "SELECT 1 FROM orders_runs")) == 1

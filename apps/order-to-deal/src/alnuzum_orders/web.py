@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartParser
 
 from alnuzum_crm.amocrm import AmoCRM, Kommo
@@ -51,6 +52,8 @@ log = logging.getLogger("alnuzum_orders.web")
 HERE = Path(__file__).parent
 CRMS = tuple(k.value for k in CrmKind)
 MAX_BODY = intake.MAX_BYTES + 256 * 1024
+# a field of the form: the longest text in the worst UTF-8 (4 bytes a character; a newline sent as CRLF is 2)
+MAX_FIELD = 4 * intake.MAX_TEXT + 4096
 MAX_LINKED_LINES = 400
 # CRMs whose deal lines keep their own price; the rest get catalog prices and the total as the budget
 LINE_PRICES = frozenset(
@@ -470,7 +473,13 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         declared = request.headers.get("content-length", "")
         if not declared.isdigit() or int(declared) > MAX_BODY:
             raise PageError(413, "e_size_t", "e_size", lang)
-        form = await request.form(max_files=1, max_fields=10, max_part_size=64 * 1024)
+        try:
+            form = await request.form(max_files=1, max_fields=10, max_part_size=MAX_FIELD)
+        except HTTPException as exc:
+            # a field over the limit is a text far too long: our page says so, not Starlette's JSON
+            if exc.status_code != 400 or "exceeded maximum size" not in str(exc.detail):
+                raise
+            return await start(request, lang, status=413, error="e_too_long")
         sid = kit.need_csrf(request, form, lang)
         owner = kit.owner(sid)
         target = str(form.get("target") or "")
@@ -480,7 +489,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         # only what costs nothing is checked before the quota: which input, and its size
         sample = str(form.get("sample") or "")
         upload = form.get("file")
-        typed = str(form.get("text") or "")
+        typed = str(form.get("text") or "").replace("\r\n", "\n")  # the browser sends CRLF
         name, data = "text", b""
         if sample:
             if sample not in samples():
@@ -494,6 +503,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
                 return await start(request, lang, status=400, error=error, target=target)
         elif not typed.strip():
             return await start(request, lang, status=400, error="e_empty", target=target)
+        elif len(typed) > intake.MAX_TEXT:
+            return await start(request, lang, status=413, error="e_too_long", target=target)
         # the run is counted before the file is read or the model asked: a failing, a heavy or a parallel
         # attempt counts too
         try:
