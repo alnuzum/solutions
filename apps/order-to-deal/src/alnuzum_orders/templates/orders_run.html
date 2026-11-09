@@ -12,7 +12,8 @@
   <h1>{{ t.o_title }}</h1>
   <p>{{ r.source.name }} · {{ crm_name }}{% if run.demo %} ({{ t.o_demo|lower }}){% endif %} · {{ t.o_cost.format(calls=r.usage.calls, usd=r.usage.usd[:6]) }}</p></div>
 </div>
-{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
+{% if demo_full %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t['n_' ~ demo_full].format(crm=crm_name) }}{% if demo_others %} {{ t.n_full_try }} {% for k in demo_others %}{{ t['crm_' ~ k] }}{% if not loop.last %}, {% endif %}{% endfor %}. <a href="/{{ lang }}/orders">{{ t.n_full_again }}</a>{% endif %}</p>
+{% elif notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
 
 {% if run.status == 'written' and run.readback %}
 <section class="card done">
@@ -87,7 +88,7 @@
   <p class="muted small">{{ t.o_write_note.format(n=r.lines|selectattr('status', 'eq', 'ok')|list|length, task=(t.o_task_part.format(n=left) if left else '')) }}{% if demo_left is not none %} {{ t.o_demo_left.format(n=demo_left) }}{% endif %}</p>
   <div class="acts">
    <button class="btn ghost" type="submit" name="action" value="recalc">{{ t.o_recalc }}</button>
-   <button class="btn" type="submit" name="action" value="write"{% if demo_left == 0 %} disabled{% endif %}>{{ t.o_write.format(crm=crm_name) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+   <button class="btn" type="submit" name="action" value="write"{% if demo_left == 0 or demo_full %} disabled{% endif %}>{{ t.o_write.format(crm=crm_name) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
   </div>
   {% endif %}
  </form>

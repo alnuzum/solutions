@@ -32,11 +32,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
 from alnuzum_platform.db import Base
+from alnuzum_platform.models import CrmWrite
 
 KEEP = timedelta(days=1)
+DEMO_OWNER = "demo"  # the owner of the demo connections
 LOCK_KEY = 0x4F524452  # advisory lock of the model-call ceiling ("ORDR")
 # advisory lock classes (two-key form): runs of a session, runs of an address, demo writes of a session
 LOCK_OWNER, LOCK_IP, LOCK_WRITES = 0x4F4F, 0x4F49, 0x4F57
+# demo writes of an address and of a demo CRM
+LOCK_WRITES_IP, LOCK_WRITES_CRM = 0x4F58, 0x4F59
 # a run is "reading" while the system reads it and "rejected" when that failed: neither is shown,
 # both count against the quotas
 HIDDEN = ("reading", "rejected")
@@ -98,6 +102,18 @@ class RunNotFound(LookupError):
 
 class RunsExceeded(RuntimeError):
     """The session's or the address's runs for the day are spent."""
+
+
+@dataclass(frozen=True)
+class DemoLimits:
+    """Deals the demo accounts take in 24 hours: from a session, from an address, into one CRM (its own
+    ceiling, apart from the platform's quota of a connection); ``total``: into that CRM in all (Kommo's
+    technical account keeps at most 100 deals)."""
+
+    per_session: int
+    per_ip: int
+    per_crm: int
+    total: int | None = None
 
 
 @dataclass(frozen=True)
@@ -207,14 +223,30 @@ class OrderStore:
                 .values(result=result)
             )
 
-    async def start_writing(self, run_id: uuid.UUID, owner: str, *, demo_limit: int | None = None) -> str:
-        """Only one write per run, and at most ``demo_limit`` demo deals per session a day: the count
-        (written or being written) and the change of status happen in one transaction under a lock of
-        the session. Returns "ok", "busy" (written or being written) or "quota"."""
+    async def start_writing(
+        self,
+        run_id: uuid.UUID,
+        owner: str,
+        *,
+        demo: DemoLimits | None = None,
+        ip_key: str = "",
+        crm: str = "",
+    ) -> str:
+        """Only one write per run, and the demo limits: the counts (written or being written) and the
+        change of status happen in one transaction under locks of the session, the address and the CRM
+        (always in this order). Returns "ok", "busy" (written or being written), "quota" (the session's or
+        the address's demo deals of the day), "full" (this demo CRM's deals of the day) or "full_total"."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_WRITES, owner)
-            if demo_limit is not None and await _demo_writes(session, owner) >= demo_limit:
-                return "quota"
+            if demo is not None:
+                await _lock(session, LOCK_WRITES_IP, ip_key)
+                await _lock(session, LOCK_WRITES_CRM, crm)
+                if await _demo_writes(session, OrderRun.owner == owner) >= demo.per_session:
+                    return "quota"
+                if await _demo_writes(session, OrderRun.ip_key == ip_key) >= demo.per_ip:
+                    return "quota"
+                if state := await _crm_state(session, crm, demo):
+                    return state
             done = await session.execute(
                 update(OrderRun)
                 .where(
@@ -261,7 +293,16 @@ class OrderStore:
     async def writes_today(self, owner: str) -> int:
         """Demo deals of the session in the last day: written or being written."""
         async with self._sessions() as session:
-            return await _demo_writes(session, owner)
+            return await _demo_writes(session, OrderRun.owner == owner)
+
+    async def demo_full(self, limits: dict[str, DemoLimits]) -> dict[str, str]:
+        """The demo CRMs that take no more deals now: crm -> "full" (for today) or "full_total"."""
+        out = {}
+        async with self._sessions() as session:
+            for crm, demo in limits.items():
+                if state := await _crm_state(session, crm, demo):
+                    out[crm] = state
+        return out
 
     async def purge(self) -> tuple[int, int]:
         """Runs older than a day go with the document's text; model calls are kept 30 days (no text)."""
@@ -327,17 +368,37 @@ async def _lock(session: AsyncSession, cls: int, key: str) -> None:
     await session.execute(text("SELECT pg_advisory_xact_lock(:c, hashtext(:k))"), {"c": cls, "k": key})
 
 
-async def _demo_writes(session: AsyncSession, owner: str) -> int:
+async def _demo_writes(session: AsyncSession, *where: Any) -> int:
     since = datetime.now(UTC) - timedelta(days=1)
     return int(
         await session.scalar(
             select(func.count())
             .select_from(OrderRun)
             .where(
-                OrderRun.owner == owner,
+                *where,
                 OrderRun.demo.is_(True),
                 or_(OrderRun.written_at > since, OrderRun.status == "writing"),
             )
         )
         or 0
     )
+
+
+async def _crm_state(session: AsyncSession, crm: str, demo: DemoLimits) -> str | None:
+    if await _demo_writes(session, OrderRun.crm == crm) >= demo.per_crm:
+        return "full"
+    if demo.total is not None:
+        # every deal the demo ever wrote there (the journal of the platform is kept), and those being written
+        written = await session.scalar(
+            select(func.count())
+            .select_from(CrmWrite)
+            .where(CrmWrite.owner == DEMO_OWNER, CrmWrite.crm == crm, CrmWrite.ok.is_(True))
+        )
+        flying = await session.scalar(
+            select(func.count())
+            .select_from(OrderRun)
+            .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.status == "writing")
+        )
+        if (written or 0) + (flying or 0) >= demo.total:
+            return "full_total"
+    return None

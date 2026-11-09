@@ -111,6 +111,17 @@ _T: dict[str, tuple[str, str]] = {
     "o_cost": ("Вызовов системы: {calls}, расход ${usd}", "System calls: {calls}, cost ${usd}"),
     "n_written": ("Сделка записана.", "The deal is written."),
     "n_quota": ("Лимит записей на сегодня исчерпан.", "Today's write limit is reached."),
+    "n_full": (
+        "Демо {crm} на сегодня заполнено: сделок за сутки больше не принимает.",
+        "The {crm} demo is full for today: it takes no more deals in these 24 hours.",
+    ),
+    "n_full_total": (
+        "Демо {crm} заполнено: тестовый аккаунт больше не принимает сделок.",
+        "The {crm} demo is full: the test account takes no more deals.",
+    ),
+    "n_full_try": ("Демо других CRM открыто:", "The demo of other CRMs is open:"),
+    "n_full_again": ("начать заявку заново", "start the order again"),
+    "o_full_mark": ("на сегодня заполнено", "full for today"),
     "n_failed": (
         "CRM не приняла запись. Попробуйте ещё раз или проверьте подключение.",
         "The CRM refused the write. Try again or check the connection.",

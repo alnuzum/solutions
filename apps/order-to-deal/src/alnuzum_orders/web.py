@@ -39,7 +39,7 @@ from alnuzum_orders.engine import Result, apply_choices, clean_customer, plan, p
 from alnuzum_orders.i18n import texts
 from alnuzum_orders.model import ClaudeReader, Gate, ModelError, Reader, Usage
 from alnuzum_orders.pricing import Rules, RulesError, demo_rules, parse_rules
-from alnuzum_orders.store import CeilingReached, OrderStore, RunNotFound, RunsExceeded
+from alnuzum_orders.store import DEMO_OWNER, CeilingReached, DemoLimits, OrderStore, RunNotFound, RunsExceeded
 from alnuzum_orders.writer import write
 from alnuzum_platform.solutions import Kit, Solution
 from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionStore, QuotaExceeded
@@ -49,7 +49,6 @@ from alnuzum_platform.web.security import RateLimiter
 log = logging.getLogger("alnuzum_orders.web")
 
 HERE = Path(__file__).parent
-DEMO_OWNER = "demo"
 CRMS = tuple(k.value for k in CrmKind)
 MAX_BODY = intake.MAX_BYTES + 256 * 1024
 MAX_LINKED_LINES = 400
@@ -72,8 +71,14 @@ class OrderSettings(BaseSettings):
     orders_model_calls_per_day: int = 200
     orders_runs_per_session: int = 10
     orders_runs_per_ip: int = 20
-    # deals a visitor may write into the demo accounts per 24 hours
+    # deals the demo accounts take per 24 hours: from a session, from an address, into one demo CRM (apart
+    # from the platform's quota of a connection); Kommo lower, and bounded in all: its technical account
+    # keeps at most 100 deals, 30 were there on 2026-11-09 and the E2E suite needs room
     orders_demo_writes_per_session: int = 5
+    orders_demo_writes_per_ip: int = 8
+    orders_demo_writes_per_crm: int = 40
+    orders_demo_writes_kommo: int = 5
+    orders_demo_kommo_total: int = 40
     # reading a file (pictures, PDF, spreadsheets) runs in threads: at most this many at a time, this long
     orders_parse_slots: int = 2
     orders_parse_seconds: float = 20.0
@@ -123,6 +128,20 @@ class OrderSettings(BaseSettings):
                 },
             )
         return out
+
+    def demo_limits(self, crm: str) -> DemoLimits:
+        if crm == CrmKind.KOMMO.value:
+            return DemoLimits(
+                self.orders_demo_writes_per_session,
+                self.orders_demo_writes_per_ip,
+                self.orders_demo_writes_kommo,
+                self.orders_demo_kommo_total,
+            )
+        return DemoLimits(
+            self.orders_demo_writes_per_session,
+            self.orders_demo_writes_per_ip,
+            self.orders_demo_writes_per_crm,
+        )
 
 
 def link_css(limit: int = MAX_LINKED_LINES) -> str:
@@ -395,6 +414,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         conns = [c for c in await st.list(owner) if c.status == "active"]
         demo = sorted(getattr(request.app.state, "orders_demo", {}), key=CRMS.index)
         used = await orders.store(request).runs_today(owner=owner)
+        full = await orders.store(request).demo_full({k: s.demo_limits(k) for k in demo})
         return kit.page(
             request,
             "orders.html",
@@ -402,6 +422,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             status,
             conns=conns,
             demo=demo,
+            demo_full=full,
             samples=samples(),
             quality=quality(),
             left=max(0, s.orders_runs_per_session - used),
@@ -511,10 +532,15 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         rules = await orders.rules(request, owner, target, result.catalog.get("currency"))
         p = priced(result, rules)
         demo_left = None
+        full: dict[str, str] = {}
+        others: list[str] = []
         if item.demo:
             demo_left = max(
                 0, s.orders_demo_writes_per_session - await orders.store(request).writes_today(owner)
             )
+            demo = sorted(getattr(request.app.state, "orders_demo", {}), key=CRMS.index)
+            full = await orders.store(request).demo_full({k: s.demo_limits(k) for k in demo})
+            others = [k for k in demo if k != item.crm and k not in full]
         photo = item.result["source"]["name"] if item.result["source"]["name"] in samples() else None
         marks: dict[int, str] = {}
         for ln in result.lines:
@@ -533,6 +559,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             customer=clean_customer(result.customer),
             photo=photo if photo and photo.endswith(".jpg") else None,
             demo_left=demo_left,
+            demo_full=full.get(item.crm) if item.status != "written" else None,
+            demo_others=others,
             target=target,
             marks=marks,
             **ctx,
@@ -564,17 +592,23 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         # the demo quota is counted and the run marked "writing" in one step, so parallel clicks cannot
         # pass it together
         state = await ost.start_writing(
-            item.id, owner, demo_limit=s.orders_demo_writes_per_session if item.demo else None
+            item.id,
+            owner,
+            demo=s.demo_limits(item.crm) if item.demo else None,
+            ip_key=ip_key(request),
+            crm=item.crm,
         )
-        if state == "quota":
-            return redirect(f"{back}?n=quota")
+        if state in ("quota", "full", "full_total"):
+            return redirect(f"{back}?n={state}")
         if state != "ok":
             return redirect(back)
         st = kit.store_of(request)
         conn_owner = DEMO_OWNER if item.demo else owner
+        # a demo connection is bounded by the demo limits above; the platform's quota stays a backstop
+        quota = max(kit.quota, 2 * s.orders_demo_writes_per_crm) if item.demo else kit.quota
         try:
             info = await st.get(item.connection_id, conn_owner)
-            write_id = await st.start_write(info.id, conn_owner, "order_deal", kit.quota)
+            write_id = await st.start_write(info.id, conn_owner, "order_deal", quota)
         except (QuotaExceeded, ConnectionDisabled) as exc:
             await ost.finish_writing(
                 item.id, ok=False, error="quota" if isinstance(exc, QuotaExceeded) else "auth"

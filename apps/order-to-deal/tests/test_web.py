@@ -502,3 +502,65 @@ async def test_a_call_without_an_answer_keeps_its_booking(make: Any, engine: Asy
     booked = await rows(engine, "SELECT usd, ok FROM orders_model_calls ORDER BY created_at")
     assert len(booked) == 2
     assert all(usd > Decimal("0.2") and ok is False for usd, ok in booked), booked
+
+
+# --- I4: the demo accounts are not spent by one visitor for everybody ---
+
+
+async def test_demo_crm_has_its_own_ceiling_apart_from_the_platform_quota(make: Any) -> None:
+    h = await make(
+        *([choose_first()] * 5),
+        platform={"quota_writes_per_day": 3},
+        orders_demo_writes_per_session=5,
+        orders_demo_writes_per_crm=4,
+    )
+    visitors = [Browser(h.app, ip=f"198.51.100.{i}") for i in range(5)]
+    for b in visitors[:4]:
+        await written_run(h, b)  # the platform's 3 a day no longer stops the fourth
+    late = visitors[4]
+    rid = run_id(await late.order("demo:bitrix24", sample="order-ru.xlsx"))
+    resp = await late.decide(rid, {"action": "write"})
+    assert resp.headers["location"].endswith("?n=full")
+    page = await late.http.get(f"/ru/orders/{rid}")
+    assert "Демо Битрикс24 на сегодня заполнено" in page.text
+    assert "Демо других CRM открыто: amoCRM, Zoho CRM." in page.text
+    assert re.search(r'value="write" disabled', page.text)
+    start = await late.http.get("/ru/orders")
+    assert re.search(r'value="demo:bitrix24" required disabled>', start.text)
+    assert "на сегодня заполнено" in start.text
+    assert len(h.crm.deals) == 4
+
+
+async def test_demo_writes_per_address_across_sessions(make: Any) -> None:
+    h = await make(*([choose_first()] * 4), orders_demo_writes_per_session=5, orders_demo_writes_per_ip=2)
+    a, b = Browser(h.app, ip="2001:db8:7:7::1"), Browser(h.app, ip="2001:db8:7:7::2")
+    await written_run(h, a)
+    await written_run(h, b)
+    rid = run_id(await a.order("demo:bitrix24", sample="order-ru.xlsx"))
+    assert (await a.decide(rid, {"action": "write"})).headers["location"].endswith("?n=quota")
+    other = Browser(h.app, ip="198.51.100.20")
+    await written_run(h, other)
+
+
+async def test_kommo_demo_is_bounded_in_all_by_the_journal(make: Any, engine: AsyncEngine) -> None:
+    h = await make(
+        *([choose_first()] * 3),
+        demo_kommo_domain="acme.kommo.com",
+        demo_kommo_token="AT-demo-kommo-secret",
+        orders_demo_kommo_total=2,
+    )
+    conn = h.app.state.orders_demo["kommo"]
+    async with engine.begin() as c:
+        await c.execute(
+            text(
+                "INSERT INTO crm_writes (id, connection_id, owner, crm, action, ok, created_at)"
+                " VALUES (:id, :conn, 'demo', 'kommo', 'order_deal', true, now() - interval '3 days')"
+            ),
+            {"id": uuid.uuid4(), "conn": conn},
+        )
+    b = Browser(h.app)
+    await written_run(h, b, "demo:kommo")
+    rid = run_id(await b.order("demo:kommo", sample="order-ru.xlsx"))
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=full_total")
+    page = await b.http.get(f"/ru/orders/{rid}")
+    assert "Демо Kommo заполнено: тестовый аккаунт больше не принимает сделок." in page.text

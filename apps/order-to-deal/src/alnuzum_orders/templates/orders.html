@@ -15,7 +15,8 @@
     {% if demo %}
     <h3>{{ t.o_demo }}</h3>
     <div class="picks">
-      {% for k in demo %}<label class="pick"><input type="radio" name="target" value="demo:{{ k }}" required{% if target == 'demo:' ~ k or (not target and loop.first) %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}</span></label>{% endfor %}
+      {% set open_demo = demo|reject('in', demo_full)|list %}
+      {% for k in demo %}<label class="pick"><input type="radio" name="target" value="demo:{{ k }}" required{% if k in demo_full %} disabled{% elif target == 'demo:' ~ k or (not target and k == open_demo[0]) %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}{% if k in demo_full %} <small class="muted">· {{ t.o_full_mark }}</small>{% endif %}</span></label>{% endfor %}
     </div>
     <p class="muted small">{{ t.o_demo_note }}</p>
     {% endif %}
