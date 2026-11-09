@@ -20,8 +20,8 @@
   <ol class="paper feed">
    {% for o in orders %}
    <li class="{% for r in o.refs %}r{{ r }} {% endfor %}{% if loop.first %}last{% endif %}">
-    <div class="top"><b>{{ t.w_order.format(date=o.day_shown) }}</b><span class="sum">{{ o.amount_shown }}</span></div>
-    {% if o.lines_shown %}<ul class="lines">{% for x in o.lines_shown %}<li><span>{{ x.name }}</span><span class="q">× {{ x.quantity }}</span><span class="sum">{{ x.total_shown }}</span></li>{% endfor %}</ul>{% else %}<p class="small">{{ t.w_no_lines }}</p>{% endif %}
+    <div class="wb-top"><b>{{ t.w_order.format(date=o.day_shown) }}</b><span class="wb-sum">{{ o.amount_shown }}</span></div>
+    {% if o.lines_shown %}<ul class="lines">{% for x in o.lines_shown %}<li><span>{{ x.name }}</span><span class="wb-q">× {{ x.quantity }}</span><span class="wb-sum">{{ x.total_shown }}</span></li>{% endfor %}</ul>{% else %}<p class="small">{{ t.w_no_lines }}</p>{% endif %}
     <small class="deals">{{ t.w_deals.format(n=o.deals|length) }}: {% for d in o.deals %}{{ d.title }}{% if not loop.last %}; {% endif %}{% endfor %}</small>
    </li>
    {% endfor %}
