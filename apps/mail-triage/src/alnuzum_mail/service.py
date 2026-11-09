@@ -22,7 +22,7 @@ from alnuzum_files import FileError
 from alnuzum_mail import intake
 from alnuzum_mail.engine import DEMO_PREFIX, made_of, plan_of, values, write
 from alnuzum_mail.intake import Letter
-from alnuzum_mail.match import Keys, best, deals, rank
+from alnuzum_mail.match import Keys, best, conflict, deals, rank, sender
 from alnuzum_mail.model import MailReader, Reading
 from alnuzum_mail.rules import load, route
 from alnuzum_mail.store import CeilingReached, Limits, MailStore, RunInfo
@@ -193,7 +193,9 @@ class Mail:
             inn=keys.inn, domain=keys.domain, email=keys.email, phone=keys.phone, name=keys.company
         )
         companies = rank(hits, keys)
-        company = best(companies)
+        # the letter's INN and the sender disagree: nothing is taken, the sender's own company is marked
+        clash = conflict(companies)
+        company = sender(companies) if clash else best(companies)
         contact = None
         if v.get("email") or v.get("phone"):
             contact = await crm.find_contact(
@@ -210,6 +212,7 @@ class Mail:
             "error": None,
             "companies": companies,
             "company": company,
+            "conflict": clash,
             "contact": contact,
             "deals": listed,
             "deal": listed[0]["id"] if listed and listed[0]["open"] else None,

@@ -1,7 +1,7 @@
 """Which company of the CRM wrote the letter, decided by our own comparison, and the routing rules."""
 
 import pytest
-from alnuzum_mail.match import Keys, best, deals, rank, reasons
+from alnuzum_mail.match import Keys, best, conflict, deals, rank, reasons, registered, sender
 from alnuzum_mail.rules import Rule, RuleError, load, parse, route
 
 from alnuzum_crm.types import CompanyHit, Deal, DealStatus
@@ -22,15 +22,15 @@ def test_the_inn_decides_and_another_inn_is_never_the_company() -> None:
         company="ООО «Ромашка»", inn="305 123 456", email="a.karimov@romashka-demo.uz", phone="+998712001101"
     )
     assert reasons(ROMASHKA, k) == ["inn", "domain", "name", "phone"]
-    assert reasons(TWIN, k) is None  # the same name and phone, another INN
+    assert reasons(TWIN, k) == ["name", "phone", "inn_other"]  # the same name and phone, another INN
     ranked = rank([TWIN, NAMESAKE, ROMASHKA, STRANGER], k)
-    assert [c["id"] for c in ranked] == ["1"] and ranked[0]["by"][0] == "inn"
-    assert best(ranked) == "1"
+    assert [c["id"] for c in ranked] == ["1", "3"] and ranked[0]["by"][0] == "inn"
+    assert best(ranked) == "1" and not conflict(ranked)  # the INN and the sender agree on Ромашка
 
 
 def test_a_public_mailbox_says_nothing_about_a_company() -> None:
     k = keys(email="someone@gmail.com")
-    assert k.domain is None and reasons(STRANGER, k) == []
+    assert k.domain is None and reasons(STRANGER, k) is None
     assert keys(website="https://gmail.com", email="x@romashka-demo.uz").domain == "romashka-demo.uz"
     assert keys(inn="12345").inn is None
 
@@ -97,3 +97,47 @@ def test_a_bad_rule_is_refused_with_its_row(form: dict[str, str], code: str) -> 
     with pytest.raises(RuleError) as caught:
         parse(form, {"C0:NEW"}, {"7"})
     assert (caught.value.code, caught.value.n) == (code, 1)
+
+
+def test_an_inn_of_another_company_never_hides_the_sender_s_own() -> None:
+    """A letter from Ромашка's address and site quoting the INN of a big client of theirs."""
+    big = CompanyHit("2", "Крупный клиент", "309999999", (), (), ())
+    k = keys(inn="309999999", email="buh@romashka-demo.uz", website="romashka-demo.uz")
+    ranked = rank([ROMASHKA, big], k)
+    assert {c["id"]: c["by"] for c in ranked} == {"2": ["inn"], "1": ["domain", "inn_other"]}
+    assert conflict(ranked) and best(ranked) is None and sender(ranked) == "1"
+    # an INN the CRM does not know, the sender's own company keeping another one
+    alone = rank([ROMASHKA], keys(inn="312345678", email="buh@romashka-demo.uz"))
+    assert alone[0]["by"] == ["domain", "inn_other"] and conflict(alone) and sender(alone) == "1"
+    # a namesake with another INN and nothing of the sender is no candidate at all
+    assert rank([TWIN], keys(company="Ромашка", inn="305123456")) == []
+
+
+@pytest.mark.parametrize(
+    "site",
+    ["https://instagram.com/new_client", "t.me/romashka", "wa.me/998901001101", "romashka.taplink.ws",
+     "sites.google.com/view/romashka", "linktr.ee/romashka", "uz", "romashka.tilda.ws"],
+)  # fmt: skip
+def test_a_social_network_or_a_site_builder_is_no_domain(site: str) -> None:
+    shop = CompanyHit("9", "Чужой магазин", None, (), (), ("https://instagram.com/chuzhoy_shop", "uz"))
+    k = keys(website=site, email="client@gmail.com")
+    assert k.domain is None and rank([shop], k) == []
+
+
+def test_domains_compare_by_what_is_registered() -> None:
+    assert registered("mail.romashka-demo.uz") == "romashka-demo.uz"
+    assert registered("shop.romashka.com.uz") == "romashka.com.uz"
+    assert registered("uz") == registered("yandex.by") == registered("m.vk.com") == ""
+    sub = CompanyHit("1", "Ромашка", None, (), (), ("https://shop.romashka-demo.uz",))
+    assert reasons(sub, keys(email="a@mail.romashka-demo.uz")) == ["domain"]
+    assert reasons(sub, keys(email="a@romashka-demo.uz.evil.com")) is None
+
+
+def test_a_stage_is_what_the_crm_listed_whatever_its_name() -> None:
+    """Zoho names its stages: spaces, slashes, Cyrillic; Bitrix24 and amoCRM give codes and numbers."""
+    stages = {"Value Proposition", "Квалификация", "Proposal/Price Quote", "C3:NEW", "142"}
+    form = {f"when{i}": "keyword" for i in range(5)} | {f"value{i}": f"слово{i}" for i in range(5)}
+    form |= {f"stage{i}": s for i, s in enumerate(sorted(stages))}
+    assert sorted(r.stage or "" for r in parse(form, stages, set())) == sorted(stages)
+    with pytest.raises(RuleError):
+        parse({"when0": "keyword", "value0": "x", "stage0": "Closed Won"}, stages, set())

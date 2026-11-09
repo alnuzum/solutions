@@ -69,6 +69,7 @@
    <section class="card deal for-new">
     <h2>{{ t.m_bind }}</h2>
     {% if not b.checked %}<p class="warn small">{{ t.m_bind_off.format(why=t['m_why_' ~ (b.error or 'unavailable')]) }}</p>{% endif %}
+    {% if b.conflict %}<p class="warn small" role="alert">{{ t.m_conflict }}</p>{% endif %}
     <h3>{{ t.m_company }}</h3>
     {% set chosen = choice.company or b.company or ('new' if not b.companies and reading.fields.company else 'none') %}
     {% for c in b.companies %}<label class="opt"><input type="radio" name="company" value="{{ c.id }}"{% if chosen == c.id %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span><b>{{ c.name }}</b><small>{% set why = [] %}{% for x in c.by %}{% set _ = why.append(t['by_' ~ x]) %}{% endfor %}{{ t.m_by.format(by=why | join(', ')) }}{% if c.inn %} · {{ t.f_inn }} {{ c.inn }}{% endif %}</small></span></label>{% endfor %}

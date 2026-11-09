@@ -3,7 +3,6 @@ deal and who leads it. A rule is «a word in the subject or the text», «the se
 of the letter»; a letter no rule matches starts at the CRM's first stage, led by the owner of the connection.
 """
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,7 +11,6 @@ from alnuzum_crm.base import host, mail_domain
 MAX_RULES = 10
 KINDS = ("keyword", "domain", "language")
 LANGUAGES = ("ru", "en", "uz", "other")
-_ID = re.compile(r"[A-Za-z0-9_:]{1,50}")
 
 
 @dataclass(frozen=True)
@@ -58,7 +56,8 @@ def parse(form: dict[str, str], stages: set[str], users: set[str]) -> list[Rule]
             raise RuleError("e_rule_language", i + 1)
         stage = form.get(f"stage{i}") or None
         user = form.get(f"user{i}") or None
-        if (stage and (stage not in stages or not _ID.fullmatch(stage))) or (user and user not in users):
+        # a stage is checked against the list read from the CRM, never by its look: a Zoho stage is its name
+        if (stage and stage not in stages) or (user and user not in users):
             raise RuleError("e_rule_target", i + 1)
         out.append(Rule(when, value.casefold() if when != "language" else value, stage, user))
     return out
