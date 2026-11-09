@@ -17,6 +17,7 @@ moves to the JSON-2 API.
 import base64
 import contextlib
 import itertools
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -907,6 +908,16 @@ class Odoo(CRM):
         found = await self._search("mail.activity", [["id", "=", int(record_id(task_id, self.kind.value))]])
         if found:
             await self.kw("mail.activity", "unlink", [found])
+
+    async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
+        """Companies and contacts are both partners; archived ones are named too (a purchase keeps them)."""
+        wanted = sorted({int(record_id(i, self.kind.value)) for i in ids})
+        if not wanted:
+            return {}
+        rows = await self._read(
+            "res.partner", [["id", "in", wanted]], ["name"], context={"active_test": False}
+        )
+        return {str(r["id"]): str(r.get("name") or "") for r in rows}
 
     async def discard(self, leftovers: Leftovers) -> None:
         leads = [int(i) for i in leftovers.deal_ids]

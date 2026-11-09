@@ -11,6 +11,7 @@ What differs from other CRMs, checked live:
 - an access token lives an hour and Zoho issues at most ten per ten minutes per refresh token.
 """
 
+from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, ClassVar
@@ -840,6 +841,21 @@ class ZohoCRM(CRM):
 
     async def discard_task(self, task_id: str) -> None:
         await self._delete("Tasks", [task_id])
+
+    async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
+        """Records by ``ids``, a hundred a request; the related list a purchase came from gives the ids."""
+        module, field = ("Contacts", "Full_Name") if contacts else ("Accounts", "Account_Name")
+        wanted = sorted({self._id(i) for i in ids})
+        out: dict[str, str] = {}
+        for n in range(0, len(wanted), 100):
+            params = {"ids": ",".join(wanted[n : n + 100]), "fields": field}
+            data = await self._request("GET", f"/{module}", params=params)
+            out |= {
+                str(r["id"]): str(r.get(field) or "")
+                for r in (data or {}).get("data") or []
+                if isinstance(r, dict) and r.get("id")
+            }
+        return out
 
     async def _delete(self, module: str, ids: list[str]) -> None:
         for i in range(0, len(ids), 100):

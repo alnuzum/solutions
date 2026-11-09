@@ -1,0 +1,28 @@
+[project]
+name = "alnuzum-winback"
+version = "0.1.0"
+description = "Al-Nuzum open solution: the purchase history of a CRM read for the clients who missed their order cycle, the reasons counted from their orders, a task on the client to call them back"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "alnuzum-crm",
+    "alnuzum-platform",
+    "alnuzum-orders",
+    "alnuzum-contracts",
+]
+
+[project.entry-points."alnuzum.solutions"]
+winback = "alnuzum_winback.web:solution"
+
+[tool.uv.sources]
+alnuzum-crm = { workspace = true }
+alnuzum-platform = { workspace = true }
+alnuzum-orders = { workspace = true }
+alnuzum-contracts = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alnuzum_winback"]

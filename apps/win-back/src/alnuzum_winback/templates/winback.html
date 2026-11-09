@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ t.w_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/winback/winback.css">{% endblock %}
+{% block body %}
+<div class="head">
+  <div><h1>{{ t.w_title }}</h1><p>{{ t.w_lead }}</p>
+  <p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.w_quality }}</p>
+  <p class="q keep"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.w_keep }}</p>
+  </div>
+</div>
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] if error in t else t.e_crm_failed }}</p>{% endif %}
+<form class="ord wb-start" method="post" action="/{{ lang }}/winback">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card">
+    <h2>{{ t.w_target }}</h2>
+    {% if demos %}
+    <h3>{{ t.w_demo }}</h3>
+    <div class="picks">
+      {% for k in demos %}<label class="pick"><input type="radio" name="target" value="demo:{{ k }}" required{% if loop.first %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}</span></label>{% endfor %}
+    </div>
+    <p class="muted small">{{ t.w_demo_hint }}</p>
+    {% endif %}
+    <h3>{{ t.w_own }}</h3>
+    {% if own %}
+    <div class="picks">
+      {% for c in own %}<label class="pick"><input type="radio" name="target" value="conn:{{ c.id }}" required><span><svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg>{{ t['crm_' ~ c.crm.value] }} · {{ c.label }}</span></label>{% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small">{{ t.w_own_none }} <a class="open" href="/{{ lang }}">→</a></p>
+    {% endif %}
+  </section>
+  <section class="plate">
+    <p class="small">{{ t.w_rule }}</p>
+    <div class="go"><button class="btn" type="submit">{{ t.w_go }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button></div>
+  </section>
+</form>
+{% endblock %}

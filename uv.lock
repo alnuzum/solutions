@@ -12,6 +12,7 @@ members = [
     "alnuzum-platform",
     "alnuzum-solutions",
     "alnuzum-voice",
+    "alnuzum-winback",
 ]
 
 [[package]]
@@ -172,6 +173,7 @@ dependencies = [
     { name = "alnuzum-orders" },
     { name = "alnuzum-platform" },
     { name = "alnuzum-voice" },
+    { name = "alnuzum-winback" },
 ]
 
 [package.dev-dependencies]
@@ -198,6 +200,7 @@ requires-dist = [
     { name = "alnuzum-orders", editable = "apps/order-to-deal" },
     { name = "alnuzum-platform", editable = "packages/platform" },
     { name = "alnuzum-voice", editable = "apps/voice-to-crm" },
+    { name = "alnuzum-winback", editable = "apps/win-back" },
 ]
 
 [package.metadata.requires-dev]
@@ -236,6 +239,25 @@ requires-dist = [
     { name = "anthropic", specifier = ">=2.6" },
     { name = "av", specifier = ">=14" },
     { name = "httpx", specifier = ">=0.28" },
+]
+
+[[package]]
+name = "alnuzum-winback"
+version = "0.1.0"
+source = { editable = "apps/win-back" }
+dependencies = [
+    { name = "alnuzum-contracts" },
+    { name = "alnuzum-crm" },
+    { name = "alnuzum-orders" },
+    { name = "alnuzum-platform" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alnuzum-contracts", editable = "apps/contract-check" },
+    { name = "alnuzum-crm", editable = "packages/crm" },
+    { name = "alnuzum-orders", editable = "apps/order-to-deal" },
+    { name = "alnuzum-platform", editable = "packages/platform" },
 ]
 
 [[package]]

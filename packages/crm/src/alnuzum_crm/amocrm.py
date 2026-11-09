@@ -1028,6 +1028,50 @@ class AmoCRM(CRM):
         body = {"is_completed": True, "result": {"text": E2E_TAG}}
         await self._request("PATCH", f"/api/v4/tasks/{int(record_id(task_id, self.kind.value))}", json=body)
 
+    async def recent_purchases(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """Status 142 of every pipeline, ``order[id]=desc``: the API sorts leads by id, created_at or
+        updated_at only, not by closed_at (checked live 10.11: ``order[closed_at]`` is ignored, ``order[id]``
+        sorts won leads)."""
+        pipes = await self._embedded("GET", "/api/v4/leads/pipelines", "pipelines")
+        page = int(cursor or 1)
+        params: dict[str, Any] = {
+            "page": page,
+            "limit": max(1, min(limit, 250)),
+            "with": "contacts",
+            "order[id]": "desc",
+        }
+        for n, pipe in enumerate(pipes):
+            params[f"filter[statuses][{n}][pipeline_id]"] = int(pipe["id"])
+            params[f"filter[statuses][{n}][status_id]"] = WON
+        if since:
+            params["filter[closed_at][from]"] = int(aware(since).timestamp())
+        if until:
+            params["filter[closed_at][to]"] = int(aware(until).timestamp())
+        data = await self._request("GET", "/api/v4/leads", params=params) if pipes else None
+        rows = [
+            r
+            for r in (data or {}).get("_embedded", {}).get("leads", [])
+            if int(r.get("status_id") or 0) == WON and in_period(_ts(r.get("closed_at")), since, until)
+        ]
+        more = (data or {}).get("_links", {}).get("next")
+        return Page(tuple(await self._purchases(rows, False)), str(page + 1) if more else None)
+
+    async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
+        key = "contacts" if contacts else "companies"
+        wanted = sorted({int(record_id(i, self.kind.value)) for i in ids})
+        out: dict[str, str] = {}
+        for n in range(0, len(wanted), 50):
+            found = await self._names(f"/api/v4/{key}", key, set(wanted[n : n + 50]))
+            out |= {str(k): v for k, v in found.items()}
+        return out
+
     # --- cleanup ---
 
     async def discard(self, leftovers: Leftovers) -> None:

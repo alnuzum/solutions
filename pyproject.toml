@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Open-source CRM solutions by Al-Nuzum: shared CRM adapters and platform"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
-dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-files", "alnuzum-orders", "alnuzum-voice", "alnuzum-contracts", "alnuzum-mail"]
+dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-files", "alnuzum-orders", "alnuzum-voice", "alnuzum-contracts", "alnuzum-mail", "alnuzum-winback"]
 
 [tool.uv]
 package = false
@@ -20,6 +20,7 @@ alnuzum-orders = { workspace = true }
 alnuzum-voice = { workspace = true }
 alnuzum-contracts = { workspace = true }
 alnuzum-mail = { workspace = true }
+alnuzum-winback = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -65,15 +66,16 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "apps/mail-triage/src/alnuzum_mail/i18n.py" = ["E501"]
 "apps/mail-triage/src/alnuzum_mail/quality.py" = ["E501"]
 "apps/mail-triage/eval/**" = ["E501", "S603", "S607", "S101", "S311"]
+"apps/win-back/src/alnuzum_winback/i18n.py" = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_files", "alnuzum_orders"]
+known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_files", "alnuzum_orders", "alnuzum_winback"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
-mypy_path = ["packages/crm/src", "packages/platform/src", "packages/files/src", "apps/order-to-deal/src", "apps/contract-check/src", "apps/mail-triage/src"]
+mypy_path = ["packages/crm/src", "packages/platform/src", "packages/files/src", "apps/order-to-deal/src", "apps/contract-check/src", "apps/mail-triage/src", "apps/win-back/src"]
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
@@ -85,7 +87,7 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["packages/crm/tests", "packages/platform/tests", "packages/files/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests", "apps/contract-check/tests", "apps/mail-triage/tests"]
+testpaths = ["packages/crm/tests", "packages/platform/tests", "packages/files/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests", "apps/contract-check/tests", "apps/mail-triage/tests", "apps/win-back/tests"]
 addopts = "--import-mode=importlib -m 'not e2e and not quality'"
 markers = [
     "e2e: live calls into real CRM accounts (needs secrets)",
@@ -93,7 +95,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_files", "alnuzum_orders", "alnuzum_voice", "alnuzum_contracts", "alnuzum_mail"]
+source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_files", "alnuzum_orders", "alnuzum_voice", "alnuzum_contracts", "alnuzum_mail", "alnuzum_winback"]
 branch = true
 
 [tool.coverage.report]
