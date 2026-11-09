@@ -7,8 +7,8 @@ COPY pyproject.toml uv.lock ./
 COPY packages ./packages
 COPY apps ./apps
 # the solutions bring the platform and the CRM adapters with them; their entry points mount their pages
-# (voice brings orders: it matches products with solution 1)
-RUN uv sync --frozen --no-dev --no-editable --package alnuzum-voice
+# (every package of the workspace: the solutions and what they share)
+RUN uv sync --frozen --no-dev --no-editable --all-packages
 
 FROM python:3.12-slim
 RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app

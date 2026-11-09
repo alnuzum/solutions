@@ -30,9 +30,9 @@ jobs:
       - name: ruff format
         run: uv run ruff format --check .
       - name: mypy --strict
-        run: uv run mypy packages apps/order-to-deal/src apps/voice-to-crm/src
+        run: uv run mypy packages apps/order-to-deal/src apps/voice-to-crm/src apps/contract-check/src
       - name: bandit
-        run: uv run bandit -c pyproject.toml -r packages apps/order-to-deal/src apps/voice-to-crm/src scripts -q
+        run: uv run bandit -c pyproject.toml -r packages apps/order-to-deal/src apps/voice-to-crm/src apps/contract-check/src scripts -q
       - name: pip-audit
         run: |
           uv export --frozen --no-emit-workspace --no-hashes --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
