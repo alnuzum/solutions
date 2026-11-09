@@ -374,6 +374,7 @@ class Mail:
             return state
         owner = DEMO_OWNER if run.demo else conn_owner
         quota = max(kit.quota, 2 * limits.demo_per_crm) if run.demo else kit.quota
+        crm_: CRM | None = None
         try:
             info = await st.get(run.connection_id, owner)
             crm_ = await self.adapter(app, kit, info)
@@ -382,6 +383,8 @@ class Mail:
                 info.id, owner, "mail_write", quota, scope="mail_" if run.demo else None
             )
         except (QuotaExceeded, ConnectionDisabled, ConnectionNotFound) as exc:
+            if crm_ is not None:
+                await crm_.aclose()
             code = "quota" if isinstance(exc, QuotaExceeded) else "auth"
             await ms.finish_writing(run.id, ok=False, error=code)
             return code

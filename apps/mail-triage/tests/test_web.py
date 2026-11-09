@@ -502,3 +502,36 @@ async def test_the_english_run_page(make: Any, engine: Any) -> None:
     run = run_id(await b.send(lang="en"))
     page = (await b.http.get(f"/en/mail/{run}")).text
     assert "Asks for a quote." in page and 'lang="en"' in page
+
+
+async def test_writes_going_on_hold_their_records_of_the_demo_budget(make: Any, engine: Any) -> None:
+    h: Harness = await make(mail_demo_new_per_day=3)
+    b = Browser(h.app)
+    first = run_id(await b.send())
+    second = run_id(await b.send())
+    await sql(engine, "UPDATE mail_runs SET status = 'writing' WHERE id = :i", i=uuid.UUID(first))
+    assert await b.write(second, cls="new", company="1") == "full_new"  # a deal, and three held by the first
+    await sql(engine, "UPDATE mail_runs SET status = 'failed' WHERE id = :i", i=uuid.UUID(first))
+    assert await b.write(second, cls="new", company="1") == "written"
+
+
+async def test_the_demo_quota_of_a_connection_refuses_and_closes_the_adapter(
+    make: Any, engine: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from alnuzum_platform.store import ConnectionStore, QuotaExceeded
+
+    h: Harness = await make()
+    closed: list[bool] = []
+
+    async def aclose() -> None:
+        closed.append(True)
+
+    async def over(*_a: Any, **_k: Any) -> Any:
+        raise QuotaExceeded("mail_write")
+
+    h.crm.aclose = aclose  # type: ignore[attr-defined]
+    monkeypatch.setattr(ConnectionStore, "start_write", over)
+    b = Browser(h.app)
+    run = run_id(await b.send())
+    assert await b.write(run, cls="new", company="1") == "quota"
+    assert closed == [True] and h.crm.writes == []

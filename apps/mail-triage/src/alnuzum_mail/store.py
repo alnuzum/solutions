@@ -46,6 +46,7 @@ DEMO_DOWN_FOR = timedelta(minutes=30)
 RULES_KEEP = timedelta(days=30)  # the rules of a demo CRM, unchanged this long, are dropped
 LOCK_SPEND = 0x4D41494C  # the money ceiling of the solution ("MAIL")
 LOCK_RUNS, LOCK_DEMO = 0x4D52, 0x4D44  # runs of an owner, an address or a connection; demo writes
+MAX_CREATES = 3  # records one write of a new request may create: a company, a contact, a deal
 SMALL = frozenset({"amocrm", "kommo"})  # technical accounts of 100 contacts and companies, 100 deals
 
 
@@ -366,7 +367,19 @@ class MailStore:
                     made = select(func.count()).select_from(MailDemoRecord).where(MailDemoRecord.crm == crm)
                     today = int(await session.scalar(made.where(MailDemoRecord.created_at > _day())) or 0)
                     ever = int(await session.scalar(made) or 0)
-                    if today + creates > per_day or ever + creates > total:
+                    # writes of this CRM going on now may still create theirs: each is counted at its most
+                    going = (
+                        select(func.count())
+                        .select_from(MailRun)
+                        .where(
+                            MailRun.demo,
+                            MailRun.crm == crm,
+                            MailRun.status == "writing",
+                            MailRun.id != run_id,
+                        )
+                    )
+                    held = MAX_CREATES * int(await session.scalar(going) or 0)
+                    if today + held + creates > per_day or ever + held + creates > total:
                         return "full_new"
             done = await session.execute(
                 update(MailRun)
