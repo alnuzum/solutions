@@ -109,6 +109,8 @@ def _field_values(
 class AmoCRM(CRM):
     kind: ClassVar[CrmKind] = CrmKind.AMOCRM
     capabilities: ClassVar[frozenset[str]] = frozenset({"inn"})
+    #: our units to the values of the catalog's UNIT list (the rest go into the description only)
+    UNITS: ClassVar[dict[str, str]] = {"шт": "шт", "кг": "кг", "л": "л"}
 
     def __init__(
         self,
@@ -329,29 +331,53 @@ class AmoCRM(CRM):
     # --- catalog ---
 
     def _element_body(
-        self, name: str, price: Decimal, sku: str | None, price_field: int | None
+        self,
+        name: str,
+        price: Decimal,
+        sku: str | None,
+        price_field: int | None,
+        *,
+        unit: str | None = None,
+        description: str | None = None,
     ) -> dict[str, Any]:
         fields: list[dict[str, Any]] = []
         if price_field:
             fields.append({"field_id": price_field, "values": [{"value": float(price)}]})
         if sku:
             fields.append({"field_code": "SKU", "values": [{"value": sku}]})
+        if unit and unit in self.UNITS:
+            fields.append({"field_code": "UNIT", "values": [{"value": self.UNITS[unit]}]})
+        if description:
+            fields.append({"field_code": "DESCRIPTION", "values": [{"value": description}]})
         return {"name": name, "custom_fields_values": fields or None}
 
     async def create_product(self, product: ProductIn) -> str:
         cat, price_field = await self._catalog(), await self._price_field_id()
-        body = [self._element_body(product.name, product.price, product.sku, price_field)]
+        body = [
+            self._element_body(
+                product.name,
+                product.price,
+                product.sku,
+                price_field,
+                unit=product.unit,
+                description=product.description,
+            )
+        ]
         return await self._first_id("POST", f"/api/v4/catalogs/{cat}/elements", "elements", body)
 
     def _product(self, element: dict[str, Any], currency: str | None) -> Product:
         prices = _field_values(element, code="PRICE")
         skus = _field_values(element, code="SKU")
+        units = _field_values(element, code="UNIT")
+        about = _field_values(element, code="DESCRIPTION")
         return Product(
             id=str(element["id"]),
             name=str(element.get("name", "")),
             sku=skus[0] if skus else None,
             price=dec(prices[0]) if prices else None,
             currency=currency,
+            unit=units[0] if units else None,
+            description=about[0] if about else None,
         )
 
     async def list_products(
@@ -573,3 +599,4 @@ class Kommo(AmoCRM):
     """Kommo, the international amoCRM: same API, own servers, ``*.kommo.com``."""
 
     kind: ClassVar[CrmKind] = CrmKind.KOMMO
+    UNITS: ClassVar[dict[str, str]] = {"шт": "pc", "кг": "kg", "л": "l"}

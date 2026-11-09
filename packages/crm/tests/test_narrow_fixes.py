@@ -322,6 +322,16 @@ async def test_amo_line_at_catalog_price_in_account_currency_passes() -> None:
     )
 
 
+async def test_amo_budget_is_the_given_total_while_lines_keep_catalog_prices() -> None:
+    """Discounts amoCRM cannot keep on a line live in the budget: lines at the catalog price, the
+    budget is the total after the company's rules."""
+    crm, router = amo(amo_catalog())
+    line = DealLine("Widget", Decimal(3), Decimal(100), product_id="42")
+    async with crm:
+        await crm.create_deal(DealIn("d", (line,), total=Decimal("271.50")))
+    assert json.loads(router.sent("POST", "/api/v4/leads")[0].content)[0]["price"] == 272
+
+
 async def test_odoo_currency_is_applied_or_refused() -> None:
     fake = FakeOdoo(
         {
@@ -347,7 +357,13 @@ async def test_bitrix_products_cursor_does_not_skip_rows() -> None:
     starts: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        _, body = b24_method(request)
+        method, body = b24_method(request)
+        if method == "catalog.catalog.list":
+            return httpx.Response(
+                200, json={"result": {"catalogs": [{"iblockId": 25, "productIblockId": None}]}}
+            )
+        if method == "catalog.product.list":
+            return httpx.Response(200, json={"result": {"products": []}})
         start = int(body["start"])
         starts.append(start)
         rows = [{"ID": str(i), "NAME": f"P{i}"} for i in range(start, min(start + 50, 120))]

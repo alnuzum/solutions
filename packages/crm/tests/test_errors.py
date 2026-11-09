@@ -171,8 +171,11 @@ async def test_bitrix_limit_is_retried_then_reported() -> None:
         200,
         json={"result": [{"ID": "1", "NAME": "P", "PRICE": "5", "CURRENCY_ID": "RUB", "XML_ID": "SKU-1"}]},
     )
-    async with b24(Script(limit, ok)) as crm:
+    catalogs = httpx.Response(200, json={"result": {"catalogs": [{"iblockId": 25, "productIblockId": None}]}})
+    stock = httpx.Response(200, json={"result": {"products": [{"id": 1, "quantity": 4}]}})
+    async with b24(Script(limit, ok, catalogs, stock)) as crm:
         page = await crm.list_products()
+    assert page.items[0].stock == Decimal(4)
     assert page.items[0].sku == "SKU-1"
     assert page.items[0].price == Decimal(5)
     async with b24(Script(limit, limit)) as crm:

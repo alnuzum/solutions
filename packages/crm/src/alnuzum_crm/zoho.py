@@ -88,7 +88,11 @@ def _split_name(name: str) -> tuple[str | None, str]:
 
 class ZohoCRM(CRM):
     kind: ClassVar[CrmKind] = CrmKind.ZOHO
-    capabilities: ClassVar[frozenset[str]] = frozenset({"inn", "fractional_amount", "delete"})
+    capabilities: ClassVar[frozenset[str]] = frozenset(
+        {"inn", "fractional_amount", "delete", "line_prices", "stock"}
+    )
+    #: our units to the values of the standard Usage_Unit list
+    UNITS: ClassVar[dict[str, str]] = {"шт": "Pieces", "уп": "Pack", "кор": "Box", "м": "M"}
 
     def __init__(
         self,
@@ -340,13 +344,22 @@ class ZohoCRM(CRM):
         record: dict[str, Any] = {"Product_Name": product.name, "Unit_Price": float(product.price)}
         if product.sku:
             record["Product_Code"] = product.sku
+        if product.unit and product.unit in self.UNITS:
+            record["Usage_Unit"] = self.UNITS[product.unit]
+        if product.description:
+            record["Description"] = product.description
+        if product.stock is not None:
+            record["Qty_in_Stock"] = float(product.stock)
         return await self._create("Products", record)
 
     async def list_products(
         self, *, query: str | None = None, cursor: str | None = None, limit: int = 50
     ) -> Page[Product]:
         page = int(cursor or 1)
-        fields = "id,Product_Name,Product_Code,Unit_Price,Currency"
+        fields = (
+            "id,Product_Name,Product_Code,Unit_Price,Currency,"
+            "Usage_Unit,Product_Category,Description,Qty_in_Stock"
+        )
         per_page = min(limit, 200)
         if query:
             data = await self._request(
@@ -364,6 +377,10 @@ class ZohoCRM(CRM):
                 sku=r.get("Product_Code") or None,
                 price=dec(r.get("Unit_Price")),
                 currency=r.get("Currency") or None,
+                unit=r.get("Usage_Unit") or None,
+                category=r.get("Product_Category") or None,
+                description=r.get("Description") or None,
+                stock=dec(r.get("Qty_in_Stock")),
             )
             for r in rows
         )
