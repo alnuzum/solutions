@@ -132,3 +132,10 @@ def test_the_caddyfile_is_replaced_in_place_and_reloaded() -> None:
     assert 'install -m 0644 "$HERE/Caddyfile"' not in boot
     assert 'cat "$HERE/Caddyfile" > /srv/apps/edge/Caddyfile' in boot
     assert "caddy reload --config /etc/caddy/Caddyfile" in boot
+
+
+def test_the_paid_voice_job_does_not_run_on_a_push_of_documents() -> None:
+    e2e = yaml.safe_load((ROOT / ".github" / "workflows" / "e2e.yml").read_text())
+    push = e2e[True]["push"]  # YAML 1.1 reads «on» as true
+    assert {"docs/**", "**/*.md"} <= set(push["paths-ignore"])
+    assert "push" in e2e["jobs"]["voice-quality"]["if"]  # on a push of code it still runs

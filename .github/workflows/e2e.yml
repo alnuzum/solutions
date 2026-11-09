@@ -5,6 +5,8 @@ name: Live E2E
 on:
   push:
     branches: [main]
+    # a push of documents only changes nothing these jobs check, and the voice job pays for its minutes
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
   schedule:
     - cron: "17 2 * * *"
