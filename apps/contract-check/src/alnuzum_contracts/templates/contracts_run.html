@@ -8,7 +8,7 @@
   <div><p class="back"><a href="/{{ lang }}/contracts">← {{ t.c_new }}</a></p>
   <h1>{{ t.c_title }}</h1>
   <p>{% if s.substantive %}{{ t.c_summary.format(n=s.changes, high=s.high, medium=s.medium, low=s.low) }}{% else %}{{ t.c_same }}{% endif %}{% if s.cosmetic %} {{ t.c_cosmetic.format(n=s.cosmetic) }}{% endif %}</p>
-  <p class="muted small">{{ crm_name }} · {{ t.c_cost.format(usd=r.usage.usd) }} · {{ t.c_until.format(until=until) }}</p>
+  <p class="muted small">{{ crm_name }} · {{ t.c_cost.format(usd=cost) }} · {{ t.c_until.format(until=until) }}</p>
   <form method="post" action="/{{ lang }}/contracts/{{ run.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost" type="submit" name="action" value="erase">{{ t.c_erase }}</button></form>
   </div>
 </div>

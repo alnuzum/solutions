@@ -4,6 +4,7 @@ in a deal. The pages run no script; hovering a change lights its fragments throu
 import json
 import logging
 import uuid
+from decimal import Decimal
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -60,6 +61,16 @@ def quality() -> dict[str, Any] | None:
     except (FileNotFoundError, ValueError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def dollars(value: str, lang: str) -> str:
+    """The cost of a run as a reader writes it: four decimals at most, no trailing zeros, a decimal comma
+    in Russian (0,0425), a point in English (0.0425)."""
+    try:
+        shown = f"{Decimal(str(value)).quantize(Decimal('0.0001')):f}".rstrip("0").rstrip(".") or "0"
+    except ArithmeticError:
+        shown = "0"
+    return shown.replace(".", ",") if lang == "ru" else shown
 
 
 def ip_key(request: Request) -> str:
@@ -271,6 +282,7 @@ def build(kit: Kit, contracts: Contracts) -> APIRouter:
             risks=RISKS[lang],
             kinds=KINDS[lang],
             until=(run.created_at + KEEP).astimezone(TZ).strftime("%d.%m.%Y %H:%M"),
+            cost=dollars(run.result.get("usage", {}).get("usd", "0"), lang),
             notice=notice,
             linked=MAX_LINKED,
         )
@@ -280,7 +292,10 @@ def build(kit: Kit, contracts: Contracts) -> APIRouter:
         lang = _lang(lang)
         n = request.query_params.get("n")
         return show(
-            request, lang, await own_run(request, lang, run_id), notice=n if n and n.isalpha() else None
+            request,
+            lang,
+            await own_run(request, lang, run_id),
+            notice=n if n and n.replace("_", "").isalpha() else None,
         )
 
     @router.post("/{lang}/contracts/{run_id}")

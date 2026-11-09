@@ -3,7 +3,7 @@
 RU = {
     "c_title": "Сверка договора с типовым",
     "c_lead": "Редакция контрагента против вашего типового: что изменено, добавлено и удалено, с цитатами обеих редакций и уровнем риска. В сделку CRM — заметка со сводкой и задача юристу.",
-    "c_quality": "На эталоне из {pairs} пар договоров ({changes} внесённых правок, среди них скан): найдено {found} из {changes}, ложных {false}, уровень риска совпал в {risk} из {found}, цитаты из документов — {quotes} %, косметика в высоком риске — {cosmetic_high}.",
+    "c_quality": "На эталоне из {pairs} пар договоров (внесено правок: {changes}, среди них скан): найдено {found} из {changes}, ложных {false}, уровень риска совпал в {risk} из {found}, цитаты дословно из документов в {quotes} случаев, косметика в высоком риске: {cosmetic_high}.",
     "c_keep": "Договор хранится 24 часа и стирается; стереть сразу можно на странице разбора. Ваш типовой хранится, пока есть подключение или пока вы его не удалите. Тексты в базе зашифрованы.",
     "c_target": "CRM",
     "c_demo": "Демо: наши тестовые CRM",
@@ -97,7 +97,7 @@ RU = {
 EN = {
     "c_title": "A contract against your standard",
     "c_lead": "The counterparty's draft against your standard: what is changed, added and deleted, with quotes of both drafts and a level of risk. The CRM deal gets a note with the summary and a task for the lawyer.",
-    "c_quality": "On a reference set of {pairs} pairs of contracts ({changes} changes made, a scan among them): {found} of {changes} found, {false} false, the level of risk matched in {risk} of {found}, quotes from the documents {quotes} %, cosmetics rated high: {cosmetic_high}.",
+    "c_quality": "On a reference set of {pairs} pairs of contracts ({changes} changes made, a scan among them): {found} of {changes} found, {false} false, the level of risk matched in {risk} of {found}, quotes verbatim from the documents in {quotes} of cases, cosmetics rated high: {cosmetic_high}.",
     "c_keep": "The contract is kept for 24 hours and erased; you can erase it at once on its page. Your standard is kept while the connection exists or until you delete it. The texts are encrypted in the database.",
     "c_target": "CRM",
     "c_demo": "Demo: our test CRMs",

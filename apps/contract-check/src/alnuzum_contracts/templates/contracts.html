@@ -5,7 +5,7 @@
 {% set li = 0 if lang == 'ru' else 1 %}
 <div class="head">
   <div><h1>{{ t.c_title }}</h1><p>{{ t.c_lead }}</p>
-  {% if q %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.c_quality.format(pairs=q.pairs, changes=q.changes, found=q.found, false=q.false, risk=q.risk_match, quotes=(q.quotes * 100)|round(0)|int, cosmetic_high=q.cosmetic_high) }}</p>{% endif %}
+  {% if q %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.c_quality.format(pairs=q.pairs, changes=q.changes, found=q.found, false=q.false, risk=q.risk_match, quotes=q.quotes|pct(lang), cosmetic_high=q.cosmetic_high) }}</p>{% endif %}
   <p class="q keep"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.c_keep }}</p>
   </div>
 </div>

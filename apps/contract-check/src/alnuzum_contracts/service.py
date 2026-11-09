@@ -311,6 +311,10 @@ class Contracts:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("contract run %s not written: %s", run.id, code)
             return "auth" if code == "auth" else "failed"
+        except Exception:  # anything else: the run must not stay "writing" (a retry goes on from the step)
+            await st.finish_write(write_id, ok=False, error="error")
+            await cs.finish_writing(run.id, ok=False, error="error")
+            raise
         await st.finish_write(write_id, ok=True, record_id=run.deal_id, record_url=url)
         await cs.finish_writing(run.id, ok=True, deal_url=url)
         log.info("contract run %s written to deal %s", run.id, run.deal_id)
