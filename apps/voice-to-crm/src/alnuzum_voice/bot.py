@@ -13,7 +13,7 @@ from alnuzum_platform.solutions import Kit
 from alnuzum_platform.store import ConnectionNotFound
 from alnuzum_platform.web.i18n import texts as platform_texts
 from alnuzum_voice.engine import Change, Result
-from alnuzum_voice.i18n import texts
+from alnuzum_voice.i18n import demo_deals, texts
 from alnuzum_voice.service import Note, Voice, VoiceError
 from alnuzum_voice.store import RunNotFound, RunsExceeded, chat_owner
 from alnuzum_voice.telegram import Bot, Buttons, TelegramError
@@ -256,7 +256,9 @@ class Updates:
             if rest in demos:
                 await vs.set_demo(chat_id, rest, lang)
                 await bot.answer(cid)
-                await bot.send(chat_id, t["b_crm_set"].format(crm=crm_name(rest, lang)))
+                await bot.send(
+                    chat_id, t["b_crm_set"].format(crm=crm_name(rest, lang), deals=demo_deals(lang, rest))
+                )
             else:
                 await bot.answer(cid, t["e_demo_off"])
             return

@@ -532,3 +532,13 @@ async def test_a_crm_that_fails_while_reading_or_writing_writes_nothing_and_says
             "?n=written"
         )  # a failed write is not retried by a click
     assert [k for k, _ in h.crm.writes] == []
+
+
+async def test_the_bot_names_the_demo_deals_each_crm_has(make: Any) -> None:
+    from alnuzum_voice.i18n import demo_deals
+
+    h: Harness = await make()
+    await h.update(callback(532, 2, "c:bitrix24"))
+    assert "Ромашка, Навруз Строй, Самарканд Текстиль, Бахор Маркет, Ташкент Сити Молл." in h.tg.texts()[-1]
+    assert demo_deals("ru", "kommo") == "Ромашка, Навруз Строй"  # Kommo holds two demo deals
+    assert demo_deals("en", "kommo") == "Romashka, Navruz Stroy"

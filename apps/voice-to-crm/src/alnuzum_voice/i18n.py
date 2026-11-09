@@ -16,7 +16,8 @@ RU = {
     "v_send": "Разобрать",
     "v_samples": "Команды эталона: послушать и подать",
     "v_sample_use": "Подать",
-    "v_deals": "Демо-сделки: Ромашка, Навруз Строй, Самарканд Текстиль, Бахор Маркет, Ташкент Сити Молл.",
+    "v_deals": "Демо-сделки: Ромашка, Навруз Строй, Самарканд Текстиль, Бахор Маркет, Ташкент Сити Молл; в Kommo — "
+    "первые две.",
     "v_own": "Ваши подключения",
     "v_own_none": "Подключите свою CRM на главной, и её можно будет выбрать здесь и привязать к Telegram.",
     "v_link": "Привязать Telegram",
@@ -102,8 +103,7 @@ RU = {
     "b_hello": "Al-Nuzum: голос менеджера → CRM.\nПришлите голосовое или текст про сделку, по-русски или по-узбекски: "
     "«По Ромашке переведи на переговоры, добавь 20 автоматов IEK 16А, позвонить в пятницу». Я найду сделку и "
     "покажу изменения; в CRM запишу только после кнопки «Записать».\n\nВыберите демо-CRM:",
-    "b_crm_set": "Пишу в демо {crm}. Демо-сделки: Ромашка, Навруз Строй, Самарканд Текстиль, Бахор Маркет, "
-    "Ташкент Сити Молл. Пришлите голосовое.",
+    "b_crm_set": "Пишу в демо {crm}. Демо-сделки: {deals}. Пришлите голосовое.",
     "b_pick_first": "Сначала выберите демо-CRM:",
     "b_linked": "Чат привязан к вашей {crm}. Пришлите голосовое. Вернуться в демо: /demo",
     "b_link_bad": "Ссылка не сработала: она одноразовая и живёт 10 минут. Получите новую на странице решения.",
@@ -138,7 +138,8 @@ EN = {
     "v_send": "Read it",
     "v_samples": "Commands of the reference set: listen and send",
     "v_sample_use": "Send",
-    "v_deals": "Demo deals: Romashka, Navruz Stroy, Samarqand Tekstil, Bahor Market, Tashkent City Mall.",
+    "v_deals": "Demo deals: Romashka, Navruz Stroy, Samarqand Tekstil, Bahor Market, Tashkent City Mall; in Kommo, "
+    "the first two.",
     "v_own": "Your connections",
     "v_own_none": "Connect your CRM on the home page; then it can be chosen here and bound to Telegram.",
     "v_link": "Bind Telegram",
@@ -223,8 +224,7 @@ EN = {
     "n_saved": "Choice saved.",
     "b_hello": "Al-Nuzum: manager's voice → CRM.\nSend a voice note or a text about a deal, in Russian or Uzbek. "
     "I find the deal and show the changes; nothing is written before you press «Write».\n\nPick a demo CRM:",
-    "b_crm_set": "Writing to the {crm} demo. Demo deals: Romashka, Navruz Stroy, Samarqand Tekstil, Bahor Market, "
-    "Tashkent City Mall. Send a voice note.",
+    "b_crm_set": "Writing to the {crm} demo. Demo deals: {deals}. Send a voice note.",
     "b_pick_first": "Pick a demo CRM first:",
     "b_linked": "This chat is bound to your {crm}. Send a voice note. Back to the demo: /demo",
     "b_link_bad": "The link did not work: it works once and for 10 minutes. Get a new one on the solution's page.",
@@ -257,3 +257,15 @@ def commands_word(lang: str, n: int) -> str:
     if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
         return "команды"
     return "команд"
+
+
+DEALS = {
+    "ru": ("Ромашка", "Навруз Строй", "Самарканд Текстиль", "Бахор Маркет", "Ташкент Сити Молл"),
+    "en": ("Romashka", "Navruz Stroy", "Samarqand Tekstil", "Bahor Market", "Tashkent City Mall"),
+}
+KOMMO_DEALS = 2  # Kommo's trial account holds 100 deals in all: two demo deals there
+
+
+def demo_deals(lang: str, crm: str) -> str:
+    names = DEALS["ru" if lang == "ru" else "en"]
+    return ", ".join(names[:KOMMO_DEALS] if crm == "kommo" else names)
