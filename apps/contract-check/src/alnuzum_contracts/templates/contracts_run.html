@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t.c_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/contracts/contracts.css"><link rel="stylesheet" href="/contracts/link.css">{% endblock %}
+{% block body %}
+{% set crm_name = t['crm_' ~ run.crm] %}
+{% set open_run = run.status in ('ready', 'failed') %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/contracts">← {{ t.c_new }}</a></p>
+  <h1>{{ t.c_title }}</h1>
+  <p>{% if s.substantive %}{{ t.c_summary.format(n=s.changes, high=s.high, medium=s.medium, low=s.low) }}{% else %}{{ t.c_same }}{% endif %}{% if s.cosmetic %} {{ t.c_cosmetic.format(n=s.cosmetic) }}{% endif %}</p>
+  <p class="muted small">{{ crm_name }} · {{ t.c_cost.format(usd=r.usage.usd) }} · {{ t.c_until.format(until=until) }}</p>
+  <form method="post" action="/{{ lang }}/contracts/{{ run.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost" type="submit" name="action" value="erase">{{ t.c_erase }}</button></form>
+  </div>
+</div>
+{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'found') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'found') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
+
+{% if run.status == 'written' %}
+<section class="card done">
+  <h2><svg class="ic" aria-hidden="true"><use href="#c-{{ run.crm }}"/></svg>{{ t.c_written.format(crm=crm_name, deal=run.deal_title or run.deal_id) }}</h2>
+  <p class="muted">{{ t.c_written_hint }}</p>
+  {% if run.deal_url %}<a class="open" href="{{ run.deal_url }}" rel="noopener noreferrer">{{ t.c_open }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>{% endif %}
+</section>
+{% endif %}
+
+<div class="oc">
+ <section class="src card">
+  <h2>{{ t.c_theirs }}</h2>
+  {% if r.kind_theirs == 'scan' %}<p class="muted small">{{ t.c_scan }}</p>{% endif %}
+  <div class="paper doc">
+   {% for row in rows %}<p class="cl{% if row.deleted %} del{% endif %}{% if row.risk %} r-{{ row.risk }}{% endif %}"{% if row.changes %} data-c="{{ row.changes[0] }}"{% endif %}>{% if row.label %}<span class="lb">{{ row.label }}</span> {% endif %}{% for p in row.pieces %}{% if p.change and not row.deleted %}<mark class="r-{{ p.risk }}" data-c="{{ p.change }}">{{ p.text }}</mark>{% else %}{{ p.text }}{% endif %}{% endfor %}{% if row.deleted %} <small class="muted">· {{ t.c_deleted_here }}</small>{% endif %}</p>
+   {% endfor %}
+  </div>
+ </section>
+ <div class="res">
+  <h2>{{ t.c_changes }}</h2>
+  <p class="muted small">{{ t.c_hover }}{% if items|length > linked %} {{ t.c_more.format(n=linked) }}{% endif %}</p>
+  <div class="items">
+   {% for x in items %}{% set c = x.c %}
+   <div class="it r-{{ c.risk }}{% if not c.rated %} unrated{% endif %}" data-c="{{ c.id }}" tabindex="0">
+    <small class="read">{% if x.name %}{{ t.c_clause.format(name=x.name) }}{% else %}{{ t.c_new_clause }}{% endif %} · {{ kinds[c.kind] }}</small>
+    <b><span class="risk r-{{ c.risk }}">{{ risks[c.risk] }}</span> {{ topics[c.topic] }}</b>
+    {% if x.was %}<small class="quote"><em>{{ t.c_was }}:</em> «{{ x.was }}»</small>{% endif %}
+    {% if x.now %}<small class="quote"><em>{{ t.c_now }}:</em> «{{ x.now }}»</small>{% endif %}
+    {% if c.why %}<small class="meta">{{ c.why }}</small>{% endif %}
+    {% if not c.rated %}<small class="warn">{{ t.c_unrated }}</small>{% endif %}
+   </div>
+   {% endfor %}
+  </div>
+  {% if run.status != 'written' %}
+  <section class="card deal">
+   <h2>{{ t.c_deal }}</h2>
+   {% if run.demo %}<p class="muted small">{{ t.c_deal_hint_demo }}</p>{% endif %}
+   {% if open_run and not run.steps %}
+   <form class="row" method="post" action="/{{ lang }}/contracts/{{ run.id }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="search" name="q" maxlength="80" placeholder="{{ t.c_search_ph }}"{% if run.demo %} value="Демо"{% endif %}>
+    <button class="btn ghost" type="submit" name="action" value="search">{{ t.c_search }}</button>
+   </form>
+   {% endif %}
+   {% if open_run %}
+   <form method="post" action="/{{ lang }}/contracts/{{ run.id }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if run.steps %}<p class="muted small">{{ t.c_steps.format(done=run.steps|length) }} · «{{ run.deal_title }}»</p>
+    {% else %}{% for d in run.candidates %}<label class="opt"><input type="radio" name="deal" value="{{ d.id }}" required{% if run.candidates|length == 1 %} checked{% endif %}><span><b>{{ d.title }}</b><small>{{ [d.company, d.contact]|select|join(' · ') }}</small></span></label>{% endfor %}{% endif %}
+    {% if run.candidates or run.steps %}<div class="acts"><button class="btn" type="submit" name="action" value="write">{{ t.c_retry if run.steps else t.c_write.format(crm=crm_name) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button></div>{% endif %}
+   </form>
+   {% endif %}
+  </section>
+  {% endif %}
+ </div>
+</div>
+{% endblock %}

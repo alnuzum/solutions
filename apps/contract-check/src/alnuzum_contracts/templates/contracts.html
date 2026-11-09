@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ t.c_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/contracts/contracts.css">{% endblock %}
+{% block body %}
+{% set li = 0 if lang == 'ru' else 1 %}
+<div class="head">
+  <div><h1>{{ t.c_title }}</h1><p>{{ t.c_lead }}</p>
+  {% if q %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.c_quality.format(pairs=q.pairs, changes=q.changes, found=q.found, false=q.false, risk=q.risk_match, quotes=(q.quotes * 100)|round(0)|int, cosmetic_high=q.cosmetic_high) }}</p>{% endif %}
+  <p class="q keep"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.c_keep }}</p>
+  </div>
+</div>
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] if error in t else t.e_model_unreadable }}</p>{% endif %}
+{% if request.query_params.get('n') and t.get('n_' ~ request.query_params.get('n')) %}<p class="err good" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t['n_' ~ request.query_params.get('n')] }}</p>{% endif %}
+<form class="ord" method="post" action="/{{ lang }}/contracts" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card">
+    <h2>{{ t.c_target }}</h2>
+    {% if demos %}
+    <h3>{{ t.c_demo }}</h3>
+    <div class="picks">
+      {% for k in demos %}<label class="pick"><input type="radio" name="target" value="demo:{{ k }}" required{% if loop.first %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}</span></label>{% endfor %}
+    </div>
+    <p class="muted small">{{ t.c_demo_hint }}</p>
+    {% endif %}
+    <h3>{{ t.c_own }}</h3>
+    {% if own %}
+    <div class="picks">
+      {% for c in own %}<label class="pick"><input type="radio" name="target" value="conn:{{ c.id }}" required><span><svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg>{{ t['crm_' ~ c.crm.value] }} · {{ c.label }}</span></label>{% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small">{{ t.c_own_none }} <a class="open" href="/{{ lang }}">→</a></p>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>{{ t.c_standard }}</h2>
+    <h3>{{ t.c_demo_standards }}</h3>
+    <div class="picks light">
+      {% for key, s in demo_standards.items() %}<label class="pick"><input type="radio" name="standard" value="demo:{{ key }}"{% if loop.first %} checked{% endif %}><span>{{ s.title[lang] }} <small class="muted">· {{ t.c_side.format(side=sides[s.side][li]) }}</small></span></label>{% endfor %}
+      {% if own %}<label class="pick"><input type="radio" name="standard" value="own"><span>{{ t.c_own }}</span></label>{% endif %}
+    </div>
+  </section>
+  <section class="plate">
+    <h2>{{ t.c_draft }}</h2>
+    <label class="fld">{{ t.c_file }}<input type="file" name="file" accept=".docx,.pdf,.txt,.png,.jpg,.jpeg,.webp,application/pdf,text/plain"></label>
+    <h3>{{ t.c_samples }}</h3>
+    <div class="picks light samples">
+      {% for s in samples %}<label class="pick"><input type="radio" name="sample" value="{{ s.id }}"><span>{{ s.title[lang] }} <small class="muted">· {{ demo_standards[s.standard].title[lang] }}</small></span></label>{% endfor %}
+    </div>
+    <div class="go"><button class="btn" type="submit">{{ t.c_go }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button></div>
+  </section>
+</form>
+{% if own %}
+<section class="card links">
+  <h2>{{ t.c_standard }}: {{ t.c_own|lower }}</h2>
+  {% for c in own %}{% set mine = standards.get(c.id) %}{% set crm = t['crm_' ~ c.crm.value] ~ ' · ' ~ c.label %}
+  <form class="row" method="post" action="/{{ lang }}/contracts/standard/{{ c.id }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <span>{% if mine %}{{ t.c_own_standard.format(crm=crm, n=mine.clauses, side=sides[mine.side][li], date=mine.created_at.strftime('%d.%m.%Y')) }}{% else %}{{ t.c_own_standard_none.format(crm=crm) }}{% endif %}</span>
+    <label class="fld">{{ t.c_your_side }}<select name="side">{% for k, v in sides.items() %}<option value="{{ k }}"{% if mine and mine.side == k %} selected{% endif %}>{{ v[li] }}</option>{% endfor %}</select></label>
+    <input type="file" name="file" accept=".docx,.pdf,.txt,.png,.jpg,.jpeg,.webp">
+    <button class="btn ghost" type="submit" name="action" value="upload">{{ t.c_replace_standard if mine else t.c_upload_standard }}</button>
+    {% if mine %}<button class="btn ghost" type="submit" name="action" value="delete">{{ t.c_delete_standard }}</button>{% endif %}
+  </form>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}
