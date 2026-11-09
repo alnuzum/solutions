@@ -71,7 +71,8 @@ POOLED = ("amocrm", "kommo")
 
 @pytest.mark.parametrize("name", POOLED)
 async def test_replay_on_the_pool(name: str) -> None:
-    """A run on the pool finds the company and contacts, frees them and creates none."""
+    """A run on the pool finds the company, the contacts and the catalog product, frees them and creates none;
+    the one new catalog element (the deal's line without a product) is deleted at the end."""
     replay = Replayer(CASSETTES / f"{name}-pool.json")
     async with BUILD[name](replay) as crm:
         steps = await run_conformance(
@@ -89,6 +90,9 @@ async def test_replay_on_the_pool(name: str) -> None:
     assert creates == []
     unlinked = [c["url"].rsplit("/", 3)[-3] for c in replay.calls if c["url"].endswith("/unlink")]
     assert sorted(unlinked) == ["companies", "contacts", "contacts"], unlinked
+    elements = [c for c in replay.calls if c["method"] == "POST" and c["url"].endswith("/elements")]
+    assert len(elements) == 1 and '"E2E service ' in elements[0]["body"]
+    assert replay.calls[-1]["url"].endswith("/api/v2/catalog_elements")
 
 
 async def test_the_pool_is_for_the_amocrm_family() -> None:

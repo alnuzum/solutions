@@ -180,7 +180,7 @@ class Collected:
 async def _poll[T](
     probe: Callable[[], Awaitable[T | None]], sleep: Sleep, *, tries: int = 30, pause: float = 3.0
 ) -> T | None:
-    """Search indexes of some CRMs (Zoho) lag behind writes by seconds."""
+    """Search indexes of some CRMs (Zoho, the catalog of Kommo) lag behind writes by seconds to minutes."""
     for attempt in range(tries):
         found = await probe()
         if found is not None:
@@ -188,6 +188,11 @@ async def _poll[T](
         if attempt + 1 < tries:
             await sleep(pause)
     return None
+
+
+#: Tries of 3 s for a new product in the catalog search: Kommo's index took 8 to 41 s on a quiet account,
+#: 50 to 117 s for ten minutes after a bulk write and more than 110 s in three runs of CI on 09.11
+CATALOG_TRIES = 100
 
 
 # no operator in Uzbekistan has the code 00: a test phone can never be somebody's number
@@ -241,6 +246,10 @@ async def _unlink(crm: AmoCRM, owner: str, owner_id: str, key: str) -> None:
         await crm._request("POST", f"/api/v4/{owner}/{int(owner_id)}/unlink", json=body)
 
 
+async def _in_catalog(crm: CRM, name: str) -> str | None:
+    return next((p.id for p in (await crm.list_products(query=name)).items if p.name == name), None)
+
+
 async def _found(crm: CRM, text: str, deal_id: str) -> DealHit | None:
     return next((h for h in await crm.find_deals(text) if h.id == deal_id), None)
 
@@ -256,8 +265,9 @@ async def run_conformance(
 ) -> list[str]:
     """Create everything, read it back, remove it. Returns the names of the passed steps.
 
-    With ``pool`` (the amoCRM family) the company and the contacts are the pool's: found, created only
-    when they are gone, never discarded; deals, products, files, notes and tasks are the run's own."""
+    With ``pool`` (the amoCRM family) the company, the contacts and the catalog product are the pool's:
+    found, created only when they are gone, never discarded; deals, their new products, files, notes and
+    tasks are the run's own."""
     done: list[str] = []
     got = Collected()
     amo = _amo(crm) if pool else None
@@ -327,21 +337,26 @@ async def run_conformance(
             for owner, owner_id in (("companies", co.id), ("contacts", ct.id)):
                 await _unlink(amo, owner, owner_id, "leads")
 
-        about = f"Категория: E2E\nСинонимы: e2e {run_id}"
-        product_id = await crm.create_product(
-            ProductIn(
-                f"E2E product {run_id}",
-                Decimal(100),
-                f"E2E-{run_id}",
-                unit="шт",
-                category="E2E",
-                description=about,
-                stock=Decimal(7),
+        about = f"Категория: E2E\nСинонимы: e2e {key}"
+        product = f"E2E product {key}"
+        # the pool's product sits in the catalog search long since: a new one waits out Kommo's index
+        product_id = await _in_catalog(crm, product) if pool else None
+        if product_id is None:
+            product_id = await crm.create_product(
+                ProductIn(
+                    product,
+                    Decimal(100),
+                    f"E2E-{key}",
+                    unit="шт",
+                    category="E2E",
+                    description=about,
+                    stock=Decimal(7),
+                )
             )
-        )
-        got.product_ids.append(product_id)
+            if not pool:
+                got.product_ids.append(product_id)
         lines = (
-            DealLine(f"E2E product {run_id}", Decimal("2.5"), Decimal(100), product_id=product_id),
+            DealLine(product, Decimal("2.5"), Decimal(100), product_id=product_id),
             DealLine(f"E2E service {run_id}", Decimal(3), Decimal("10.25")),
         )
         deal_in = DealIn(f"E2E deal {run_id}", lines, company_id=co.id, contact_id=ct.id, tags=("e2e",))
@@ -398,9 +413,7 @@ async def run_conformance(
             and current
             and x.pipeline == current.pipeline
         )
-        await crm.add_lines(
-            created.id, (DealLine(f"E2E product {run_id}", Decimal(4), Decimal(100), product_id=product_id),)
-        )
+        await crm.add_lines(created.id, (DealLine(product, Decimal(4), Decimal(100), product_id=product_id),))
         close = (
             (now or datetime.now(UTC)).date() + timedelta(days=30)
             if "close_date" in crm.capabilities
@@ -417,10 +430,10 @@ async def run_conformance(
         done.append("deal moved, amount set, products added")
 
         async def catalog_hit() -> Product | None:
-            page = await crm.list_products(query=f"E2E product {run_id}")
+            page = await crm.list_products(query=product)
             return next((p for p in page.items if p.id == product_id), None)
 
-        hit = await _poll(catalog_hit, sleep)
+        hit = await _poll(catalog_hit, sleep, tries=CATALOG_TRIES)
         _check(hit is not None, "product found in the catalog")
         _check(hit is not None and hit.price in (None, Decimal(100)), f"catalog price {hit and hit.price}")
         _check(hit is not None and hit.description == about, f"description {hit and hit.description!r}")
