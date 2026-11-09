@@ -22,7 +22,7 @@ NOTE_MAX = 3500
 NOTE_ITEMS = 15
 QUOTE_MAX = 160
 RISK_ORDER = {"high": 0, "medium": 1, "low": 2}
-_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏ -‮⁠-⁩]")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069]")
 # markup of the CRMs: BBCode (Bitrix24), HTML (Zoho keeps it, amoCRM and Odoo escape it): fullwidth brackets
 # read the same and parse as text
 _MARKUP = str.maketrans({"<": "＜", ">": "＞", "[": "［", "]": "］"})

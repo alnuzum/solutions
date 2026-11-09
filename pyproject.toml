@@ -97,4 +97,4 @@ skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
 
 [tool.bandit]
-exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests", ".venv"]
+exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "packages/files/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests", ".venv"]

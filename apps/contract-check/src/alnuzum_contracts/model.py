@@ -44,7 +44,7 @@ SIDES = {
     "lessor": ("Арендодатель", "Lessor"),
     "lessee": ("Арендатор", "Lessee"),
 }
-_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏ -‮⁠-⁩]")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069]")
 
 RATE_SYSTEM = """You are a contract lawyer of a company. The company has a standard contract; the counterparty sent back its own draft. A program has already compared the two drafts and found the changed, added and deleted clauses. For each change you get its id, the clause in our standard, the clause in their draft and the fragments that differ.
 
