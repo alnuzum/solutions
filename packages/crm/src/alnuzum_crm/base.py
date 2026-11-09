@@ -3,6 +3,8 @@
 import re
 import unicodedata
 from abc import ABC, abstractmethod
+from dataclasses import replace
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from types import TracebackType
 from typing import ClassVar, Self
@@ -10,6 +12,7 @@ from typing import ClassVar, Self
 from alnuzum_crm.errors import CrmUnsupported, CrmValidationError
 from alnuzum_crm.types import (
     AccountInfo,
+    ClientTask,
     CompanyHit,
     CompanyIn,
     ContactIn,
@@ -19,12 +22,14 @@ from alnuzum_crm.types import (
     DealHit,
     DealIn,
     DealLine,
+    DealStatus,
     DealUpdate,
     FileIn,
     Leftovers,
     Page,
     Product,
     ProductIn,
+    Purchase,
     Ref,
     Stage,
     TaskIn,
@@ -173,6 +178,53 @@ class CRM(ABC):
     @abstractmethod
     async def discard(self, leftovers: Leftovers) -> None:
         """Remove test records: delete where the CRM allows, otherwise close and tag ``e2e``."""
+
+    # --- win-back: the purchase history of a client and a task with the reason on the client ---
+
+    async def purchases(
+        self,
+        *,
+        company_id: str | None = None,
+        contact_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        lines: bool = True,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """Won deals closed in ``[since, until)``. Of a company or a contact: the newest ``limit`` at once,
+        newest first, no next page. With neither: the whole account page by page (``limit`` a page) in the
+        order the CRM keeps. ``lines=False`` leaves the products out (a scan of the account needs dates and
+        sums only; Zoho reads the products of a deal with two requests)."""
+        raise CrmUnsupported("purchase history", crm=self.kind.value)
+
+    async def create_won_deal(self, deal: DealIn, closed_at: datetime) -> CreatedDeal:
+        """A deal won from the start and closed at ``closed_at`` (demo data, tests): created in the first won
+        stage of the first pipeline, then its closing date set."""
+        stages = await self.stages()
+        first = stages[0].pipeline if stages else None
+        won = next((s for s in stages if s.kind is DealStatus.WON and s.pipeline == first), None)
+        if won is None:
+            raise CrmUnsupported("no won stage of deals", crm=self.kind.value)
+        made = await self.create_deal(replace(deal, stage_id=won.id))
+        await self.update_deal(made.id, DealUpdate(close_date=closed_at.date()))
+        return made
+
+    async def add_client_task(
+        self, task: TaskIn, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> str:
+        """A task on a company or a contact itself, not on one of its deals."""
+        raise CrmUnsupported("tasks on a client", crm=self.kind.value)
+
+    async def client_tasks(
+        self, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> list[ClientTask]:
+        """Open tasks on a company or a contact itself."""
+        raise CrmUnsupported("tasks on a client", crm=self.kind.value)
+
+    async def discard_task(self, task_id: str) -> None:
+        """Delete a task where the CRM allows, otherwise complete it; a missing one is no error."""
+        raise CrmUnsupported("tasks on a client", crm=self.kind.value)
 
 
 def same_name(a: str, b: str) -> bool:
@@ -336,6 +388,24 @@ def same_phone(a: str | None, b: str | None) -> bool:
 
 def same_email(a: str | None, b: str | None) -> bool:
     return bool(a and b and a.strip().casefold() == b.strip().casefold())
+
+
+def at_most_one(company_id: str | None, contact_id: str | None, crm: str) -> None:
+    if company_id and contact_id:
+        raise ValueError(f"{crm}: pass company_id or contact_id, not both")
+
+
+def in_period(moment: datetime | None, since: datetime | None, until: datetime | None) -> bool:
+    """``since <= moment < until``; a missing bound is open, a moment without a zone is UTC."""
+    if moment is None:
+        return False
+    moment = aware(moment)
+    return (since is None or moment >= aware(since)) and (until is None or moment < aware(until))
+
+
+def aware(moment: datetime) -> datetime:
+    """A moment without a zone is taken as UTC."""
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def require_one(company_id: str | None, contact_id: str | None, crm: str) -> None:

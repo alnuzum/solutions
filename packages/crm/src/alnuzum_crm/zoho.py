@@ -20,10 +20,13 @@ import httpx
 
 from alnuzum_crm.base import (
     CRM,
+    at_most_one,
+    aware,
     catalog_lines,
     dec,
     digits,
     hits_in_order,
+    in_period,
     lookup_keys,
     norm_name,
     positive,
@@ -48,6 +51,7 @@ from alnuzum_crm.oauth import ZOHO_API_HOSTS, ZOHO_WEB_HOSTS, zoho_host
 from alnuzum_crm.tokens import TokenSource
 from alnuzum_crm.types import (
     AccountInfo,
+    ClientTask,
     CompanyHit,
     CompanyIn,
     ContactIn,
@@ -64,6 +68,7 @@ from alnuzum_crm.types import (
     Page,
     Product,
     ProductIn,
+    Purchase,
     Ref,
     Stage,
     TaskIn,
@@ -690,6 +695,151 @@ class ZohoCRM(CRM):
         await self._create("Quotes", quote)
 
     # --- cleanup ---
+
+    # --- win-back: purchases and tasks on a client ---
+
+    async def purchases(
+        self,
+        *,
+        company_id: str | None = None,
+        contact_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        lines: bool = True,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """Won deals are the stages of the "Closed Won" forecast. A client's come from its related list (no
+        lag); the account's from the search, whose index lags minutes behind a write, since COQL needs a scope
+        the connection does not ask for (checked live 10.11). Products sit only in a quote read one by one."""
+        at_most_one(company_id, contact_id, self.kind.value)
+        stages = await self._stage_types()
+        won = [name for name, kind in stages.items() if kind == "Closed Won"]
+        fields = "id,Deal_Name,Amount,Stage,Closing_Date,Created_Time,Currency,Account_Name,Contact_Name"
+        rows: list[dict[str, Any]] = []
+        next_cursor: str | None = None
+        if company_id or contact_id:
+            path = (
+                f"/Accounts/{self._id(company_id)}/Deals"
+                if company_id
+                else f"/Contacts/{self._id(contact_id)}/Deals"
+            )
+            page = 1
+            while True:
+                data = await self._request(
+                    "GET", path, params={"fields": fields, "page": page, "per_page": 200}
+                )
+                rows += list((data or {}).get("data") or [])
+                if not (data or {}).get("info", {}).get("more_records") or page >= 50:
+                    break
+                page += 1
+        elif won:
+            terms = ["(" + "or".join(f"(Stage:equals:{_criteria_value(w)})" for w in won) + ")"]
+            if since:
+                terms.append(f"(Closing_Date:greater_equal:{aware(since).date().isoformat()})")
+            if until:
+                terms.append(f"(Closing_Date:less_equal:{aware(until).date().isoformat()})")
+            page = int(cursor or 1)
+            data = await self._request(
+                "GET",
+                "/Deals/search",
+                params={
+                    "criteria": "(" + "and".join(terms) + ")",
+                    "fields": fields,
+                    "page": page,
+                    "per_page": max(1, min(limit, 200)),
+                },
+            )
+            rows = list((data or {}).get("data") or [])
+            if (data or {}).get("info", {}).get("more_records"):
+                next_cursor = str(page + 1)
+        rows = [
+            r
+            for r in rows
+            if stages.get(str(r.get("Stage", ""))) == "Closed Won"
+            and in_period(_dt(r.get("Closing_Date")), since, until)
+        ]
+        if company_id or contact_id:
+            rows = sorted(rows, key=lambda r: (str(r.get("Closing_Date")), str(r["id"])), reverse=True)[
+                :limit
+            ]
+        out: list[Purchase] = []
+        for r in rows:
+            account, contact = r.get("Account_Name"), r.get("Contact_Name")
+            out.append(
+                Purchase(
+                    deal_id=str(r["id"]),
+                    title=str(r.get("Deal_Name", "")),
+                    closed_at=_dt(r.get("Closing_Date")) or datetime.min.replace(tzinfo=UTC),
+                    amount=dec(r.get("Amount")),
+                    currency=r.get("Currency") or None,
+                    company_id=str(account["id"])
+                    if isinstance(account, dict) and account.get("id")
+                    else None,
+                    contact_id=str(contact["id"])
+                    if isinstance(contact, dict) and contact.get("id")
+                    else None,
+                    lines=await self._quoted_lines(str(r["id"])) if lines else (),
+                )
+            )
+        return Page(tuple(out), next_cursor)
+
+    async def _quoted_lines(self, deal_id: str) -> tuple[DealLine, ...]:
+        """The items of a deal's quotes, as ``get_deal`` reads them."""
+        lines: list[DealLine] = []
+        for qid in await self._quote_ids(deal_id):
+            quote_row = (await self._request("GET", f"/Quotes/{self._id(qid)}"))["data"][0]
+            for item in quote_row.get("Quoted_Items") or []:
+                product = item.get("Product_Name") or {}
+                lines.append(
+                    DealLine(
+                        name=str(item.get("Description") or product.get("name", "")),
+                        quantity=Decimal(str(item.get("Quantity", 0))),
+                        unit_price=Decimal(str(item.get("List_Price", 0))),
+                        product_id=str(product["id"]) if product.get("id") else None,
+                    )
+                )
+        return tuple(lines)
+
+    def _task_owner(self, company_id: str | None, contact_id: str | None) -> tuple[str, str]:
+        require_one(company_id, contact_id, self.kind.value)
+        return ("Accounts", self._id(company_id)) if company_id else ("Contacts", self._id(contact_id))
+
+    async def add_client_task(
+        self, task: TaskIn, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> str:
+        """A task on an account is "What_Id" with its module, on a contact "Who_Id" (checked live 10.11)."""
+        module, owner_id = self._task_owner(company_id, contact_id)
+        record: dict[str, Any] = {
+            "Subject": task.text[:250],
+            "Description": task.text,
+            "Due_Date": task.due.date().isoformat(),
+        }
+        if module == "Accounts":
+            record |= {"What_Id": {"id": owner_id}, "$se_module": "Accounts"}
+        else:
+            record["Who_Id"] = {"id": owner_id}
+        if task.responsible_id:
+            record["Owner"] = {"id": record_id(task.responsible_id, self.kind.value)}
+        return await self._create("Tasks", record)
+
+    async def client_tasks(
+        self, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> list[ClientTask]:
+        module, owner_id = self._task_owner(company_id, contact_id)
+        data = await self._request(
+            "GET",
+            f"/{module}/{owner_id}/Tasks",
+            params={"fields": "Subject,Status,Due_Date", "per_page": 200},
+        )
+        return [
+            ClientTask(str(t["id"]), str(t.get("Subject") or ""), _dt(t.get("Due_Date")))
+            for t in (data or {}).get("data") or []
+            if t.get("Status") != "Completed"
+        ]
+
+    async def discard_task(self, task_id: str) -> None:
+        await self._delete("Tasks", [task_id])
 
     async def _delete(self, module: str, ids: list[str]) -> None:
         for i in range(0, len(ids), 100):

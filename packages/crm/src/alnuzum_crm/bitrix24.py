@@ -26,11 +26,14 @@ import httpx
 
 from alnuzum_crm.base import (
     CRM,
+    at_most_one,
+    aware,
     catalog_lines,
     dec,
     digits,
     hits_in_order,
     host,
+    in_period,
     lookup_keys,
     positive,
     record_id,
@@ -51,6 +54,7 @@ from alnuzum_crm.errors import (
 from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.types import (
     AccountInfo,
+    ClientTask,
     CompanyHit,
     CompanyIn,
     ContactIn,
@@ -67,6 +71,7 @@ from alnuzum_crm.types import (
     Page,
     Product,
     ProductIn,
+    Purchase,
     Stage,
     TaskIn,
     User,
@@ -866,6 +871,131 @@ class Bitrix24(CRM):
             await self._result("crm.item.productrow.add", {"fields": fields})
 
     # --- cleanup ---
+
+    # --- win-back: purchases and tasks on a client ---
+
+    async def purchases(
+        self,
+        *,
+        company_id: str | None = None,
+        contact_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        lines: bool = True,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """Won deals are the success semantics of every pipeline; ``CLOSEDATE`` is a date of the portal and
+        sorts the list (checked live 10.11); products come in ``batch`` calls of 50 deals."""
+        crm = self.kind.value
+        at_most_one(company_id, contact_id, crm)
+        flt: dict[str, Any] = {"STAGE_SEMANTIC_ID": "S"}
+        if company_id:
+            flt["COMPANY_ID"] = int(record_id(company_id, crm))
+        if contact_id:
+            flt["CONTACT_ID"] = int(record_id(contact_id, crm))
+        if since:
+            flt[">=CLOSEDATE"] = aware(since).isoformat(timespec="seconds")
+        if until:
+            flt["<CLOSEDATE"] = aware(until).isoformat(timespec="seconds")
+        select = [
+            "ID",
+            "TITLE",
+            "OPPORTUNITY",
+            "CURRENCY_ID",
+            "STAGE_ID",
+            "STAGE_SEMANTIC_ID",
+            "CLOSED",
+            "CLOSEDATE",
+            "DATE_CREATE",
+            "COMPANY_ID",
+            "CONTACT_ID",
+        ]
+        params = {"filter": flt, "select": select, "order": {"CLOSEDATE": "DESC", "ID": "DESC"}}
+        next_cursor: str | None = None
+        if company_id or contact_id:
+            rows = await self._list("crm.deal.list", params, limit)
+        else:
+            data = await self.call("crm.deal.list", {**params, "start": int(cursor or 0)})
+            result = data.get("result")
+            rows = [r for r in result if isinstance(r, dict)] if isinstance(result, list) else []
+            next_cursor = str(data["next"]) if data.get("next") is not None else None
+        rows = [r for r in rows if in_period(_dt(r.get("CLOSEDATE")), since, until)]
+        products: dict[str, list[dict[str, Any]]] = {}
+        for i in range(0, len(rows) if lines else 0, 50):
+            cmds = {
+                f"d{r['ID']}": ("crm.deal.productrows.get", {"id": int(r["ID"])}) for r in rows[i : i + 50]
+            }
+            for key, value in (await self._batch(cmds)).items():
+                products[key[1:]] = [x for x in value or [] if isinstance(x, dict)]
+        out: list[Purchase] = []
+        for r in rows:
+            deal = self._deal(r)
+            got = tuple(
+                DealLine(
+                    name=str(x.get("PRODUCT_NAME", "")),
+                    quantity=Decimal(str(x.get("QUANTITY", 0))),
+                    unit_price=Decimal(str(x.get("PRICE", 0))),
+                    product_id=str(x["PRODUCT_ID"]) if int(x.get("PRODUCT_ID") or 0) else None,
+                )
+                for x in products.get(str(r["ID"]), [])
+            )
+            out.append(
+                Purchase(
+                    deal_id=deal.id,
+                    title=deal.title,
+                    closed_at=_dt(r.get("CLOSEDATE")) or datetime.min,
+                    amount=deal.amount,
+                    currency=deal.currency,
+                    company_id=str(r["COMPANY_ID"]) if int(r.get("COMPANY_ID") or 0) else None,
+                    contact_id=str(r["CONTACT_ID"]) if int(r.get("CONTACT_ID") or 0) else None,
+                    lines=got,
+                )
+            )
+        return Page(tuple(out), next_cursor)
+
+    @staticmethod
+    def _owner_type(company_id: str | None, contact_id: str | None, crm: str) -> tuple[int, int]:
+        """CRM entity type of a company (4) or a contact (3), and its id."""
+        require_one(company_id, contact_id, crm)
+        if company_id:
+            return 4, int(record_id(company_id, crm))
+        return 3, int(record_id(contact_id, crm))
+
+    async def add_client_task(
+        self, task: TaskIn, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> str:
+        owner_type, owner_id = self._owner_type(company_id, contact_id, self.kind.value)
+        params: dict[str, Any] = {
+            "ownerTypeId": owner_type,
+            "ownerId": owner_id,
+            "deadline": task.due.isoformat(timespec="seconds"),
+            "title": task.text[:250],
+            "description": task.text,
+        }
+        if task.responsible_id:
+            params["responsibleId"] = int(record_id(task.responsible_id, self.kind.value))
+        result = await self._result("crm.activity.todo.add", params)
+        return str(result["id"] if isinstance(result, dict) else result)
+
+    async def client_tasks(
+        self, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> list[ClientTask]:
+        owner_type, owner_id = self._owner_type(company_id, contact_id, self.kind.value)
+        flt = {"OWNER_TYPE_ID": owner_type, "OWNER_ID": owner_id, "COMPLETED": "N"}
+        rows = await self._list(
+            "crm.activity.list", {"filter": flt, "select": ["ID", "SUBJECT", "DESCRIPTION", "DEADLINE"]}, 200
+        )
+        return [
+            ClientTask(
+                str(r["ID"]), str(r.get("SUBJECT") or r.get("DESCRIPTION") or ""), _dt(r.get("DEADLINE"))
+            )
+            for r in rows
+        ]
+
+    async def discard_task(self, task_id: str) -> None:
+        with contextlib.suppress(CrmNotFound):
+            await self._result("crm.activity.delete", {"id": int(record_id(task_id, self.kind.value))})
 
     async def _delete(self, method: str, ids: tuple[str, ...]) -> None:
         for i in ids:

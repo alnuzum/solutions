@@ -3,6 +3,7 @@
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -26,7 +27,7 @@ from alnuzum_crm.testing import (
     run_numbers,
 )
 from alnuzum_crm.tokens import MemoryOAuthToken, StaticToken, TokenSet
-from alnuzum_crm.types import CompanyIn, DealIn, DealStatus, Leftovers
+from alnuzum_crm.types import CompanyIn, DealIn, DealLine, DealStatus, Leftovers, ProductIn, TaskIn
 from alnuzum_crm.zoho import ZohoCRM
 
 from .conftest import Recording, need
@@ -242,4 +243,122 @@ async def test_lookups_of_the_mail_triage(kind: str, run_id: str, capsys: pytest
         if isinstance(crm, AmoCRM):
             assert await crm.clients() == before, (
                 "no company or contact may be created in a technical account"
+            )
+
+
+# --- win-back: the purchases of a client and a task on the client itself ---
+
+#: amoCRM and Kommo delete no deal (405) and Zoho's search lags minutes behind a write: there the pool company
+#: keeps two won deals for good, created by the first run that misses them and read by every run after (a closed
+#: deal is not among the 100 open ones of a technical account). Bitrix24 and Odoo make and remove their own.
+PURCHASE_POOL = (("E2E purchase pool 1", 60, Decimal(3)), ("E2E purchase pool 2", 20, Decimal(2)))
+POOL_KINDS = ("amocrm", "kommo", "zoho")
+
+
+async def _linked_back(crm: CRM, company: str, title: str) -> bool:
+    """The conformance run unlinks every deal from the amoCRM pool company: a pool deal found by its title
+    is linked back instead of a new one made."""
+    if not isinstance(crm, AmoCRM):
+        return False
+    for hit in await crm.find_deals(title, limit=20):
+        if hit.title == title and hit.status is DealStatus.WON:
+            link = [{"to_entity_id": int(hit.id), "to_entity_type": "leads"}]
+            await crm._request("POST", f"/api/v4/companies/{int(company)}/link", json=link)
+            return True
+    return False
+
+
+async def _product(crm: CRM, name: str, made: list[str]) -> str:
+    found = next((p.id for p in (await crm.list_products(query=name)).items if p.name == name), None)
+    if found is None:
+        found = await crm.create_product(ProductIn(name, Decimal(100), unit="шт"))
+        made.append(found)
+    return found
+
+
+@pytest.mark.parametrize("kind", ["amocrm", "kommo", "bitrix24", "zoho", "odoo"])
+async def test_purchases_and_a_task_on_the_client(
+    kind: str, run_id: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``create_won_deal`` at a past date, ``purchases`` of the company and of the whole account with their
+    products, ``add_client_task`` on the company, ``client_tasks``, ``discard_task``. amoCRM and Kommo create
+    no company, contact or open deal here: the account's counts stay as they were."""
+    crm = _adapter(kind)
+    now = datetime.now(UTC)
+    pool = kind in POOL_KINDS
+    key = POOL_KEY if pool else run_id
+    companies: list[str] = []
+    products: list[str] = []
+    deals: list[str] = []
+    async with crm:
+        before = (await crm.clients(), await crm.open_deals()) if isinstance(crm, AmoCRM) else None
+        try:
+            if isinstance(crm, AmoCRM):
+                company = await crm.find_company(CompanyIn(f"E2E Co {POOL_KEY}", inn=POOL_NUMBERS[0]))
+                assert company, "the pool company is gone: the conformance run above recreates it"
+            elif kind == "zoho":
+                name, inn, tail = ZOHO_LOOKUP
+                company = (await crm.find_or_create_company(CompanyIn(name, inn=inn, phone=_phone(tail)))).id
+            else:
+                company = await crm.create_company(CompanyIn(f"E2E Winback {run_id}"))
+                companies.append(company)
+            product = await _product(crm, f"E2E product {key}", [] if pool else products)
+            have = {p.title: p for p in (await crm.purchases(company_id=company)).items}
+            fresh = False
+            for title, days, qty in PURCHASE_POOL:
+                if pool and (title in have or await _linked_back(crm, company, title)):
+                    continue
+                line = DealLine(f"E2E product {key}", qty, Decimal(100), product_id=product)
+                made = await crm.create_won_deal(
+                    DealIn(title, (line,), company_id=company, tags=("e2e",)), now - timedelta(days=days)
+                )
+                fresh = True
+                if not pool:
+                    deals.append(made.id)
+                    products.extend(made.product_ids)
+
+            got = (await crm.purchases(company_id=company)).items
+            mine = [p for p in got if p.title in {t for t, _, _ in PURCHASE_POOL}]
+            assert [p.title for p in mine] == ["E2E purchase pool 2", "E2E purchase pool 1"], got
+            for p, (_, days, qty) in zip(mine, reversed(PURCHASE_POOL), strict=True):
+                assert p.company_id == company
+                assert p.closed_at.date() <= now.date() and p.closed_at > now - timedelta(days=days + 2), p
+                assert [(x.product_id, x.quantity) for x in p.lines] == [(product, qty)], p.lines
+                assert all(x.unit_price == Decimal(100) for x in p.lines), p.lines
+            assert (await crm.purchases(company_id=company, lines=False)).items[0].lines == ()
+            since = min(p.closed_at for p in mine) - timedelta(days=1)
+            window = await crm.purchases(company_id=company, since=since, until=now + timedelta(days=1))
+            assert {p.deal_id for p in mine} <= {p.deal_id for p in window.items}
+
+            if kind == "zoho" and fresh:
+                with capsys.disabled():
+                    print(
+                        f"\n{kind}: the pool's won deals created, the account is searched from the next run"
+                    )
+            else:
+                wanted, cursor = {p.deal_id for p in mine}, None
+                for _ in range(40):
+                    page = await crm.purchases(
+                        since=since, until=now + timedelta(days=1), lines=False, cursor=cursor, limit=50
+                    )
+                    wanted -= {p.deal_id for p in page.items}
+                    cursor = page.next_cursor
+                    if not wanted or cursor is None:
+                        break
+                assert not wanted, f"{kind}: won deals missing from the account's purchases: {wanted}"
+
+            task = await crm.add_client_task(
+                TaskIn(f"E2E win-back {run_id}", now + timedelta(days=1)), company_id=company
+            )
+            listed = {t.id: t for t in await crm.client_tasks(company_id=company)}
+            assert task in listed and listed[task].text == f"E2E win-back {run_id}", listed
+            await crm.discard_task(task)
+            assert task not in {t.id for t in await crm.client_tasks(company_id=company)}
+        finally:
+            await crm.discard(
+                Leftovers(deal_ids=tuple(deals), company_ids=tuple(companies), product_ids=tuple(products))
+            )
+        if before is not None and isinstance(crm, AmoCRM):
+            assert (await crm.clients(), await crm.open_deals()) == before, (
+                "no company, contact or open deal may be created in a technical account"
             )
