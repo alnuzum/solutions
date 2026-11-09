@@ -12,7 +12,14 @@ from alnuzum_crm.bitrix24 import Bitrix24, parse_webhook
 from alnuzum_crm.netguard import GuardedTransport
 from alnuzum_crm.oauth import zoho_refresh
 from alnuzum_crm.odoo import Odoo
-from alnuzum_crm.testing import Scrubber, describe_jsonrpc, run_conformance
+from alnuzum_crm.testing import (
+    TECH_LIMIT,
+    Scrubber,
+    check_room,
+    clients_in_account,
+    describe_jsonrpc,
+    run_conformance,
+)
 from alnuzum_crm.tokens import MemoryOAuthToken, StaticToken, TokenSet
 from alnuzum_crm.zoho import ZohoCRM
 
@@ -49,11 +56,18 @@ async def test_amocrm_family(
     prefix: str,
     run_id: str,
     recording: Callable[..., Recording],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """On the pool (a technical account keeps 100 contacts and companies); E2E_CREATE=1 creates its
     own company and contacts as the other CRMs do, three records that stay in the account."""
     env = need(f"{prefix}_DOMAIN", f"{prefix}_TOKEN")
     token = StaticToken(env[f"{prefix}_TOKEN"], crm=cls.kind.value)
+    # counted outside the recording: the contract tests replay the scenario alone
+    async with cls(env[f"{prefix}_DOMAIN"], token) as probe:
+        count = await clients_in_account(probe)
+    with capsys.disabled():
+        print(f"\n{cls.kind.value}: contacts and companies {count}/{TECH_LIMIT}")
+    check_room(count)
     pool = os.environ.get("E2E_CREATE") != "1"
     rec = recording(f"{cls.kind.value}-pool" if pool else cls.kind.value)
     crm = cls(env[f"{prefix}_DOMAIN"], token, transport=rec.recorder)

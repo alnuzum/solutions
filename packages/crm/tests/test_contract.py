@@ -15,7 +15,15 @@ from alnuzum_crm.amocrm import AmoCRM, Kommo
 from alnuzum_crm.base import CRM
 from alnuzum_crm.bitrix24 import Bitrix24
 from alnuzum_crm.odoo import Odoo
-from alnuzum_crm.testing import ConformanceError, Replayer, describe_jsonrpc, run_conformance
+from alnuzum_crm.testing import (
+    TECH_GUARD,
+    ConformanceError,
+    Replayer,
+    check_room,
+    clients_in_account,
+    describe_jsonrpc,
+    run_conformance,
+)
 from alnuzum_crm.tokens import StaticToken
 from alnuzum_crm.zoho import ZohoCRM
 
@@ -89,6 +97,37 @@ async def test_the_pool_is_for_the_amocrm_family() -> None:
         with pytest.raises(ConformanceError, match="amoCRM family"):
             await run_conformance(crm, replay.meta["run_id"], sleep=_no_sleep, pool=True)
     assert replay.position == 0
+
+
+async def test_contacts_and_companies_are_counted_page_by_page() -> None:
+    seen: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.url.path} {request.url.params['page']}")
+        if request.url.path.endswith("/companies"):
+            return httpx.Response(204)
+        if request.url.params["page"] == "1":
+            page = {
+                "_embedded": {"contacts": [{"id": i} for i in range(250)]},
+                "_links": {"next": {"href": "page 2"}},
+            }
+        else:
+            page = {"_embedded": {"contacts": [{"id": 1}, {"id": 2}]}, "_links": {}}
+        return httpx.Response(200, json=page)
+
+    async with BUILD["amocrm"](httpx.MockTransport(answer)) as crm:
+        assert isinstance(crm, AmoCRM)
+        assert await clients_in_account(crm) == 252
+    assert seen == ["/api/v4/contacts 1", "/api/v4/contacts 2", "/api/v4/companies 1"]
+
+
+def test_the_run_stops_near_the_technical_limit() -> None:
+    check_room(TECH_GUARD - 1)
+    with pytest.raises(ConformanceError) as stop:
+        check_room(TECH_GUARD)
+    assert str(stop.value) == (
+        "account near the technical limit: 90/100, clean up in the browser (see README.md, Tests)"
+    )
 
 
 def test_every_adapter_has_a_recording() -> None:

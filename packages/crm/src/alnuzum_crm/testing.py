@@ -206,6 +206,32 @@ def run_numbers(run_id: str) -> tuple[str, str]:
 #: every run finds instead of creating its own.
 POOL_KEY = "pool"
 POOL_NUMBERS = ("390000001", "9000001")
+TECH_LIMIT = 100
+#: the run stops here, before the CRM answers "Error code 205" to every new contact or company
+TECH_GUARD = 90
+
+
+async def clients_in_account(crm: AmoCRM) -> int:
+    """Contacts and companies of an amoCRM or Kommo account, counted page by page."""
+    total = 0
+    for path, key in (("/api/v4/contacts", "contacts"), ("/api/v4/companies", "companies")):
+        for page in range(1, 100):
+            data = await crm._request("GET", path, params={"limit": 250, "page": page})
+            if not data:
+                break
+            total += len(data.get("_embedded", {}).get(key, []))
+            if not data.get("_links", {}).get("next"):
+                break
+    return total
+
+
+def check_room(count: int) -> None:
+    """A plain failure near the limit instead of a "205" in the middle of the scenario."""
+    _check(
+        count < TECH_GUARD,
+        f"account near the technical limit: {count}/{TECH_LIMIT}, "
+        "clean up in the browser (see README.md, Tests)",
+    )
 
 
 def _amo(crm: CRM) -> AmoCRM:
