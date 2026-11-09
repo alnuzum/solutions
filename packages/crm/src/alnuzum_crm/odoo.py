@@ -31,6 +31,7 @@ from alnuzum_crm.base import (
     dec,
     digits,
     hits_in_order,
+    lookup_keys,
     positive,
     record_id,
     require_one,
@@ -52,6 +53,7 @@ from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.netguard import guarded_transport, split_https_url
 from alnuzum_crm.types import (
     AccountInfo,
+    CompanyHit,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -69,6 +71,7 @@ from alnuzum_crm.types import (
     ProductIn,
     Stage,
     TaskIn,
+    User,
 )
 
 _ERRORS: dict[str, type[CrmError]] = {
@@ -259,6 +262,58 @@ class Odoo(CRM):
             vals["email"] = company.email
         return str(await self.kw("res.partner", "create", [vals]))
 
+    async def find_companies(
+        self,
+        *,
+        inn: str | None = None,
+        domain: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        name: str | None = None,
+        limit: int = 20,
+    ) -> list[CompanyHit]:
+        # companies only: a contact inherits the company's VAT (live 09.11). The phone is searched by its
+        # digits whatever the formatting (``phone_mobile_search``, live 09.11 on Odoo 19)
+        keys = lookup_keys(inn=inn, domain=domain, email=email, phone=phone, name=name)
+        parts: list[list[Any]] = []
+        if keys.get("inn"):
+            parts.append(["vat", "ilike", like_literal(keys["inn"])])
+        if keys.get("domain"):
+            parts += [
+                ["website", "ilike", like_literal(keys["domain"])],
+                ["email", "=ilike", "%@" + like_literal(keys["domain"])],
+            ]
+        if keys.get("email"):
+            parts.append(["email", "=ilike", like_literal(keys["email"])])
+        if keys.get("phone"):
+            # Odoo takes a value that starts with «00» for an international prefix and matches it only at the
+            # start of a number (+7 900…, a test number with the code 00): such a tail goes without them
+            tail = keys["phone"][-9:]
+            parts.append(["phone_mobile_search", "ilike", tail[2:] if tail.startswith("00") else tail])
+        if keys.get("name"):
+            parts.append(["name", "ilike", like_literal(keys["name"])])
+        if not parts:
+            return []
+        domain_ = ["&", ["is_company", "=", True], *(["|"] * (len(parts) - 1)), *parts]
+        rows = await self._read(
+            "res.partner", domain_, ["name", "vat", "phone", "email", "website"], order="id", limit=limit
+        )
+        return [
+            CompanyHit(
+                str(r["id"]),
+                str(r.get("name") or ""),
+                inn=digits(r.get("vat") or "") or None,
+                phones=tuple(str(r["phone"]) for _ in (1,) if r.get("phone")),
+                emails=tuple(str(r["email"]) for _ in (1,) if r.get("email")),
+                web=tuple(str(r["website"]) for _ in (1,) if r.get("website")),
+            )
+            for r in rows
+        ]
+
+    async def users(self) -> list[User]:
+        rows = await self._read("res.users", [["share", "=", False]], ["name"], order="id", limit=200)
+        return [User(str(r["id"]), str(r.get("name") or r["id"])) for r in rows]
+
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
             domain = [["is_company", "=", False], ["email", "=ilike", like_literal(contact.email.strip())]]
@@ -417,6 +472,10 @@ class Odoo(CRM):
         }
         if partner:
             vals["partner_id"] = int(partner)
+        if deal.stage_id:
+            vals["stage_id"] = int(record_id(deal.stage_id, self.kind.value))
+        if deal.responsible_id:
+            vals["user_id"] = int(record_id(deal.responsible_id, self.kind.value))
         if deal.tags:
             vals["tag_ids"] = [[6, 0, await self._tag_ids(deal.tags)]]
         lead_id = int(await self.kw("crm.lead", "create", [vals]))

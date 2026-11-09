@@ -8,19 +8,25 @@ import httpx
 import pytest
 
 from alnuzum_crm.amocrm import AmoCRM, Kommo
+from alnuzum_crm.base import CRM
 from alnuzum_crm.bitrix24 import Bitrix24, parse_webhook
 from alnuzum_crm.netguard import GuardedTransport
 from alnuzum_crm.oauth import zoho_refresh
 from alnuzum_crm.odoo import Odoo
 from alnuzum_crm.testing import (
+    PHONE_CODE,
+    POOL_KEY,
+    POOL_NUMBERS,
     TECH_LIMIT,
     Scrubber,
     check_room,
     clients_in_account,
     describe_jsonrpc,
     run_conformance,
+    run_numbers,
 )
 from alnuzum_crm.tokens import MemoryOAuthToken, StaticToken, TokenSet
+from alnuzum_crm.types import CompanyIn, DealIn, DealStatus, Leftovers
 from alnuzum_crm.zoho import ZohoCRM
 
 from .conftest import Recording, need
@@ -151,3 +157,89 @@ async def test_guard_reaches_a_host_listed_ipv6_first() -> None:
     async with httpx.AsyncClient(transport=GuardedTransport(), timeout=20) as client:
         resp = await client.get("https://nextcloud.com/", follow_redirects=False)
     assert resp.status_code < 500
+
+
+# --- the lookups the mail triage added: companies by their requisites, users, a deal's stage and lead ---
+
+#: Zoho's search index lags 2 to 5 minutes behind a write: a company kept for good is looked up instead,
+#: created by the first run that misses it and found by every run after
+ZOHO_LOOKUP = ("E2E Lookup pool", "390000002", "9000002")
+
+
+def _phone(tail: str) -> str:
+    return f"+998 {PHONE_CODE} {tail[:3]} {tail[3:5]} {tail[5:]}"
+
+
+def _zoho() -> ZohoCRM:
+    env = need("ZOHO_CLIENT_ID", "ZOHO_CLIENT_SECRET", "ZOHO_REFRESH_TOKEN")
+    accounts = os.environ.get("ZOHO_ACCOUNTS_SERVER", "https://accounts.zoho.com")
+
+    async def refresh(tokens: TokenSet) -> TokenSet:
+        return await zoho_refresh(accounts, env["ZOHO_CLIENT_ID"], env["ZOHO_CLIENT_SECRET"], tokens)
+
+    expired = TokenSet("", env["ZOHO_REFRESH_TOKEN"], datetime.now(UTC) - timedelta(seconds=1))
+    return ZohoCRM(
+        os.environ.get("ZOHO_API_DOMAIN", "https://developer.zohoapis.com"),
+        MemoryOAuthToken(expired, refresh),
+    )
+
+
+def _adapter(kind: str) -> CRM:
+    if kind in ("amocrm", "kommo"):
+        prefix, cls = ("AMOCRM", AmoCRM) if kind == "amocrm" else ("KOMMO", Kommo)
+        env = need(f"{prefix}_DOMAIN", f"{prefix}_TOKEN")
+        return cls(env[f"{prefix}_DOMAIN"], StaticToken(env[f"{prefix}_TOKEN"], crm=kind))
+    if kind == "bitrix24":
+        return Bitrix24(need("B24_WEBHOOK")["B24_WEBHOOK"])
+    if kind == "zoho":
+        return _zoho()
+    env = need("ODOO_URL", "ODOO_DB", "ODOO_LOGIN", "ODOO_PASSWORD")
+    return Odoo(env["ODOO_URL"], env["ODOO_DB"], env["ODOO_LOGIN"], env["ODOO_PASSWORD"], trusted_url=True)
+
+
+@pytest.mark.parametrize("kind", ["amocrm", "kommo", "bitrix24", "zoho", "odoo"])
+async def test_lookups_of_the_mail_triage(kind: str, run_id: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """``users``, ``find_companies`` by INN and phone, ``create_deal`` into a chosen stage with a chosen
+    lead. amoCRM and Kommo create no company or contact here (their 100): the pool is looked up."""
+    crm = _adapter(kind)
+    made = Leftovers()
+    async with crm:
+        if isinstance(crm, AmoCRM):
+            before = await crm.clients()
+            inn, tail = POOL_NUMBERS
+            company = await crm.find_company(CompanyIn(f"E2E Co {POOL_KEY}", inn=inn))
+            assert company, "the pool company is gone: the conformance run above recreates it"
+            fresh = False
+        elif kind == "zoho":
+            name, inn, tail = ZOHO_LOOKUP
+            ref = await crm.find_or_create_company(CompanyIn(name, inn=inn, phone=_phone(tail)))
+            company, fresh = ref.id, ref.created
+        else:
+            inn, tail = run_numbers(run_id)
+            company = await crm.create_company(CompanyIn(f"E2E Lookup {run_id}", inn=inn, phone=_phone(tail)))
+            made = Leftovers(company_ids=(company,))
+            fresh = False
+        try:
+            users = await crm.users()
+            assert users and all(u.id and u.name for u in users)
+            opens = [s for s in await crm.stages() if s.kind is DealStatus.OPEN]
+            stage = opens[1] if len(opens) > 1 else opens[0]
+            deal = await crm.create_deal(
+                DealIn(f"E2E lookup {run_id}", stage_id=stage.id, responsible_id=users[0].id)
+            )
+            made = Leftovers(deal_ids=(deal.id,), company_ids=made.company_ids)
+            assert (await crm.get_deal(deal.id)).stage_id == stage.id
+            if fresh:
+                with capsys.disabled():
+                    print(f"\n{kind}: the lookup company created, searched from the next run (index lag)")
+            else:
+                by_inn = {h.id for h in await crm.find_companies(inn=inn)}
+                by_phone = {h.id for h in await crm.find_companies(phone=_phone(tail))}
+                assert company in by_inn, f"{kind}: not found by INN"
+                assert company in by_phone, f"{kind}: not found by phone"
+        finally:
+            await crm.discard(made)
+        if isinstance(crm, AmoCRM):
+            assert await crm.clients() == before, (
+                "no company or contact may be created in a technical account"
+            )

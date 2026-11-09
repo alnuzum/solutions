@@ -10,6 +10,7 @@ from typing import ClassVar, Self
 from alnuzum_crm.errors import CrmUnsupported, CrmValidationError
 from alnuzum_crm.types import (
     AccountInfo,
+    CompanyHit,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -27,6 +28,7 @@ from alnuzum_crm.types import (
     Ref,
     Stage,
     TaskIn,
+    User,
 )
 
 E2E_TAG = "e2e"
@@ -68,6 +70,25 @@ class CRM(ABC):
 
     @abstractmethod
     async def create_company(self, company: CompanyIn) -> str: ...
+
+    async def find_companies(
+        self,
+        *,
+        inn: str | None = None,
+        domain: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        name: str | None = None,
+        limit: int = 20,
+    ) -> list[CompanyHit]:
+        """Companies that may be the one behind a letter: every key the CRM can search is asked (an INN, a
+        domain of the site or of the mail, an e-mail, a phone, a word of the name), and each hit comes with
+        what it keeps, so the caller compares the values instead of trusting how the CRM searched."""
+        raise CrmUnsupported("company lookup by requisites", crm=self.kind.value)
+
+    async def users(self) -> list[User]:
+        """Active users who can lead a deal or a task."""
+        raise CrmUnsupported("users", crm=self.kind.value)
 
     async def find_or_create_company(self, company: CompanyIn) -> Ref:
         found = await self.find_company(company)
@@ -162,6 +183,140 @@ def norm_name(value: str) -> str:
     value = unicodedata.normalize("NFKC", value).casefold()
     value = re.sub(r"[\"'«»“”„`]", "", value)
     return re.sub(r"\s+", " ", value).strip()
+
+
+def host(value: str | None) -> str:
+    """The host of a site as people write it (``https://www.Example.uz/contacts`` → ``example.uz``)."""
+    text = (value or "").strip().casefold()
+    text = re.sub(r"^[a-z][a-z0-9+.-]*://", "", text)
+    text = re.split(r"[/?#:\s]", text, maxsplit=1)[0]
+    return text.removeprefix("www.").strip(".")
+
+
+def mail_domain(value: str | None) -> str:
+    """The domain of an e-mail address, lowercase; empty for anything that is not one."""
+    _, at, domain = (value or "").strip().casefold().rpartition("@")
+    return domain.strip(".") if at and "." in domain else ""
+
+
+# legal forms in front of or after a company's name (Russian, Uzbek, Kazakh, English and a few more), dropped
+# when names are compared: «ООО «Ромашка»», «Romashka MChJ» and «Ромашка» are one company
+LEGAL_FORMS = frozenset(
+    {
+        "ооо",
+        "оао",
+        "зао",
+        "пао",
+        "ао",
+        "нао",
+        "ип",
+        "тоо",
+        "чп",
+        "чтуп",
+        "одо",
+        "уп",
+        "гуп",
+        "муп",
+        "нко",
+        "ано",
+        "мчж",
+        "хк",
+        "аж",
+        "қк",
+        "оаж",
+        "ятт",
+        "хф",
+        "дук",
+        "ук",
+        "mchj",
+        "xk",
+        "aj",
+        "qk",
+        "oaj",
+        "yatt",
+        "xf",
+        "duk",
+        "llc",
+        "l.l.c.",
+        "ltd",
+        "ltd.",
+        "limited",
+        "inc",
+        "inc.",
+        "corp",
+        "corp.",
+        "corporation",
+        "co",
+        "co.",
+        "company",
+        "gmbh",
+        "ag",
+        "sa",
+        "s.a.",
+        "bv",
+        "plc",
+        "llp",
+        "jsc",
+        "fze",
+        "fzco",
+        "fz-llc",
+    }
+)
+_LEGAL_PHRASES = re.compile(
+    r"общество с ограниченной ответственностью|(?:публичное |закрытое |открытое )?акционерное общество|"
+    r"индивидуальный предприниматель|mas.uliyati cheklangan jamiyati?|масъулияти чекланган жамияти?|"
+    r"limited liability company",
+    re.IGNORECASE,
+)
+_QUOTES_PUNCT = re.compile(r"[\"'«»“”„`‘’,;()]")
+
+
+def core_name(value: str | None) -> str:
+    """A company's name without its legal form, quotes and punctuation, as written (for a search)."""
+    text = _QUOTES_PUNCT.sub(" ", _LEGAL_PHRASES.sub(" ", unicodedata.normalize("NFKC", value or "")))
+    words = [
+        w
+        for w in text.split()
+        if w.casefold().strip(".") not in LEGAL_FORMS and w.casefold() not in LEGAL_FORMS
+    ]
+    return " ".join(words).strip(" .-")
+
+
+def same_company_name(a: str | None, b: str | None) -> bool:
+    """Equal names once legal forms, quotes, case and «ё» are set aside."""
+    ca, cb = core_name(a).casefold().replace("ё", "е"), core_name(b).casefold().replace("ё", "е")
+    return bool(ca) and ca == cb
+
+
+_HOST = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+")
+_EMAIL = re.compile(r"[^@\s<>\"]{1,64}@[a-z0-9.-]{3,253}")
+
+
+def lookup_keys(
+    *,
+    inn: str | None = None,
+    domain: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    name: str | None = None,
+) -> dict[str, str]:
+    """The keys a CRM is asked for, each cleaned or left out: an INN of 9 to 14 digits, a host name, an
+    e-mail address, a phone of at least 7 digits, a name without its legal form (two letters at least)."""
+    keys: dict[str, str] = {}
+    if 9 <= len(digits(inn)) <= 14:
+        keys["inn"] = digits(inn)
+    site = host(domain)
+    if _HOST.fullmatch(site) and len(site) <= 253:
+        keys["domain"] = site
+    address = (email or "").strip().casefold()
+    if _EMAIL.fullmatch(address):
+        keys["email"] = address
+    if 7 <= len(digits(phone)) <= 15:
+        keys["phone"] = digits(phone)
+    core = search_text(core_name(name))
+    if len(core) >= 2:
+        keys["name"] = core
+    return keys
 
 
 def digits(value: str | None) -> str:

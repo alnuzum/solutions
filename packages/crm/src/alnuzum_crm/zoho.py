@@ -24,6 +24,7 @@ from alnuzum_crm.base import (
     dec,
     digits,
     hits_in_order,
+    lookup_keys,
     norm_name,
     positive,
     record_id,
@@ -47,6 +48,7 @@ from alnuzum_crm.oauth import ZOHO_API_HOSTS, ZOHO_WEB_HOSTS, zoho_host
 from alnuzum_crm.tokens import TokenSource
 from alnuzum_crm.types import (
     AccountInfo,
+    CompanyHit,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -65,6 +67,7 @@ from alnuzum_crm.types import (
     Ref,
     Stage,
     TaskIn,
+    User,
 )
 
 INN_NAMES = frozenset({"inn", "инн", "tin", "stir", "tax id"})
@@ -312,6 +315,48 @@ class ZohoCRM(CRM):
         # a company written seconds ago is not searchable yet: upsert never duplicates it
         return await self._upsert("Accounts", await self._company_record(company), "Account_Name")
 
+    async def find_companies(
+        self,
+        *,
+        inn: str | None = None,
+        domain: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        name: str | None = None,
+        limit: int = 20,
+    ) -> list[CompanyHit]:
+        # the word search looks into every text field, the site and the INN included; a company written in
+        # the last minutes is not in the index yet (live 09.11: 2 to 5 minutes). Accounts keep no e-mail
+        # (asked, Zoho answers FIELD_TYPE_UNAVAILABLE): the domain of the mail is asked as a word
+        inn_field = await self._inn()
+        keys = lookup_keys(inn=inn, domain=domain, email=None, phone=phone, name=name)
+        queries = [f"word={quote(keys[k])}" for k in ("inn", "domain", "name") if keys.get(k)]
+        if keys.get("phone"):
+            queries.append(f"phone={quote(keys['phone'])}")
+        if email and not keys.get("domain") and "@" in email:
+            queries.append(f"word={quote(email.rsplit('@', 1)[1])}")
+        found: dict[str, dict[str, Any]] = {}
+        for query in queries:
+            for row in await self._search("Accounts", query):
+                found.setdefault(str(row["id"]), row)
+        return [
+            CompanyHit(
+                cid,
+                str(row.get("Account_Name") or ""),
+                inn=digits(str(row.get(inn_field) or "")) or None if inn_field else None,
+                phones=tuple(str(row[k]) for k in ("Phone",) if row.get(k)),
+                web=tuple(str(row[k]) for k in ("Website",) if row.get(k)),
+            )
+            for cid, row in list(found.items())[:limit]
+        ]
+
+    async def users(self) -> list[User]:
+        data = await self._request("GET", "/users", params={"type": "ActiveUsers", "per_page": 200})
+        return [
+            User(str(u["id"]), str(u.get("full_name") or u.get("email") or u["id"]))
+            for u in (data or {}).get("users") or []
+        ]
+
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
             found = await self._search("Contacts", f"email={quote(contact.email.strip())}")
@@ -426,7 +471,9 @@ class ZohoCRM(CRM):
                 created.append(new)
                 product_ids.append(new)
         stages = await self._stage_types()
-        stage = next((s for s, t in stages.items() if t == "Open"), "Qualification")
+        if deal.stage_id and deal.stage_id not in stages:
+            raise CrmValidationError(f"no stage {deal.stage_id!r} in Zoho", crm=self.kind.value)
+        stage = deal.stage_id or next((s for s, t in stages.items() if t == "Open"), "Qualification")
         record: dict[str, Any] = {
             "Deal_Name": deal.title,
             "Stage": stage,
@@ -441,6 +488,8 @@ class ZohoCRM(CRM):
             record["Tag"] = [{"name": t} for t in deal.tags]
         if deal.currency:
             record["Currency"] = deal.currency
+        if deal.responsible_id:
+            record["Owner"] = {"id": record_id(deal.responsible_id, self.kind.value)}
         deal_id = await self._create("Deals", record)
         if deal.lines:
             items = [

@@ -148,3 +148,24 @@ jobs:
         env:
           ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  mail-quality:
+    name: Mail triage on the reference set (live model)
+    # on main (not for a push of documents only, see paths-ignore above) and by hand: 31 letters in Russian,
+    # English and Uzbek, four with an injection; about $0.48 a run
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Reference set against the bar of CI
+        # short tracebacks: no frame arguments in the log
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/mail-triage/tests/test_quality.py
+        env:
+          ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

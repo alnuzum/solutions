@@ -213,16 +213,7 @@ TECH_GUARD = 90
 
 async def clients_in_account(crm: AmoCRM) -> int:
     """Contacts and companies of an amoCRM or Kommo account, counted page by page."""
-    total = 0
-    for path, key in (("/api/v4/contacts", "contacts"), ("/api/v4/companies", "companies")):
-        for page in range(1, 100):
-            data = await crm._request("GET", path, params={"limit": 250, "page": page})
-            if not data:
-                break
-            total += len(data.get("_embedded", {}).get(key, []))
-            if not data.get("_links", {}).get("next"):
-                break
-    return total
+    return await crm.clients()
 
 
 def check_room(count: int) -> None:

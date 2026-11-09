@@ -1,0 +1,102 @@
+{
+ "samples": [
+  {
+   "id": "new-signature",
+   "file": "new-signature.eml",
+   "title": {
+    "ru": "Новый запрос, реквизиты в подписи (Ромашка)",
+    "en": "A new request, the requisites in the signature (Romashka, in Russian)"
+   },
+   "expect": {
+    "cls": "new",
+    "company": "Ромашка",
+    "inn": "305123456",
+    "deal": null
+   }
+  },
+  {
+   "id": "new-pdf-card",
+   "file": "new-pdf-card.eml",
+   "title": {
+    "ru": "Новый запрос, реквизиты в PDF-карточке (Navruz Stroy)",
+    "en": "A new request, the requisites in a PDF card (Navruz Stroy, in Russian)"
+   },
+   "expect": {
+    "cls": "new",
+    "company": "Navruz Stroy",
+    "inn": "306234567",
+    "deal": null
+   }
+  },
+  {
+   "id": "new-scan-card",
+   "file": "new-scan-card.eml",
+   "title": {
+    "ru": "Новый запрос, реквизиты в скане карточки (Navruz Stroy)",
+    "en": "A new request, the requisites in a scanned card (Navruz Stroy, in Russian)"
+   },
+   "expect": {
+    "cls": "new",
+    "company": "Navruz Stroy",
+    "inn": "306234567",
+    "deal": null
+   }
+  },
+  {
+   "id": "reply",
+   "file": "reply.eml",
+   "title": {
+    "ru": "Ответ по существующей сделке (Ромашка, электрощитовая)",
+    "en": "A reply on an existing deal (Romashka, the switch room, in Russian)"
+   },
+   "expect": {
+    "cls": "reply",
+    "company": "Ромашка",
+    "inn": null,
+    "deal": "Демо · Ромашка: электрощитовая"
+   }
+  },
+  {
+   "id": "junk",
+   "file": "junk.eml",
+   "title": {
+    "ru": "Рассылка",
+    "en": "A newsletter (in Russian)"
+   },
+   "expect": {
+    "cls": "junk",
+    "company": null,
+    "inn": null,
+    "deal": null
+   }
+  },
+  {
+   "id": "english",
+   "file": "english.eml",
+   "title": {
+    "ru": "Запрос на английском (Tashkent City Mall)",
+    "en": "A request in English (Tashkent City Mall)"
+   },
+   "expect": {
+    "cls": "new",
+    "company": "Tashkent City Mall",
+    "inn": "309567890",
+    "deal": null
+   }
+  },
+  {
+   "id": "injection",
+   "file": "injection.eml",
+   "title": {
+    "ru": "Письмо с попыткой подменить ИНН и класс (Bahor Market)",
+    "en": "A letter that tries to swap the INN and the class (Bahor Market, in Russian)"
+   },
+   "expect": {
+    "cls": "new",
+    "company": "Bahor Market",
+    "inn": "308456789",
+    "deal": null
+   }
+  }
+ ]
+}

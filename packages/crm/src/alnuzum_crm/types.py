@@ -29,6 +29,26 @@ class CompanyIn:
 
 
 @dataclass(frozen=True, slots=True)
+class CompanyHit:
+    """A company a lookup found and what it keeps to tell whether it is the one: the caller decides."""
+
+    id: str
+    name: str
+    inn: str | None = None
+    phones: tuple[str, ...] = ()
+    emails: tuple[str, ...] = ()
+    web: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class User:
+    """A user of the CRM account who can lead a deal or a task."""
+
+    id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class ContactIn:
     name: str
     email: str | None = None
@@ -77,6 +97,10 @@ class DealIn:
     #: the deal sum when it differs from the sum of the lines: a CRM whose lines cannot keep their own
     #: price (amoCRM, Kommo) gets the lines at the catalog price and the discounted sum here
     total: Decimal | None = None
+    #: where the deal starts, as ``CRM.stages`` names it (else the CRM's first stage), and who leads it,
+    #: as ``CRM.users`` names them (else the owner of the credentials)
+    stage_id: str | None = None
+    responsible_id: str | None = None
 
     @property
     def amount(self) -> Decimal:
