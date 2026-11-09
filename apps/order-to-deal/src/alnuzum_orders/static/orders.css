@@ -91,6 +91,8 @@
 .rb th{font-weight:500;font-size:12.5px;color:var(--on-deep-3);border-top:0}
 .rb .r{text-align:right;white-space:nowrap}
 .rb small{color:var(--on-deep-3)}
+/* a phone: the four columns of the deal read back fit 320 px, names wrap anywhere */
+@media (max-width:520px){.rb{font-size:12.5px}.rb th,.rb td{padding:6px 4px}.rb td:first-child{overflow-wrap:anywhere}}
 
 /* rules */
 .rules .rgrid{display:grid;grid-template-columns:1.4fr 1fr;gap:28px;margin-bottom:20px}
