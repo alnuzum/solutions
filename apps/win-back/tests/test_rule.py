@@ -209,3 +209,41 @@ def test_orders_whose_products_were_not_read_do_not_count_for_a_habit() -> None:
     assert [(r.kind, r.refs, r.data.get("of")) for r in why][1] == ("gone", (2, 3, 4), 2)
     unread_last = [*history[:4], Order(DAY - timedelta(days=80), Decimal(100), ())]
     assert [r.kind for r in reasons(unread_last, verdict(unread_last, DAY))] == ["cycle"]
+
+
+class Seeded:
+    """An account for the seed: two plan companies, one purchase of the plan already there."""
+
+    kind = "bitrix24"
+
+    def __init__(self) -> None:
+        self.made: list[tuple[str, date, int]] = []
+
+    async def find_company(self, company: Any) -> str | None:
+        return {"Ромашка": "1", "Navruz Stroy": "2"}.get(company.name)
+
+    async def purchases(self, **kw: Any) -> Page[Purchase]:
+        first = plan.TITLE.format(company="Ромашка", day=plan.BUYERS[0].first.isoformat())
+        return Page(
+            (Purchase("x", first, datetime.now(UTC), None, None, "1"),) if kw["company_id"] == "1" else ()
+        )
+
+    async def list_products(self, **kw: Any) -> Page[Any]:
+        from alnuzum_crm.types import Product
+
+        skus = {sku for b in plan.BUYERS for sku, _ in b.basket}
+        return Page(tuple(Product(f"id-{s}", f"Товар {s}", s, Decimal(10), "UZS") for s in sorted(skus)))
+
+    async def create_won_deal(self, deal: Any, closed_at: datetime) -> Any:
+        self.made.append((deal.title, closed_at.date(), len(deal.lines)))
+        return None
+
+
+async def test_the_seed_writes_only_what_the_account_lacks() -> None:
+    crm = Seeded()
+    made = await plan.seed(crm, "bitrix24", DAY)  # type: ignore[arg-type]
+    want = len(plan.plan(plan.BUYERS[0], DAY)) - 1 + len(plan.plan(plan.BUYERS[1], DAY))
+    assert made == want == len(crm.made)
+    assert all(t.startswith(plan.PREFIX) and n >= 2 for t, _d, n in crm.made)
+    assert all(d <= DAY for _t, d, _n in crm.made)
+    assert not any(t.endswith(plan.BUYERS[0].first.isoformat()) for t, _d, _n in crm.made)
