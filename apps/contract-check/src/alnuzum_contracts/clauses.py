@@ -306,12 +306,12 @@ def _align(
         if w > 0 and abs(score[x][y] - (score[x - 1][y - 1] + w)) < 1e-9:
             pairs.append((ia[x - 1], jb[y - 1]))
             x, y = x - 1, y - 1
-        elif score[x][y] == score[x - 1][y]:
+        elif score[x][y] == score[x][y - 1]:
+            pairs.append((None, jb[y - 1]))  # read backwards: a deletion comes before an addition
+            y -= 1
+        else:
             pairs.append((ia[x - 1], None))
             x -= 1
-        else:
-            pairs.append((None, jb[y - 1]))
-            y -= 1
     pairs += [(ia[k], None) for k in range(x - 1, -1, -1)] + [(None, jb[k]) for k in range(y - 1, -1, -1)]
     pairs.reverse()
     return pairs
