@@ -183,6 +183,11 @@ jobs:
           DEMO_ODOO_DB: ${{ vars.DEMO_ODOO_DB }}
           DEMO_ODOO_LOGIN: ${{ vars.DEMO_ODOO_LOGIN }}
           DEMO_ODOO_KEY: ${{ secrets.DEMO_ODOO_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          VOICE_USD_PER_DAY: ${{ vars.VOICE_USD_PER_DAY }}
+          VOICE_TG_TOKEN: ${{ secrets.VOICE_TG_TOKEN }}
+          VOICE_TG_SECRET: ${{ secrets.VOICE_TG_SECRET }}
+          VOICE_TG_BOT: ${{ vars.VOICE_TG_BOT }}
         run: deploy/ci-deploy.sh stand "$DEPLOY_SHA"
       - name: /health answers with this commit
         run: |
@@ -235,6 +240,11 @@ jobs:
           DEMO_ODOO_DB: ${{ vars.DEMO_ODOO_DB }}
           DEMO_ODOO_LOGIN: ${{ vars.DEMO_ODOO_LOGIN }}
           DEMO_ODOO_KEY: ${{ secrets.DEMO_ODOO_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          VOICE_USD_PER_DAY: ${{ vars.VOICE_USD_PER_DAY }}
+          VOICE_TG_TOKEN: ${{ secrets.VOICE_TG_TOKEN }}
+          VOICE_TG_SECRET: ${{ secrets.VOICE_TG_SECRET }}
+          VOICE_TG_BOT: ${{ vars.VOICE_TG_BOT }}
         run: deploy/ci-deploy.sh prod "$GITHUB_SHA"
       - name: /health answers with this commit
         run: |

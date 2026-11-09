@@ -9,7 +9,8 @@
 #   deploy <sha>  run that image with that env; roll back when it is not healthy
 #   status
 # The compose file, Caddy and the base images (pinned by digest) are installed by an administrator, never by
-# a deploy: a pull request changes the image of the stand, not how anything runs.
+# a deploy: a pull request changes the image of the stand, not how anything runs. A new setting needs no
+# administrator: every allowed KEY=VALUE of the deploy reaches the container (compose.app.yml, env_file).
 set -euo pipefail
 trap '' HUP   # a dropped connection must not stop a deploy half-way
 
@@ -23,7 +24,10 @@ esac
 DIR="/srv/apps/$ENV_NAME"
 REPO="alnuzum/platform-$ENV_NAME"
 COMPOSE=(docker compose -p "apps-$ENV_NAME" -f /srv/apps/compose.app.yml --env-file "$DIR/.env")
-ALLOWED='^(POSTGRES_PASSWORD|SECRET_KEYS|SESSION_SECRET|ADMIN_TOKEN|KOMMO_CLIENT_ID|KOMMO_CLIENT_SECRET|ZOHO_CLIENT_ID|ZOHO_CLIENT_SECRET|QUOTA_WRITES_PER_DAY|ANTHROPIC_API_KEY|ORDERS_MODEL_USD_PER_DAY|ORDERS_MODEL_CALLS_PER_DAY|ORDERS_RUNS_PER_SESSION|ORDERS_RUNS_PER_IP|ORDERS_DEMO_WRITES_PER_SESSION|DEMO_AMOCRM_DOMAIN|DEMO_AMOCRM_TOKEN|DEMO_KOMMO_DOMAIN|DEMO_KOMMO_TOKEN|DEMO_B24_WEBHOOK|DEMO_ZOHO_REFRESH_TOKEN|DEMO_ODOO_URL|DEMO_ODOO_DB|DEMO_ODOO_LOGIN|DEMO_ODOO_KEY)$'
+# any upper-case name may come with a deploy, so a new setting needs no step on the server; these may not:
+# the deploy sets them itself, or they would change how the interpreter, docker compose or the network run
+ALLOWED='^[A-Z][A-Z0-9_]{1,63}$'
+DENIED='^(APP_ENV|APP_VERSION|PUBLIC_URL|IMAGE_TAG|DATABASE_URL|PATH|HOME|USER|SHELL|TMPDIR|HOSTNAME|LANG|LC_[A-Z_]*|TZ|LD_[A-Z0-9_]*|PYTHON[A-Z0-9_]*|UV_[A-Z0-9_]*|COMPOSE_[A-Z0-9_]*|DOCKER_[A-Z0-9_]*|[A-Z_]*_PROXY|SSL_[A-Z0-9_]*|REQUESTS_[A-Z0-9_]*|CURL_[A-Z0-9_]*|OPENSSL_[A-Z0-9_]*)$'
 SAFE_VALUE='^[A-Za-z0-9+/=:,._@-]*$'
 umask 077
 
@@ -56,7 +60,7 @@ env)
     [ -z "$line" ] && continue
     key="${line%%=*}"; value="${line#*=}"
     # the refused line is named by its number only: it may hold a secret
-    [[ "$line" == *=* && "$key" =~ $ALLOWED && "$value" =~ $SAFE_VALUE ]] || { echo "env: line $n refused" >&2; exit 2; }
+    [[ "$line" == *=* && "$key" =~ $ALLOWED && ! "$key" =~ $DENIED && "$value" =~ $SAFE_VALUE ]] || { echo "env: line $n refused" >&2; exit 2; }
     printf '%s=%s\n' "$key" "$value" >> "$TMP/env"
   done < "$TMP/in"
   for need in POSTGRES_PASSWORD SECRET_KEYS SESSION_SECRET; do
