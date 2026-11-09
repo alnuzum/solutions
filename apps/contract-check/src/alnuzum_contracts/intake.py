@@ -41,7 +41,16 @@ class Document:
     pages: int = 0
 
 
-def _lines(text: str) -> list[Block]:
+def _wrapped(lines: list[str]) -> bool:
+    """A text whose lines are cut at a width (an export of a PDF, a letter) rather than one per paragraph."""
+    sizes = sorted(len(ln) for ln in lines if ln.strip())
+    if len(sizes) < 5 or sizes[-1] > 110:
+        return False
+    top = sizes[len(sizes) * 9 // 10]
+    return sum(1 for n in sizes if n >= 0.8 * top) >= 0.5 * len(sizes)
+
+
+def _lines(text: str, *, paragraphs: bool = False) -> list[Block]:
     out = []
     size = 0
     for raw in text.splitlines():
@@ -51,7 +60,7 @@ def _lines(text: str) -> list[Block]:
         size += len(line) + 1
         if size > MAX_CHARS:
             raise FileError("e_too_long")
-        out.append(Block("", "", line, False))
+        out.append(Block("", "", line, paragraphs and bool(line)))
     while out and not out[-1].text:
         out.pop()
     if not any(b.text for b in out):
@@ -80,7 +89,8 @@ def read(data: bytes) -> Document:
     if kind in ("png", "jpeg", "webp"):
         return Document("scan", images=[image_mod.normalize(data)], pages=1)
     if kind == "text":
-        return Document("text", _lines(decode_text(data)))
+        text = decode_text(data)
+        return Document("text", _lines(text, paragraphs=not _wrapped(text.splitlines())))
     raise FileError("e_type")
 
 

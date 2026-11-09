@@ -59,7 +59,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "apps/contract-check/src/alnuzum_contracts/model.py" = ["E501"]
 "apps/contract-check/src/alnuzum_contracts/i18n.py" = ["E501"]
 "apps/contract-check/src/alnuzum_contracts/quality.py" = ["E501"]
-"apps/contract-check/eval/**" = ["E501", "S603", "S607", "S101"]
+"apps/contract-check/eval/**" = ["E501", "S603", "S607", "S101", "S311"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_files", "alnuzum_orders"]

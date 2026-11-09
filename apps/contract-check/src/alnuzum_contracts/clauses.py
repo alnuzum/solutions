@@ -24,6 +24,7 @@ SIMILAR_SAME_NUMBER = 0.2
 
 _NUM = re.compile(r"^\s*(?:п\.\s*|пункт\s+)?(\d{1,2}(?:\.\d{1,3}){0,4})(\.|\))?(?=\s|$)", re.IGNORECASE)
 _WORD_NUMBER = re.compile(r"^\s*(?:статья|раздел|article|section|clause)\s+(\d{1,2})\b", re.IGNORECASE)
+_PARTY = re.compile(r"^[A-ZА-ЯЁ][\w«»\"' .-]{1,40}:\s")
 _TOKEN = re.compile(r"\w+(?:[.,]\d+)*|[^\w\s]")
 _QUOTES = str.maketrans({c: '"' for c in "«»“”„‟\"'’‘`"} | {c: "-" for c in "‐‑‒–—―−"} | {"ё": "е"})
 _SPACES = re.compile(r"[\s   ]+")
@@ -100,14 +101,16 @@ def split(blocks: Iterable[Block]) -> list[Clause]:
             open_ = None
             continue
         key = number_of(text)
-        ends = last_len < 0.7 * width and open_ is not None and open_.text.rstrip()[-1:] in ".;:!?"
+        closed = open_ is not None and open_.text.rstrip()[-1:] in ".;:!?"
+        # a short line that ends a sentence ends its paragraph; so does a sentence before «Заказчик: …»
+        ends = closed and (last_len < 0.7 * width or bool(_PARTY.match(text)))
         if key or _heading(text) or open_ is None or ends:
             clause = Clause("", key, text)
             out.append(clause)
             open_ = None if _heading(text) else clause
         else:
-            if re.search(r"[A-Za-zА-Яа-яЁё]-$", open_.text) and text[:1].islower():
-                open_.text = open_.text[:-1] + text  # a word broken at the line's end
+            if re.search(r"\w-$", open_.text) and text[:1].isalnum():
+                open_.text += text  # «CRM-» + «системы»: the hyphen is kept, the line break is not a space
             else:
                 open_.text += " " + text
         last_len = len(text)
@@ -288,6 +291,8 @@ def _align(
             return 3.0
         if sim >= SIMILAR or (same_key and sim >= SIMILAR_SAME_NUMBER):
             return sim + (0.25 if same_key else 0.0)
+        if same_key:
+            return 0.15  # a clause rewritten whole under its number: shown as was and now, not two changes
         return -1.0
 
     score = [[0.0] * (m + 1) for _ in range(n + 1)]

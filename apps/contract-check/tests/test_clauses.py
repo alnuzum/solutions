@@ -107,7 +107,7 @@ def test_lines_of_a_pdf_are_joined_into_clauses() -> None:
     ]
     got = split([Block("", "", t, False) for t in lines])
     assert [c.key for c in got] == ["", "", "1.1", "1.2", ""]
-    assert "Покупатель обязуется принять" in got[2].text
+    assert "Покупатель обязу-ется принять" in got[2].text  # a hyphen at a line's end is kept: «CRM-системы»
     assert got[3].text.endswith("не более чем 30 (тридцати) дней с даты поставки.")
 
 

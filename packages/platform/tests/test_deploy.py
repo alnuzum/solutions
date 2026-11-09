@@ -146,3 +146,11 @@ def test_the_paid_voice_job_does_not_run_on_a_push_of_documents() -> None:
     push = e2e[True]["push"]  # YAML 1.1 reads «on» as true
     assert {"docs/**", "**/*.md"} <= set(push["paths-ignore"])
     assert "push" in e2e["jobs"]["voice-quality"]["if"]  # on a push of code it still runs
+
+
+def test_the_contract_set_runs_on_a_push_of_code_by_hand_and_not_on_documents() -> None:
+    e2e = yaml.safe_load((ROOT / ".github" / "workflows" / "e2e.yml").read_text())
+    job = e2e["jobs"]["contracts-quality"]
+    assert "push" in job["if"] and "workflow_dispatch" in job["if"] and "schedule" not in job["if"]
+    assert {"docs/**", "**/*.md"} <= set(e2e[True]["push"]["paths-ignore"])
+    assert "apps/contract-check/tests/test_quality.py" in job["steps"][-1]["run"]

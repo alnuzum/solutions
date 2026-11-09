@@ -122,3 +122,23 @@ jobs:
       - name: Reference set against the bar of CI
         # short tracebacks: no frame arguments in the log
         run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/voice-to-crm/tests/test_quality.py
+
+  contracts-quality:
+    name: Contract check on the reference set (live model)
+    # on main (not for a push of documents only, see paths-ignore above) and by hand: four pairs, 44 changes,
+    # one scan; about $0.17 a run
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Reference set against the bar of CI
+        # short tracebacks: no frame arguments in the log
+        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/contract-check/tests/test_quality.py
