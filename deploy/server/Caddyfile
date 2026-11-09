@@ -40,7 +40,7 @@
 	}
 	@order {
 		method POST
-		path_regexp ^/(ru|en)/(orders|voice)$
+		path_regexp ^/(ru|en)/(orders|voice|contracts|contracts/standard/[0-9a-f-]+)$
 	}
 	request_body @order {
 		max_size 9MB
@@ -49,7 +49,7 @@
 		not path /hooks/*
 		not {
 			method POST
-			path_regexp ^/(ru|en)/(orders|voice)$
+			path_regexp ^/(ru|en)/(orders|voice|contracts|contracts/standard/[0-9a-f-]+)$
 		}
 	}
 	request_body @other {

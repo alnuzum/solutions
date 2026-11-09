@@ -189,6 +189,7 @@ jobs:
           VOICE_TG_TOKEN: ${{ secrets.VOICE_TG_TOKEN }}
           VOICE_TG_SECRET: ${{ secrets.VOICE_TG_SECRET }}
           VOICE_TG_BOT: ${{ vars.VOICE_TG_BOT }}
+          CONTRACTS_USD_PER_DAY: ${{ vars.CONTRACTS_USD_PER_DAY }}
         run: deploy/ci-deploy.sh stand "$DEPLOY_SHA"
       - name: /health answers with this commit
         run: |
@@ -247,6 +248,7 @@ jobs:
           VOICE_TG_TOKEN: ${{ secrets.VOICE_TG_TOKEN }}
           VOICE_TG_SECRET: ${{ secrets.VOICE_TG_SECRET }}
           VOICE_TG_BOT: ${{ vars.VOICE_TG_BOT }}
+          CONTRACTS_USD_PER_DAY: ${{ vars.CONTRACTS_USD_PER_DAY }}
         run: deploy/ci-deploy.sh prod "$GITHUB_SHA"
       - name: /health answers with this commit
         run: |
