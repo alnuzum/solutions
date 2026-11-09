@@ -23,11 +23,15 @@ def _sent_names() -> list[str]:
 
 
 def _accepted(names: list[str]) -> dict[str, bool]:
+    """Each name through the very test ``apps-deploy env`` applies to a line (taken from the script)."""
     lines = (DEPLOY / "server" / "apps-deploy").read_text().splitlines()
-    rules = "\n".join(line for line in lines if line.startswith(("ALLOWED=", "DENIED=")))
+    rules = "\n".join(line for line in lines if line.startswith(("ALLOWED=", "DENIED=", "SAFE_VALUE=")))
+    used = next(line for line in lines if '"$key" =~ $ALLOWED' in line)
+    test = re.search(r"\[\[ .*? \]\]", used)
+    assert test, used
     check = (
-        'for key in "$@"; do if [[ "$key" =~ $ALLOWED && ! "$key" =~ $DENIED ]]; then echo "$key 1"; '
-        'else echo "$key 0"; fi; done'
+        'for key in "$@"; do line="$key=1"; value=1; '
+        f'if {test.group(0)}; then echo "$key 1"; else echo "$key 0"; fi; done'
     )
     bash = shutil.which("bash")
     assert bash

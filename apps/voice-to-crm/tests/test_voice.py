@@ -2,6 +2,7 @@
 briefly, the webhook takes nothing without its secret, money is booked before it is spent (speech too),
 the speech cannot ask for more than the allowed changes, and nobody reaches another's run or connection."""
 
+import asyncio
 import io
 import logging
 import math
@@ -52,6 +53,15 @@ async def test_nothing_is_written_before_the_button_and_once_after(make: Any, en
     assert [k for k, _ in h.crm.writes] == kinds
     (status,) = await rows(engine, "SELECT status FROM voice_runs")
     assert status[0] == "written"
+
+
+async def test_two_presses_at_once_write_once(make: Any) -> None:
+    h: Harness = await make(intent(stage={"id": "1:20", "phrases": [1]}))
+    await _pick_demo(h, 521)
+    await h.update(message(521, 1, text="По сделке Ромашка переведи на переговоры."))
+    button = next(data for label, data in h.tg.buttons() if data.startswith("w:"))
+    await asyncio.gather(*(h.update(callback(521, n, button)) for n in (2, 3, 4)))
+    assert [k for k, _ in h.crm.writes] == ["update", "note"]
 
 
 async def test_the_page_writes_only_on_confirm(make: Any) -> None:
