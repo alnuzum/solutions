@@ -179,6 +179,10 @@ _T: dict[str, tuple[str, str]] = {
     "e_pages": ("В PDF больше 10 страниц.", "The PDF has more than 10 pages."),
     "e_image_size": ("Картинка больше 40 мегапикселей.", "The picture is over 40 megapixels."),
     "e_damaged": ("Файл повреждён или защищён паролем.", "The file is damaged or protected by a password."),
+    "e_scan_size": (
+        "Файл слишком большой: картинки в PDF больше 40 мегапикселей на страницу.",
+        "The file is too large: the pictures in the PDF are over 40 megapixels a page.",
+    ),
     "e_unpacked": (
         "Файл слишком большой: в распакованном виде таблица больше 50 МБ.",
         "The file is too large: unpacked, the spreadsheet is over 50 MB.",

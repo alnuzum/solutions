@@ -7,9 +7,12 @@ in memory for the length of the request and is never written anywhere.
 import csv
 import io
 import re
+import subprocess  # nosec B404 - only to run our own page-drawing module
+import sys
 import threading
 import zipfile
 from dataclasses import dataclass, field
+from typing import Any
 
 MAX_BYTES = 8 * 1024 * 1024
 MAX_PAGES = 10
@@ -186,45 +189,96 @@ def _pdf(name: str, data: bytes) -> Source:
         # a scan: the model gets its pages as pictures, never the PDF. What one reader of PDF sees as no
         # text another may read as pages of it (a font without ToUnicode, a hidden layer, annotations);
         # a picture's price is known before the call
+        try:
+            _pixels(reader)
+        except IntakeError:
+            raise
+        except Exception:  # a dictionary pypdf cannot walk is a damaged file
+            raise IntakeError("e_damaged") from None
         pictures = _rasterize(data)
         return Source("image", name, [], images=pictures, media_type="image/jpeg", pages=len(pictures))
     return Source("pdf", name, lines, pages=pages)
 
 
-_PDFIUM = threading.Lock()  # PDFium is not thread-safe: one page is drawn at a time in the process
+MAX_PAGE_PIXELS = MAX_PIXELS  # the pictures one page of a scan draws, together
+MAX_SCAN_PIXELS = 4 * MAX_PIXELS  # the pictures of a whole scan
+RENDER_SECONDS = 15.0  # below the parse's own 20 s: the child is killed before the slot gives up
+# the memory ceiling of the drawing process (RLIMIT_AS): measured 66-98 MB for scans from one 300 dpi page
+# to ten pages and a 40 Mp picture; 256 MB leaves a raw 40 Mp picture room, and with the platform's
+# ~130 MB the container's 512 MB
+RENDER_MEMORY = 256 * 1024 * 1024
+_RENDER = threading.BoundedSemaphore(1)  # one drawing process at a time
+RENDER_COMMAND = [sys.executable, "-I", "-m", "alnuzum_orders.render"]
+
+
+def _pixels(reader: Any) -> None:
+    """The declared size of every picture of the pages, read from the dictionaries without decoding
+    anything: PDFium decodes a picture whole whatever the size it draws it at."""
+    seen: set[int] = set()
+    total = 0
+
+    def images(resources: Any, depth: int) -> int:
+        if resources is None or depth > 4:
+            return 0
+        found = 0
+        xobjects = resources.get_object().get("/XObject")
+        if xobjects is None:
+            return 0
+        xobjects = xobjects.get_object()
+        for key in list(xobjects.keys())[:500]:
+            obj = xobjects[key].get_object()
+            if id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            if obj.get("/Subtype") == "/Image":
+                for picture in (obj, obj.get("/SMask")):
+                    if picture is None:
+                        continue
+                    picture = picture.get_object()
+                    w, h = int(picture.get("/Width", 0)), int(picture.get("/Height", 0))
+                    if w <= 0 or h <= 0 or w * h > MAX_PIXELS:
+                        raise IntakeError("e_scan_size")
+                    found += w * h
+            elif obj.get("/Subtype") == "/Form":
+                found += images(obj.get("/Resources"), depth + 1)
+        return found
+
+    for page in reader.pages:
+        on_page = images(page.get("/Resources"), 0)
+        total += on_page
+        if on_page > MAX_PAGE_PIXELS or total > MAX_SCAN_PIXELS:
+            raise IntakeError("e_scan_size")
 
 
 def _rasterize(data: bytes) -> list[bytes]:
-    """Each page of a scan as a JPEG of at most MAX_SIDE a side, as a photo is."""
-    import pypdfium2 as pdfium
-    from PIL import Image
-
-    out: list[bytes] = []
-    with _PDFIUM:
-        try:
-            doc = pdfium.PdfDocument(data)
-        except (pdfium.PdfiumError, ValueError, OSError):
-            raise IntakeError("e_damaged") from None
-        try:
-            if not 1 <= len(doc) <= MAX_PAGES:
-                raise IntakeError("e_pages" if len(doc) > MAX_PAGES else "e_damaged")
-            for n in range(len(doc)):
-                page = doc[n]
-                try:
-                    w, h = page.get_size()
-                    if min(w, h) <= 0:
-                        raise IntakeError("e_damaged")
-                    picture = page.render(scale=MAX_SIDE / max(w, h)).to_pil().convert("RGB")
-                    picture.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
-                    buf = io.BytesIO()
-                    picture.save(buf, "JPEG", quality=85)
-                    out.append(buf.getvalue())
-                finally:
-                    page.close()
-        except (pdfium.PdfiumError, ValueError, OSError):
-            raise IntakeError("e_damaged") from None
-        finally:
-            doc.close()
+    """Each page of a scan as a JPEG of at most MAX_SIDE a side, drawn by ``alnuzum_orders.render`` in a
+    process of its own: its own PDFium, a memory ceiling, killed after RENDER_SECONDS."""
+    if not _RENDER.acquire(timeout=RENDER_SECONDS):
+        raise IntakeError("e_busy")
+    try:
+        done = subprocess.run(  # noqa: S603  # nosec B603 - our own module, fixed arguments, no shell
+            [*RENDER_COMMAND, str(RENDER_MEMORY)],
+            input=data,
+            capture_output=True,
+            timeout=RENDER_SECONDS,
+            env={"MALLOC_ARENA_MAX": "2"},
+            check=False,
+        )
+    except subprocess.TimeoutExpired:  # run() has killed it
+        raise IntakeError("e_slow") from None
+    finally:
+        _RENDER.release()
+    if done.returncode == 3:
+        raise IntakeError("e_pages")
+    if done.returncode != 0:
+        raise IntakeError("e_damaged")
+    out, raw = [], done.stdout
+    while raw:
+        size = int.from_bytes(raw[:4], "big")
+        out.append(raw[4 : 4 + size])
+        raw = raw[4 + size :]
+    if not 1 <= len(out) <= MAX_PAGES or not all(page.startswith(b"\xff\xd8\xff") for page in out):
+        raise IntakeError("e_damaged")
     return out
 
 

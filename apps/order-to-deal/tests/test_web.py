@@ -601,3 +601,36 @@ async def test_a_catalog_without_stock_rights_says_which_right_to_add(make: Any)
     rid = run_id(await b.order("demo:bitrix24", sample="order-ru.xlsx"))
     page = await b.http.get(f"/ru/orders/{rid}")
     assert "нет права «Торговый каталог (catalog)»" in page.text
+
+
+async def test_a_drawing_process_that_hangs_is_killed_and_health_answers(
+    make: Any, engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    import os
+    import sys
+    import time
+
+    from .test_intake import pdf
+
+    pidfile = tmp_path / "pid"
+    hang = "import os, sys, time; open(sys.argv[1], 'w').write(str(os.getpid())); time.sleep(60)"
+    monkeypatch.setattr(intake, "RENDER_COMMAND", [sys.executable, "-c", hang, str(pidfile)])
+    monkeypatch.setattr(intake, "RENDER_SECONDS", 1.0)
+    h = await make()
+    b = Browser(h.app)
+    token = await b.csrf()
+
+    async def health() -> float:
+        await asyncio.sleep(0.4)
+        began = time.monotonic()
+        assert (await b.http.get("/health")).status_code == 200
+        return time.monotonic() - began
+
+    began = time.monotonic()
+    order, took = await asyncio.gather(b.order(file=("scan.pdf", pdf(1)), csrf=token), health())
+    assert order.status_code == 400 and "разбор не уложился" in order.text
+    assert time.monotonic() - began < 5
+    assert took < 1.0, took
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pidfile.read_text()), 0)
+    assert await rows(engine, "SELECT status, error FROM orders_runs") == [("rejected", "e_slow")]

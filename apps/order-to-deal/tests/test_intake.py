@@ -207,3 +207,61 @@ def test_unzip_bounds_count_every_part_and_the_ratio() -> None:
     assert caught.value.code == "e_unpacked"
     # an ordinary order is far inside every bound
     intake.unzip_bounds(xlsx([["Товар", "Количество"]] + [[f"Кабель {n}", n] for n in range(500)]))
+
+
+# --- a scan is drawn in a process of its own, after its pictures are measured ---
+
+
+def pdf_with_picture(w: int, h: int) -> bytes:
+    """A page that draws one picture declared w x h; its data is a few bytes, never decoded here."""
+    from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=200, height=200)
+    picture = DecodedStreamObject()
+    picture.set_data(b"\x00" * 16)
+    picture.update(
+        {
+            NameObject("/Type"): NameObject("/XObject"),
+            NameObject("/Subtype"): NameObject("/Image"),
+            NameObject("/Width"): NumberObject(w),
+            NameObject("/Height"): NumberObject(h),
+            NameObject("/ColorSpace"): NameObject("/DeviceGray"),
+            NameObject("/BitsPerComponent"): NumberObject(8),
+        }
+    )
+    ref = writer._add_object(picture)
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/XObject"): DictionaryObject({NameObject("/Im0"): ref})}
+    )
+    content = DecodedStreamObject()
+    content.set_data(b"q 200 0 0 200 0 0 cm /Im0 Do Q")
+    page[NameObject("/Contents")] = writer._add_object(content)
+    assert isinstance(page["/MediaBox"], ArrayObject)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
+def test_a_scan_with_a_huge_picture_is_refused_before_it_is_drawn(monkeypatch: pytest.MonkeyPatch) -> None:
+    import tracemalloc
+
+    def never(data: bytes) -> list[bytes]:
+        raise AssertionError("a huge picture was drawn")
+
+    monkeypatch.setattr(intake, "_rasterize", never)
+    data = pdf_with_picture(30000, 30000)
+    tracemalloc.start()
+    try:
+        with pytest.raises(intake.IntakeError) as caught:
+            intake.read("scan.pdf", data)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert caught.value.code == "e_scan_size"
+    assert peak < 8 * 1024 * 1024, peak
+
+
+def test_a_scan_with_an_ordinary_picture_is_drawn_by_the_child() -> None:
+    src = intake.read("scan.pdf", pdf_with_picture(1200, 1600))
+    assert (src.kind, src.pages, len(src.images)) == ("image", 1, 1)
