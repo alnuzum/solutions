@@ -11,6 +11,7 @@ What differs from other CRMs, checked live:
 - 7 requests a second per account.
 """
 
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -70,6 +71,32 @@ from alnuzum_crm.types import (
 
 WON, LOST = 142, 143
 INN_NAMES = frozenset({"инн", "inn", "tin", "stir", "инн/tin", "tax id"})
+
+
+ACCOUNT_LIMIT = "account_limit"
+
+
+_LOCKED = re.compile(r"(?:Код ошибки|Error code) 205\.")
+
+
+def _account_locked(resp: httpx.Response) -> bool:
+    """A 400 that is the account, not the request: over its records limit (a technical account keeps
+    100 contacts and companies) creating a contact or a company answers code 205 ("contact not
+    created" in amoCRM's table of error codes) and a deal "Payment Required". Decided by the answer's
+    own fields as the CRM sends them (no validation errors, the whole detail is the CRM's text), never
+    by a substring of the joined message: a value a visitor typed may be echoed there."""
+    if resp.status_code != 400:
+        return False
+    try:
+        data = resp.json()
+    except ValueError:
+        return False
+    if not isinstance(data, dict) or data.get("validation-errors") or data.get("title") != "Bad Request":
+        return False
+    detail = data.get("detail")
+    if not isinstance(detail, str):
+        return False
+    return detail == "Payment Required" or _LOCKED.match(detail) is not None
 
 
 def _error_text(resp: httpx.Response) -> str:
@@ -192,6 +219,8 @@ class AmoCRM(CRM):
             raise CrmRateLimited(text, crm=crm, status=status)
         if status >= 500:
             raise CrmUnavailable(text, crm=crm, status=status)
+        if _account_locked(resp):
+            raise CrmPermissionError(text, crm=crm, status=status, code=ACCOUNT_LIMIT)
         raise CrmValidationError(text, crm=crm, status=status)
 
     async def _embedded(self, method: str, url: str, key: str, **kw: Any) -> list[dict[str, Any]]:

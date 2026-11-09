@@ -31,6 +31,7 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_platform.db import Base
 from alnuzum_platform.models import CrmWrite
 
@@ -299,7 +300,8 @@ class OrderStore:
             return await _demo_writes(session, OrderRun.owner == owner)
 
     async def demo_full(self, limits: dict[str, DemoLimits]) -> dict[str, str]:
-        """The demo CRMs that take no more deals now: crm -> "full" (for today) or "full_total"."""
+        """The demo CRMs that take no more deals now: crm -> "full" (for today), "full_total" or "down"
+        (the test account refuses records)."""
         out = {}
         async with self._sessions() as session:
             for crm, demo in limits.items():
@@ -387,7 +389,34 @@ async def _demo_writes(session: AsyncSession, *where: Any) -> int:
     )
 
 
+DEMO_DOWN_FOR = timedelta(minutes=30)
+
+
+async def _demo_down(session: AsyncSession, crm: str) -> bool:
+    """The test account refused a demo write as over its records limit, and nothing was written there
+    since: for half an hour the demo of that CRM says it is unavailable instead of failing every
+    visitor, then the next run tries again."""
+    refused = await session.scalar(
+        select(func.max(OrderRun.created_at)).where(
+            OrderRun.demo.is_(True),
+            OrderRun.crm == crm,
+            OrderRun.error == ACCOUNT_LIMIT,
+            OrderRun.created_at > datetime.now(UTC) - DEMO_DOWN_FOR,
+        )
+    )
+    if refused is None:
+        return False
+    written = await session.scalar(
+        select(func.count())
+        .select_from(OrderRun)
+        .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.written_at > refused)
+    )
+    return not written
+
+
 async def _crm_state(session: AsyncSession, crm: str, demo: DemoLimits) -> str | None:
+    if await _demo_down(session, crm):
+        return "down"
     if await _demo_writes(session, OrderRun.crm == crm) >= demo.per_crm:
         return "full"
     if demo.total is not None:

@@ -124,9 +124,14 @@ _T: dict[str, tuple[str, str]] = {
         "Демо {crm} заполнено: тестовый аккаунт больше не принимает сделок.",
         "The {crm} demo is full: the test account takes no more deals.",
     ),
+    "n_down": (
+        "Демо {crm} временно недоступно: тестовый аккаунт CRM сейчас не принимает записи.",
+        "The {crm} demo is temporarily unavailable: the CRM test account takes no records right now.",
+    ),
     "n_full_try": ("Демо других CRM открыто:", "The demo of other CRMs is open:"),
     "n_full_again": ("начать заявку заново", "start the order again"),
     "o_full_mark": ("на сегодня заполнено", "full for today"),
+    "o_down_mark": ("временно недоступно", "temporarily unavailable"),
     "w_b24_catalog": (
         "Остатков не видно: у вебхука Битрикс24 нет права «Торговый каталог (catalog)». Добавьте его в "
         "настройках входящего вебхука, и остатки появятся в следующей заявке.",
