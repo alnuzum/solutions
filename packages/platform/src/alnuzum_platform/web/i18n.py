@@ -1,6 +1,9 @@
-"""Texts of the pages in Russian and English. ``{name}`` placeholders are filled by the templates."""
+"""Texts of the pages in Russian and English. ``{name}`` placeholders are filled by the templates;
+``{name:письмо|письма|писем}`` writes a count with its word in the right form (see ``fill``)."""
 
-from typing import Final
+import string
+from collections.abc import Mapping
+from typing import Any, Final
 
 LANGS: Final = ("ru", "en")
 
@@ -99,10 +102,10 @@ _T: dict[str, tuple[str, str]] = {
     "never": ("ещё нет", "not yet"),
     "check": ("Проверить подключение", "Check the connection"),
     "check_text": (
-        "Создаст в CRM тестовую сделку с тегом e2e и даст ссылку на неё. Не больше {quota} записей в CRM "
-        "за сутки.",
-        "Creates a test deal tagged e2e in the CRM and links to it. At most {quota} writes into the CRM "
-        "per 24 hours.",
+        "Создаст в CRM тестовую сделку с тегом e2e и даст ссылку на неё. "
+        "Не больше {quota:записи|записей|записей} в CRM за сутки.",
+        "Creates a test deal tagged e2e in the CRM and links to it. "
+        "At most {quota:write|writes} into the CRM per 24 hours.",
     ),
     "deal_no": ("Сделка № {id}", "Deal #{id}"),
     "open_in": ("Открыть в {crm}", "Open in {crm}"),
@@ -144,8 +147,8 @@ _T: dict[str, tuple[str, str]] = {
         "This account was connected again; the new connection is in use.",
     ),
     "why_quota": (
-        "Суточная квота исчерпана: не больше {quota} записей в CRM за 24 часа.",
-        "The daily quota is used up: at most {quota} writes into the CRM per 24 hours.",
+        "Суточная квота исчерпана: не больше {quota:записи|записей|записей} в CRM за 24 часа.",
+        "The daily quota is used up: at most {quota:write|writes} into the CRM per 24 hours.",
     ),
     "why_unavailable": (
         "CRM сейчас не отвечает. Попробуйте позже.",
@@ -216,7 +219,56 @@ def texts(lang: str) -> dict[str, str]:
     i = LANGS.index(lang)
     out = {key: pair[i] for key, pair in _T.items()}
     out.update({f"crm_{key}": pair[i] for key, pair in CRM_NAMES.items()})
-    return out
+    return counted(out)
+
+
+def plural(n: int, forms: list[str] | tuple[str, ...]) -> str:
+    """The form of a word after the number ``n``. Three forms are Russian: the one for 1, 21, 31…, the one for
+    2–4, 22–24…, the one for 0, 5–20, 25–30… and the teens (письмо, письма, писем); two forms are English
+    (letter, letters)."""
+    n = abs(n)
+    if len(forms) == 2:
+        return forms[0] if n == 1 else forms[1]
+    one, few, many = forms
+    if n % 10 == 1 and n % 100 != 11:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
+class _Counts(string.Formatter):
+    def format_field(self, value: Any, format_spec: str) -> str:
+        if "|" not in format_spec:
+            return format(value, format_spec)
+        digits = "".join(ch for ch in str(value) if ch.isdigit())  # a number written «5 000» counts as 5000
+        if isinstance(value, bool) or not digits:
+            raise ValueError(f"a count is not a number: {value!r}")
+        return f"{value} {plural(int(digits), format_spec.split('|'))}"
+
+
+_COUNTS: Final = _Counts()
+
+
+def fill(text: str, /, *args: Any, **kwargs: Any) -> str:
+    """``str.format`` that also writes a count with its word: ``{n:письмо|письма|писем}`` gives «1 письмо»,
+    «3 письма», «31 письмо», and the case is the text's own: «из {n:письма|писем|писем}» gives «из 31 письма»;
+    ``{n:letter|letters}`` gives «1 letter», «31 letters»."""
+    return _COUNTS.vformat(text, args, kwargs)
+
+
+class Text(str):
+    """A text of a page: its ``format`` is ``fill``, so the templates' ``t.key.format(n=…)`` writes counts."""
+
+    __slots__ = ()
+
+    def format(self, /, *args: Any, **kwargs: Any) -> str:
+        return fill(self, *args, **kwargs)
+
+
+def counted(found: Mapping[str, str]) -> dict[str, str]:
+    """The texts with ``Text`` values, whose ``format`` writes counts with their words."""
+    return {key: Text(value) for key, value in found.items()}
 
 
 def pick_lang(accept_language: str | None) -> str:
