@@ -2,6 +2,8 @@
 exactly a note and a task, and nobody gets what is not theirs. The CRM and the model are stand-ins at their
 boundaries (``conftest``)."""
 
+import asyncio
+import html
 import io
 import zipfile
 import zlib
@@ -150,8 +152,9 @@ async def test_words_of_the_contract_make_nothing_but_the_note_and_the_task(make
     kinds = [k for k, _, _ in h.crm.writes]
     assert kinds == ["note", "task"], kinds  # FakeCRM fails on any other method
     note, task = h.crm.writes[0][2], h.crm.writes[1][2]
-    assert "［url=https://evil.example］сюда［/url］" in note and "＜b＞срочно＜/b＞" in note
-    assert "[url" not in note and "<b>" not in note
+    shown = html.unescape(note)  # what Bitrix24 shows: it renders a note as HTML
+    assert "[url=https://evil.example]сюда[/url]" in shown and "<b>срочно</b>" in shown
+    assert "<b>" not in note and "&lt;b&gt;срочно&lt;/b&gt;" in note
     assert "\x07" not in note and "\u202e" not in note
     assert task.text == "Юристу: 1 пункт высокого риска в редакции договора · Al-Nuzum"
     page = (await b.http.get(f"/ru/contracts/{run}")).text
@@ -355,13 +358,20 @@ async def test_an_own_connection_has_its_runs_a_day(make: Any, monkeypatch: pyte
 async def test_the_ceiling_refuses_before_the_model_and_a_lost_answer_keeps_its_booking(
     make: Any, engine: Any
 ) -> None:
-    h: Harness = await make(contracts_usd_per_day=Decimal("0.01"))
+    h: Harness = await make(contracts_usd_per_day=Decimal("0.5"))
+    async with engine.begin() as conn:  # the day's dollars nearly spent
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "INSERT INTO contract_spend (id, owner, kind, usd, units, ok) "
+                "VALUES (gen_random_uuid(), 's:x', 'rate', 0.49, 0, true)"
+            )
+        )
     b = Browser(h.app)
     refused = await b.compare()
     assert refused.status_code == 422 and "Дневной лимит демо на модель исчерпан" in refused.text
     assert h.messages.requests == []
     assert await rows(engine, "SELECT status, error FROM contract_runs") == [("rejected", "e_ceiling")]
-    assert await rows(engine, "SELECT count(*) FROM contract_spend") == [(0,)]
+    assert await rows(engine, "SELECT count(*) FROM contract_spend") == [(1,)]
 
     import httpx as _httpx
 
@@ -370,7 +380,7 @@ async def test_the_ceiling_refuses_before_the_model_and_a_lost_answer_keeps_its_
     b2 = Browser(h2.app, "198.51.100.5")
     busy = await b2.compare()
     assert busy.status_code == 422 and "Модель не ответила" in busy.text
-    booked = await rows(engine, "SELECT usd, ok FROM contract_spend ORDER BY created_at")
+    booked = await rows(engine, "SELECT usd, ok FROM contract_spend WHERE owner != 's:x' ORDER BY created_at")
     assert len(booked) == 2 and all(usd > 0 and ok is False for usd, ok in booked), booked
 
 
@@ -419,6 +429,7 @@ async def test_kommo_has_its_own_ceiling_a_day(make: Any, engine: Any) -> None:
             assert state == ("full" if n == ceiling else "ok"), (crm, n, state)
             if state == "ok":
                 await cs.finish_writing(rid, ok=True)
+                assert await cs.erase(rid, f"s:{crm}{n}") == "erased"  # erased, still counted
 
 
 # --- 24 hours, erased, sealed ---
@@ -435,9 +446,31 @@ async def test_a_run_lives_24_hours_then_the_sweep_erases_it(make: Any, engine: 
     assert (await b.http.get(f"/ru/contracts/{run}")).status_code == 404
     await web._sweep(h.app)
     assert await rows(engine, "SELECT count(*) FROM contract_runs") == [(0,)]
+    # a run written an hour ago, made 25 hours ago: its contract goes, its row counts the write a day long
+    run = run_id(await b.compare())
+    assert await written(b, run) == "written"
+    async with engine.begin() as conn:
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "UPDATE contract_runs SET created_at = now() - interval '25 hours', "
+                "written_at = now() - interval '1 hour'"
+            )
+        )
+    await web._sweep(h.app)
+    assert await rows(engine, "SELECT status, sealed, candidates, deal_title FROM contract_runs") == [
+        ("erased", None, None, None)
+    ]
+    async with engine.begin() as conn:
+        await conn.execute(
+            __import__("sqlalchemy").text("UPDATE contract_runs SET written_at = now() - interval '25 hours'")
+        )
+    await web._sweep(h.app)
+    assert await rows(engine, "SELECT count(*) FROM contract_runs") == [(0,)]
 
 
-async def test_erase_now_leaves_no_row_and_the_text_is_never_in_the_clear(make: Any, engine: Any) -> None:
+async def test_erase_now_leaves_a_tombstone_and_the_text_is_never_in_the_clear(
+    make: Any, engine: Any
+) -> None:
     h: Harness = await make()
     b = Browser(h.app)
     run = run_id(await b.compare())
@@ -446,27 +479,205 @@ async def test_erase_now_leaves_no_row_and_the_text_is_never_in_the_clear(make: 
     with pytest.raises(zlib.error):
         zlib.decompress(sealed)
     assert set(summary) == {"changes", "high", "medium", "low", "unrated", "cosmetic", "substantive"}
+    await b.act(run, "search")
     erased = await b.act(run, "erase")
     assert erased.headers["location"] == "/ru/contracts?n=erased"
-    assert await rows(engine, "SELECT count(*) FROM contract_runs") == [(0,)]
+    assert await rows(
+        engine, "SELECT status, sealed, summary, candidates, deal_id, deal_title, deal_url FROM contract_runs"
+    ) == [("erased", None, None, None, None, None, None)]
     assert (await b.http.get(f"/ru/contracts/{run}")).status_code == 404
     start = (await b.http.get("/ru/contracts?n=erased")).text
-    assert "Разбор стёрт." in start and "Договор хранится 24 часа и стирается" in start
+    assert "Разбор стёрт." in start and "Разбор хранится 24 часа и стирается" in start
+    assert "во внешнюю систему Anthropic" in start and "до 14 дней лежит в ночной резервной копии" in start
 
 
-async def test_a_standard_goes_with_its_connection(make: Any, engine: Any) -> None:
+async def test_erasing_does_not_give_back_a_quota(make: Any, engine: Any) -> None:
+    """Runs and demo writes are counted by rows an erase keeps as tombstones."""
+    h: Harness = await make()
+    b = Browser(h.app, "203.0.113.70")
+    notices = []
+    for n in range(Limits().runs_per_owner):
+        run = run_id(await b.compare(standard="demo:supply-en", sample="supply-en-txt"))
+        if n < 6:
+            notices.append(await written(b, run, deal="11"))
+        erased = await b.act(run, "erase")
+        assert erased.headers["location"] == "/ru/contracts?n=erased"
+    assert notices == ["written"] * 5 + ["quota"]  # the session's 5 demo writes, erased or not
+    over = await b.compare(standard="demo:supply-en", sample="supply-en-txt")
+    assert over.status_code == 429  # the 11th run of the session
+    assert await rows(engine, "SELECT DISTINCT status FROM contract_runs") == [("erased",)]
+
+
+async def test_erase_while_writing_waits_for_the_write_then_erases(make: Any, engine: Any) -> None:
+    h: Harness = await make()
+    b = Browser(h.app)
+    run = run_id(await b.compare())
+    task = h.crm.add_task
+    said: list[str] = []
+
+    async def erase_meanwhile(deal_id: str, item: Any) -> str:
+        said.append((await b.act(run, "erase")).headers["location"])
+        page = (await b.http.get(said[-1])).text
+        said.append("pending shown" if "сотрём разбор сразу после записи" in page else page[:200])
+        return await task(deal_id, item)
+
+    h.crm.add_task = erase_meanwhile  # type: ignore[method-assign]
+    assert await written(b, run) == "written"
+    assert said == [f"/ru/contracts/{run}?n=erase_pending", "pending shown"]
+    assert [k for k, _, _ in h.crm.writes] == ["note", "task"]
+    ((status, sealed, written_at),) = await rows(
+        engine, "SELECT status, sealed, written_at FROM contract_runs"
+    )
+    assert status == "erased" and sealed is None and written_at is not None  # gone, the write still counted
+    assert (await b.http.get(f"/ru/contracts/{run}")).status_code == 404
+
+
+async def test_a_standard_lives_while_its_connection_is_active(make: Any, engine: Any) -> None:
+    """Disconnected through the platform's page, replaced, waiting for a reconnect or expired unseen: the
+    next sweep erases the standard; an active connection keeps it."""
+    from alnuzum_platform.api import EXPIRE_DAYS
+
+    h: Harness = await make()
+    st = h.app.state.store
+
+    async def standard_of(sid: str, account: str = "own") -> Any:
+        owner = Sessions.owner(sid)
+        info = await st.create(owner, CrmKind.BITRIX24, "own", OWN_HOOK, label="own", account=account)
+        await store_of(h).put_standard(owner, info.id, "buyer", [["1.1.", "1.1", "Текст пункта."]])
+        return info
+
+    async def kept() -> int:
+        await web._sweep(h.app)
+        return int((await rows(engine, "SELECT count(*) FROM contract_standards"))[0][0])
+
+    one = await standard_of("a" * 43)
+    assert await kept() == 1
+    me = own_browser(h, "a" * 43)
+    token = await me.csrf()
+    off = await me.http.post(
+        f"/ru/connections/{one.id}/disable", data={"csrf": token}, headers={"origin": ORIGIN}
+    )
+    assert off.status_code == 303 and (await st.get(one.id, Sessions.owner("a" * 43))).status == "disabled"
+    assert await kept() == 0
+    two = await standard_of("b" * 43)
+    await standard_of("b" * 43)  # the same account connected again replaces the connection
+    assert (await st.get(two.id, Sessions.owner("b" * 43))).status == "disabled"
+    assert await kept() == 1
+    three = await standard_of("c" * 43, account="third")
+    await st.mark(three.id, status="reauth_required", error="auth")
+    assert await kept() == 1
+    await standard_of("d" * 43, account="fourth")
+    assert await kept() == 2
+    async with engine.begin() as conn:  # a month without a visit
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "UPDATE crm_connections SET seen_at = now() - interval '31 days' WHERE account = 'fourth'"
+            )
+        )
+    await st.expire_unseen(EXPIRE_DAYS)
+    assert await kept() == 1
+    assert await rows(engine, "SELECT owner FROM contract_standards") == [(Sessions.owner("b" * 43),)]
+    page = (await own_browser(h, "b" * 43).http.get("/ru/contracts")).text
+    assert (
+        "Удалить моё типовое" in page and "после «Отключить», переподключения или 30 дней без входа" in page
+    )
+    # no standard is taken for a connection that is not active
+    third = own_browser(h, "c" * 43)
+    token = await third.csrf()
+    refused = await third.http.post(
+        f"/ru/contracts/standard/{three.id}",
+        data={"csrf": token, "side": "buyer", "action": "upload"},
+        files={"file": ("s.txt", draft(replace={}), "application/octet-stream")},
+        headers={"origin": ORIGIN},
+    )
+    assert refused.status_code == 409
+
+
+async def test_each_solution_keeps_its_own_reserve_of_a_demo_connection(make: Any) -> None:
+    """Notes of contracts up to their reserve: solution 1 still creates its deals, solution 2 its updates."""
+    from alnuzum_orders.store import DEMO_OWNER
+    from alnuzum_platform.store import QuotaExceeded
+
+    h: Harness = await make()
+    st = h.app.state.store
+    conn = (await h.contracts.demo_ids(h.app))["bitrix24"]
+    for _ in range(80):
+        await st.start_write(conn, DEMO_OWNER, "contract_note", 80, scope="contract_")
+    with pytest.raises(QuotaExceeded):
+        await st.start_write(conn, DEMO_OWNER, "contract_note", 80, scope="contract_")
+    assert await st.start_write(conn, DEMO_OWNER, "order_deal", 80, scope="order_")
+    assert await st.start_write(conn, DEMO_OWNER, "voice_update", 80, scope="voice_")
+    with pytest.raises(QuotaExceeded):  # an own connection: one quota for all its writes, as before
+        await st.start_write(conn, DEMO_OWNER, "order_deal", 80)
+
+
+@pytest.mark.parametrize("crm", ["zoho", "bitrix24", "amocrm", "kommo", "odoo"])
+def test_markup_and_entities_of_a_contract_reach_a_crm_letter_for_letter(crm: str) -> None:
+    from alnuzum_contracts.clauses import Block, compare, split
+    from alnuzum_contracts.engine import steps
+
+    said = (
+        "1.1. Оплата: «&lt;b&gt;x&lt;/b&gt;» и «<b>x</b>», &amp;lt; и &#91;url=http://x&#93;y&#91;/url&#93;."
+    )
+    cmp = compare(
+        split([Block("", "", "1.1. Оплата в течение 10 дней.", True)]), split([Block("", "", said, True)])
+    )
+    note = steps(cmp, lang="ru", crm=crm)[0].arg
+    shown = html.unescape(note) if crm in ("zoho", "bitrix24") else note  # as the CRM shows it
+    assert "«&lt;b&gt;x&lt;/b&gt;» и «<b>x</b>», &amp;lt; и &#91;url=http://x&#93;y&#91;/url&#93;." in shown
+    if crm in ("zoho", "bitrix24"):  # they render HTML: nothing of the contract is markup or an entity there
+        assert "<b>" not in note and "«&amp;lt;b&amp;gt;x&amp;lt;/b&amp;gt;»" in note
+
+
+async def test_a_long_clause_is_refused_and_a_heavy_comparison_leaves_the_platform_answering(
+    make: Any, engine: Any
+) -> None:
+    import time
+
     h: Harness = await make()
     sid = "s" * 43
     info = await own_connection(h, sid)
-    await store_of(h).put_standard(Sessions.owner(sid), info.id, "buyer", [["1.1.", "1.1", "Текст пункта."]])
-    await web._sweep(h.app)
-    assert await rows(engine, "SELECT count(*) FROM contract_standards") == [(1,)]
-    async with engine.begin() as conn:
-        await conn.execute(
-            __import__("sqlalchemy").text("DELETE FROM crm_connections WHERE id = :i"), {"i": info.id}
-        )
-    await web._sweep(h.app)
-    assert await rows(engine, "SELECT count(*) FROM contract_standards") == [(0,)]
+    me = own_browser(h, sid)
+    words = "сторона " * 600  # 4 800 characters: under the bound, the worst a clause can be
+    token = await me.csrf()
+    saved = await me.http.post(
+        f"/ru/contracts/standard/{info.id}",
+        data={"csrf": token, "side": "buyer", "action": "upload"},
+        files={"file": ("ours.txt", draft(replace={"4.2.": "4.2. " + words + "конец."}), "text/plain")},
+        headers={"origin": ORIGIN},
+    )
+    assert saved.headers["location"].endswith("n=standard_saved"), saved.text[:300]
+    theirs = draft(replace={"4.2.": "4.2. " + words + "иначе."})
+    job = asyncio.create_task(
+        me.compare(target=f"conn:{info.id}", standard="own", sample=None, file=("t.txt", theirs))
+    )
+    slowest = 0.0
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=h.app), base_url=ORIGIN) as c:
+        while not job.done():
+            began = time.monotonic()
+            assert (await c.get("/health")).status_code == 200
+            slowest = max(slowest, time.monotonic() - began)
+            await asyncio.sleep(0.05)
+    assert (await job).status_code == 303
+    assert slowest < 1.0, slowest
+    long = draft(replace={"4.2.": "4.2. " + "сторона " * 700})
+    refused = await me.compare(target=f"conn:{info.id}", standard="own", sample=None, file=("t.txt", long))
+    assert refused.status_code == 422 and "пункт длиннее 5 000 знаков" in refused.text
+
+
+async def test_a_contract_over_800_clauses_is_refused_not_cut(make: Any, engine: Any) -> None:
+    h: Harness = await make()
+    many = (chr(10) * 2).join(f"{n}. Пункт номер {n} договора." for n in range(1, 851)).encode()
+    refused = await Browser(h.app).compare(sample=None, file=("big.txt", many))
+    assert refused.status_code == 422 and "В договоре 850 пунктов, предел 800" in refused.text
+    assert await rows(engine, "SELECT status, error FROM contract_runs") == [("rejected", "e_clauses")]
+
+
+async def test_a_call_no_day_could_pay_is_refused_as_too_big(make: Any, engine: Any) -> None:
+    h: Harness = await make(contracts_usd_per_day=Decimal("0.01"))
+    refused = await Browser(h.app).compare()
+    assert refused.status_code == 422 and "Договор слишком большой для проверки здесь" in refused.text
+    assert h.messages.requests == [] and await rows(engine, "SELECT count(*) FROM contract_spend") == [(0,)]
 
 
 # --- what is checked before the quota ---

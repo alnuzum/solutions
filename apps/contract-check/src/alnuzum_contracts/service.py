@@ -12,8 +12,8 @@ from fastapi import FastAPI
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from alnuzum_contracts import intake
-from alnuzum_contracts.clauses import Clause, compare, split
+from alnuzum_contracts import intake, worker
+from alnuzum_contracts.clauses import Clause, split
 from alnuzum_contracts.engine import DEMO_PREFIX, comparison, summary, to_result, write
 from alnuzum_contracts.model import SIDES, ContractReader
 from alnuzum_contracts.store import CeilingReached, ContractStore, Limits, RunInfo, Seal
@@ -52,9 +52,10 @@ class ContractSettings(BaseSettings):
 
 
 class ContractError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, n: int | None = None) -> None:
         super().__init__(code)
         self.code = code
+        self.n = n  # a number the message names (clauses of a contract over the limit)
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,8 @@ class Contracts:
         budget = self.settings.contracts_usd_per_day
 
         async def gate(kind: str, worst: Decimal):  # type: ignore[no-untyped-def]
+            if worst > budget:  # no day would ever fit it: «tomorrow again» would be a lie
+                raise ModelError("e_too_big")
             try:
                 spend_id = await cs.reserve_spend(owner, kind, budget=budget, worst=worst)
             except CeilingReached:
@@ -211,12 +214,12 @@ class Contracts:
         usage = Usage()
         try:
             kind, theirs = await self.document(data, gate, usage)
-            cmp = await self.parsing.read(compare, standard.clauses, theirs)
+            cmp = await self.parsing.read(worker.compare_apart, standard.clauses, theirs)
             rating = await self.reader().rate(cmp, side=standard.side, lang=lang, gate=gate)
             usage.add(rating.usage)
         except (FileError, ModelError, ContractError) as exc:
             await cs.reject_run(run_id, exc.code)
-            raise ContractError(exc.code) from None
+            raise ContractError(exc.code, getattr(exc, "n", None)) from None
         spent = {"calls": usage.calls, "usd": str(usage.usd.quantize(Decimal("0.0001")))}
         result = to_result(
             cmp,
@@ -283,7 +286,11 @@ class Contracts:
         quota = max(kit.quota, 2 * limits.demo_per_crm) if run.demo else kit.quota
         try:
             info, adapter = await self.adapter_for(app, kit, run, conn_owner)
-            write_id = await st.start_write(info.id, owner, "contract_note", quota)
+            # a demo connection keeps a reserve per solution: notes of contracts never eat the deals of
+            # solution 1 or the updates of solution 2
+            write_id = await st.start_write(
+                info.id, owner, "contract_note", quota, scope="contract_" if run.demo else None
+            )
         except (QuotaExceeded, ConnectionDisabled, ConnectionNotFound) as exc:
             code = "quota" if isinstance(exc, QuotaExceeded) else "auth"
             await cs.finish_writing(run.id, ok=False, error=code)
@@ -301,7 +308,15 @@ class Contracts:
                         await st.finish_write(write_id, ok=False, error="not_demo")
                         await cs.finish_writing(run.id, ok=False, error="not_demo")
                         return "not_demo"
-                await write(crm, run.deal_id, comparison(run.result), lang=lang, done=done_before, mark=mark)
+                await write(
+                    crm,
+                    run.deal_id,
+                    comparison(run.result),
+                    lang=lang,
+                    kind=run.crm,
+                    done=done_before,
+                    mark=mark,
+                )
                 url = None if run.demo else crm.deal_link(kit.connectors.account_of(info), run.deal_id)
         except CrmError as exc:
             code = crm_error(exc)

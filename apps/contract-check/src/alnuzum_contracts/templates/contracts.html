@@ -9,7 +9,7 @@
   <p class="q keep"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.c_keep }}</p>
   </div>
 </div>
-{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] if error in t else t.e_model_unreadable }}</p>{% endif %}
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ (t[error] if error in t else t.e_model_unreadable).format(n=error_n or "") }}</p>{% endif %}
 {% if request.query_params.get('n') and t.get('n_' ~ request.query_params.get('n')) %}<p class="err good" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t['n_' ~ request.query_params.get('n')] }}</p>{% endif %}
 <form class="ord" method="post" action="/{{ lang }}/contracts" enctype="multipart/form-data">
   <input type="hidden" name="csrf" value="{{ csrf }}">

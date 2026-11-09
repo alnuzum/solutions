@@ -70,6 +70,7 @@ class ContractRun(Base):
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     write_ip_key: Mapped[str | None] = mapped_column(String(64))
     steps: Mapped[list[str] | None] = mapped_column(JSONB)
+    erase_after: Mapped[bool] = mapped_column(Boolean, default=False)  # erased once its write ends
 
 
 class ContractStandard(Base):
@@ -137,6 +138,7 @@ class RunInfo:
     deal_url: str | None
     error: str | None
     steps: list[str]
+    erase_after: bool = False
 
 
 @dataclass(frozen=True)
@@ -173,6 +175,20 @@ async def _lock(session: AsyncSession, cls: int, key: str) -> None:
 
 def _day() -> datetime:
     return datetime.now(UTC) - timedelta(days=1)
+
+
+# what an erased run keeps: the fields the quotas count (owner, address, connection, demo target, times, the
+# writes made); the contract, its quotes, the deals found and the deal chosen are gone
+TOMBSTONE: dict[str, Any] = {
+    "status": "erased",
+    "sealed": None,
+    "summary": None,
+    "candidates": None,
+    "deal_id": None,
+    "deal_title": None,
+    "deal_url": None,
+    "erase_after": False,
+}
 
 
 class ContractStore:
@@ -252,7 +268,10 @@ class ContractStore:
         async with self._sessions() as session:
             row = await session.scalar(
                 select(ContractRun).where(
-                    ContractRun.id == run_id, ContractRun.owner == owner, ContractRun.created_at > _day()
+                    ContractRun.id == run_id,
+                    ContractRun.owner == owner,
+                    ContractRun.created_at > _day(),
+                    ContractRun.status != "erased",
                 )
             )
         if row is None:
@@ -275,17 +294,27 @@ class ContractStore:
             row.deal_url,
             row.error,
             list(row.steps or []),
+            bool(row.erase_after),
         )
 
-    async def erase(self, run_id: uuid.UUID, owner: str) -> bool:
-        """At its owner's word, not while it is being written."""
+    async def erase(self, run_id: uuid.UUID, owner: str) -> str:
+        """At its owner's word: the contract is erased at once and the row stays a tombstone the quotas
+        still count ("erased"); while it is being written, it is erased the moment the write ends
+        ("pending"). "missing": not this owner's, or erased already."""
         async with self._sessions.begin() as session:
-            done = await session.execute(
-                delete(ContractRun).where(
-                    ContractRun.id == run_id, ContractRun.owner == owner, ContractRun.status != "writing"
-                )
+            row = await session.scalar(
+                select(ContractRun)
+                .where(ContractRun.id == run_id, ContractRun.owner == owner, ContractRun.status != "erased")
+                .with_for_update()
             )
-            return bool(done.rowcount)  # type: ignore[attr-defined]
+            if row is None:
+                return "missing"
+            if row.status == "writing":
+                row.erase_after = True
+                return "pending"
+            for field, value in TOMBSTONE.items():
+                setattr(row, field, value)
+            return "erased"
 
     async def save_candidates(self, run_id: uuid.UUID, owner: str, found: list[dict[str, Any]]) -> None:
         async with self._sessions.begin() as session:
@@ -377,16 +406,15 @@ class ContractStore:
         self, run_id: uuid.UUID, *, ok: bool, deal_url: str | None = None, error: str | None = None
     ) -> None:
         async with self._sessions.begin() as session:
-            await session.execute(
-                update(ContractRun)
-                .where(ContractRun.id == run_id)
-                .values(
-                    status="written" if ok else "failed",
-                    deal_url=deal_url,
-                    error=error,
-                    written_at=datetime.now(UTC) if ok else None,
-                )
-            )
+            row = await session.get(ContractRun, run_id, with_for_update=True)
+            if row is None:
+                return
+            row.status = "written" if ok else "failed"
+            row.deal_url, row.error = deal_url, error
+            row.written_at = datetime.now(UTC) if ok else None
+            if row.erase_after:  # its owner asked to erase it while it was being written
+                for field, value in TOMBSTONE.items():
+                    setattr(row, field, value)
 
     async def demo_writes(self, crm: str) -> int:
         async with self._sessions() as session:
@@ -496,14 +524,27 @@ class ContractStore:
     # --- the sweep ---
 
     async def purge(self) -> tuple[int, int]:
-        """Runs older than 24 hours, standards of connections that are gone, spends older than 30 days."""
+        """The contract of a run older than 24 hours (the row stays a tombstone while a quota still counts
+        it: its write is younger than 24 hours), tombstones nothing counts any more, standards of
+        connections that are not active (disconnected, replaced, waiting for a reconnect, expired after
+        30 days unseen, gone), spends older than 30 days."""
         cut = datetime.now(UTC) - KEEP
         async with self._sessions.begin() as session:
-            runs = await session.execute(delete(ContractRun).where(ContractRun.created_at < cut))
+            await session.execute(
+                update(ContractRun)
+                .where(ContractRun.created_at < cut, ContractRun.status != "erased")
+                .values(**TOMBSTONE)
+            )
+            runs = await session.execute(
+                delete(ContractRun).where(
+                    ContractRun.created_at < cut,
+                    or_(ContractRun.written_at.is_(None), ContractRun.written_at < cut),
+                )
+            )
             standards = await session.execute(
                 text(
                     "DELETE FROM contract_standards s WHERE NOT EXISTS (SELECT 1 FROM crm_connections c "
-                    "WHERE c.id = s.connection_id AND c.owner = s.owner)"
+                    "WHERE c.id = s.connection_id AND c.owner = s.owner AND c.status = 'active')"
                 )
             )
             await session.execute(

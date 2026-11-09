@@ -205,7 +205,7 @@ def build(kit: Kit, contracts: Contracts) -> APIRouter:
         try:
             await contracts.read(cs, run_id=run_id, owner=owner, standard=standard, data=data, lang=lang)
         except ContractError as exc:
-            return await start(request, lang, status=422, error=exc.code)
+            return await start(request, lang, status=422, error=exc.code, error_n=exc.n)
         return redirect(f"/{lang}/contracts/{run_id}")
 
     @router.post("/{lang}/contracts/standard/{conn_id}")
@@ -223,6 +223,10 @@ def build(kit: Kit, contracts: Contracts) -> APIRouter:
         if form.get("action") == "delete":
             await cs.delete_standard(owner, info.id)
             return redirect(f"/{lang}/contracts?n=standard_deleted")
+        if info.status != "active":  # a standard lives while its connection is active
+            raise PageError(409, "e_404_t", "e_reconnect", lang)
+        if str(form.get("side") or "") not in SIDES:  # checked before the quota: a wrong field costs nothing
+            return await start(request, lang, status=400, error="e_side")
         data = await _file(form)
         if not data:
             return await start(request, lang, status=400, error="e_empty")
@@ -247,7 +251,7 @@ def build(kit: Kit, contracts: Contracts) -> APIRouter:
             )
         except (ContractError, FileError, ModelError) as exc:
             await cs.reject_run(run_id, exc.code)
-            return await start(request, lang, status=422, error=exc.code)
+            return await start(request, lang, status=422, error=exc.code, error_n=getattr(exc, "n", None))
         await cs.reject_run(run_id, "standard")  # the attempt stays counted; there is no page of it
         return redirect(f"/{lang}/contracts?n=standard_saved")
 
@@ -308,7 +312,8 @@ def build(kit: Kit, contracts: Contracts) -> APIRouter:
         cs = contracts.store(request.app, kit)
         action = form.get("action")
         if action == "erase":
-            await cs.erase(run.id, run.owner)
+            if await cs.erase(run.id, run.owner) == "pending":  # being written: erased when it ends
+                return redirect(f"{back}?n=erase_pending")
             return redirect(f"/{lang}/contracts?n=erased")
         if run.status not in ("ready", "failed") or (run.steps and action != "write"):
             return redirect(back)

@@ -2,7 +2,8 @@
 
 import io
 import zipfile
-from xml.sax.saxutils import escape  # nosec B406 - escapes text we write, parses nothing
+# escape writes text into XML we make; nothing here parses XML
+from xml.sax.saxutils import escape  # nosec B406
 
 NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 CONTENT_TYPES = (
