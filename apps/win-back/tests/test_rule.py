@@ -265,3 +265,8 @@ async def test_a_capped_read_keeps_the_newest_purchases() -> None:
     assert got.cut == "cap"
     assert max(p.closed_at for p in got.purchases).date() == DAY  # the client buying now stays on its cycle
     assert min(p.closed_at for p in got.purchases).date() >= DAY - timedelta(days=200)
+
+
+def test_a_last_order_without_a_sum_is_not_small() -> None:
+    history = [*orders(200, 170, 140), Order(DAY - timedelta(days=110), Decimal(0), ())]
+    assert [r.kind for r in reasons(history, verdict(history, DAY))] == ["cycle"]

@@ -5,7 +5,7 @@ reason lights its orders through CSS only."""
 import logging
 import re
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -70,7 +70,12 @@ def decimal_of(value: Any, lang: str) -> str:
 
 
 def moment(value: datetime | None) -> str:
-    return value.astimezone(TZ).strftime("%d.%m.%Y %H:%M") if value else ""
+    """A due in Tashkent; a CRM that keeps only a date (Odoo) gives midnight UTC: the date alone."""
+    if value is None:
+        return ""
+    if value.utcoffset() == timedelta(0) and value.time() == time(0):
+        return value.strftime("%d.%m.%Y")
+    return value.astimezone(TZ).strftime("%d.%m.%Y %H:%M")
 
 
 def reason_text(t: dict[str, Any], r: dict[str, Any], currency: str | None, lang: str) -> str:

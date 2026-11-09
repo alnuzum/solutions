@@ -255,7 +255,7 @@ async def test_an_own_crm_is_escaped_named_by_contact_too_and_shows_its_open_tas
     assert "в последнем его нет" in page
     assert notice(await b.task(scan, 1, "Вернуть")) == "task_set"
     page = (await b.http.get(f"/ru/winback/{scan}/1")).text
-    assert "Задача: «Вернуть»" in page
+    assert "Задача поставлена на компанию" in page and 'name="text"' not in page
     assert notice(await b.task(scan, 1, "Ещё одна")) == "standing"
     assert [t.text for t in h.own.open_tasks("500")] == ["Вернуть"]
 
@@ -414,3 +414,21 @@ async def test_a_failed_top_up_is_tried_again_by_the_next_sweep(make: Any, monke
     assert await h.winback.seed(h.app) == {}
     assert await h.winback.seed(h.app) == {"bitrix24": 2}
     assert await h.winback.seed(h.app) == {} and tries == ["bitrix24", "bitrix24"]
+
+
+async def test_an_open_task_of_an_own_crm_stands_with_its_text_and_a_date_only_due(make: Any) -> None:
+    from datetime import UTC, datetime
+
+    from alnuzum_crm.types import TaskIn
+
+    h = await make()
+    sid = "s" * 43
+    info = await own_connection(h, sid)
+    b = own_browser(h, sid)
+    scan = await b.scan_id(f"conn:{info.id}")
+    await h.own.add_client_task(
+        TaskIn("Позвонить <срочно>", datetime(2026, 11, 12, tzinfo=UTC)), company_id="500"
+    )
+    page = (await b.http.get(f"/ru/winback/{scan}/1")).text
+    assert "Задача: «Позвонить &lt;срочно&gt;»" in page and "срок 12.11.2026<" in page
+    assert 'name="text"' not in page

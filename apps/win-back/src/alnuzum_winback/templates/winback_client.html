@@ -37,14 +37,15 @@
   </div>
   <section class="card deal wb-task">
    <h2>{{ t.w_task }}</h2>
+   {% set own_open = mine and mine.status == 'written' and standing %}
    {% if mine and mine.status == 'written' %}
    <p class="good-line"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.w_set.format(due=mine_due) }}</p>
    {% if scan.demo %}<p class="muted small">{{ t.w_set_demo }}</p>{% endif %}
    {% endif %}
-   {% if standing %}
+   {% if standing and not own_open %}
    <p>{{ t.w_standing }}</p>
    {% for s in standing %}<p class="muted small">{% if s.text %}{{ t.w_standing_own.format(text=s.text) }}{% elif s.minutes_left %}{{ t.w_standing_demo.format(n=s.minutes_left) }}{% endif %}{% if s.due %} · {{ t.w_due.format(due=moment(s.due)) }}{% endif %}</p>{% endfor %}
-   {% elif not error %}
+   {% elif not standing and not error %}
    <p class="muted small">{{ t.w_task_hint.format(due=due) }}</p>
    <form method="post" action="/{{ lang }}/winback/{{ scan.id }}/{{ n }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">

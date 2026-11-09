@@ -184,7 +184,8 @@ def reasons(orders: Sequence[Order], seen: Verdict) -> list[Reason]:
                 )
             )
     usual = Decimal(statistics.median(o.amount for o in before)) if before else Decimal(0)
-    if usual > 0 and last.amount < SMALL_SHARE * usual:
+    # a sum of 0 is a deal without a sum (Kommo recounts it from products in the background), not a small one
+    if usual > 0 and 0 < last.amount < SMALL_SHARE * usual:
         share = int(((usual - last.amount) / usual * 100).quantize(Decimal(1), ROUND_HALF_UP))
         out.append(
             Reason(
