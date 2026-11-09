@@ -411,11 +411,12 @@ async def test_health_answers_while_a_file_is_read(make: Any, monkeypatch: pytes
     monkeypatch.setattr(intake, "read", slow)
 
     async def health() -> float:
-        await asyncio.sleep(0.3)
+        # timed from before the pause: a loop held by the parse delays the wake-up itself
         began = time.monotonic()
+        await asyncio.sleep(0.3)
         resp = await b.http.get("/health")
         assert resp.status_code == 200
-        return time.monotonic() - began
+        return time.monotonic() - began - 0.3
 
     order, took = await asyncio.gather(b.order(sample="order-ru.xlsx", csrf=token), health())
     assert order.status_code == 303
@@ -621,10 +622,10 @@ async def test_a_drawing_process_that_hangs_is_killed_and_health_answers(
     token = await b.csrf()
 
     async def health() -> float:
-        await asyncio.sleep(0.4)
         began = time.monotonic()
+        await asyncio.sleep(0.4)
         assert (await b.http.get("/health")).status_code == 200
-        return time.monotonic() - began
+        return time.monotonic() - began - 0.4
 
     began = time.monotonic()
     order, took = await asyncio.gather(b.order(file=("scan.pdf", pdf(1)), csrf=token), health())
