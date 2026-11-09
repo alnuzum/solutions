@@ -314,7 +314,7 @@ async def test_the_eleventh_run_of_a_session_is_refused(make: Any, engine: Any) 
         run_id(await b.compare(standard="demo:supply-en", sample="supply-en-txt"))
     calls = len(h.messages.requests)
     over = await b.compare(standard="demo:supply-en", sample="supply-en-txt")
-    assert over.status_code == 429 and "Лимит сравнений на сегодня исчерпан." in over.text
+    assert over.status_code == 429 and "Лимит сравнений за последние 24 часа исчерпан." in over.text
     assert len(h.messages.requests) == calls  # refused before the model
     assert await rows(engine, "SELECT count(*) FROM contract_runs") == [(10,)]
 
@@ -368,7 +368,7 @@ async def test_the_ceiling_refuses_before_the_model_and_a_lost_answer_keeps_its_
         )
     b = Browser(h.app)
     refused = await b.compare()
-    assert refused.status_code == 422 and "Дневной лимит демо на модель исчерпан" in refused.text
+    assert refused.status_code == 422 and "Лимит системы на разбор договоров" in refused.text
     assert h.messages.requests == []
     assert await rows(engine, "SELECT status, error FROM contract_runs") == [("rejected", "e_ceiling")]
     assert await rows(engine, "SELECT count(*) FROM contract_spend") == [(1,)]

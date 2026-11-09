@@ -49,7 +49,10 @@ _T: dict[str, tuple[str, str]] = {
     ),
     "o_or_text": ("или текст письма", "or the text of an e-mail"),
     "o_go": ("Разобрать", "Read the order"),
-    "o_left": ("Разборов на сегодня осталось: {n}", "Orders left for today: {n}"),
+    "o_left": (
+        "Разборов осталось: {n} (счёт за последние 24 часа)",
+        "Orders left: {n} (counted over the last 24 hours)",
+    ),
     "o_wait": ("Разбор занимает 5–30 секунд.", "Reading takes 5–30 seconds."),
     "s_photo": ("Фото списка", "Photo of a list"),
     "s_xlsx": ("Excel со столбцами", "Excel with columns"),
@@ -102,7 +105,10 @@ _T: dict[str, tuple[str, str]] = {
         "Into the CRM: company and contact from the requisites, a deal with {n} line(s), a note on the calculation{task}.",
     ),
     "o_task_part": (", задача «проверить {n} поз.»", ", a task to check {n} line(s)"),
-    "o_demo_left": ("Записей в демо на сегодня осталось: {n}", "Demo writes left for today: {n}"),
+    "o_demo_left": (
+        "Записей в демо осталось: {n} (счёт за последние 24 часа).",
+        "Demo writes left: {n} (counted over the last 24 hours).",
+    ),
     "o_written": ("Записано в {crm}", "Written into {crm}"),
     "o_readback": (
         "Так сделку вернул API {crm}: строки, суммы и бюджет прочитаны из CRM после записи.",
@@ -115,10 +121,13 @@ _T: dict[str, tuple[str, str]] = {
     "o_new": ("Новая заявка", "Another order"),
     "o_cost": ("Вызовов системы: {calls}, расход ${usd}", "System calls: {calls}, cost ${usd}"),
     "n_written": ("Сделка записана.", "The deal is written."),
-    "n_quota": ("Лимит записей на сегодня исчерпан.", "Today's write limit is reached."),
+    "n_quota": (
+        "Лимит записей за последние 24 часа исчерпан: место освобождается через сутки после каждой записи.",
+        "The write limit of the last 24 hours is reached: a place frees up 24 hours after each write.",
+    ),
     "n_full": (
-        "Демо {crm} на сегодня заполнено: сделок за сутки больше не принимает.",
-        "The {crm} demo is full for today: it takes no more deals in these 24 hours.",
+        "Демо {crm} заполнено: лимит сделок за последние 24 часа исчерпан.",
+        "The {crm} demo is full: its deal limit of the last 24 hours is reached.",
     ),
     "n_full_total": (
         "Демо {crm} заполнено: тестовый аккаунт больше не принимает сделок.",
@@ -130,7 +139,7 @@ _T: dict[str, tuple[str, str]] = {
     ),
     "n_full_try": ("Демо других CRM открыто:", "The demo of other CRMs is open:"),
     "n_full_again": ("начать заявку заново", "start the order again"),
-    "o_full_mark": ("на сегодня заполнено", "full for today"),
+    "o_full_mark": ("заполнено", "full"),
     "o_down_mark": ("временно недоступно", "temporarily unavailable"),
     "w_b24_catalog": (
         "Остатков не видно: у вебхука Битрикс24 нет права «Торговый каталог (catalog)». Добавьте его в "
@@ -164,12 +173,12 @@ _T: dict[str, tuple[str, str]] = {
     "r_save": ("Сохранить", "Save"),
     "r_back": ("К заявке", "Back to the order"),
     "e_quota_runs": (
-        "На сегодня разборы закончились: 10 на браузер и 20 на адрес в сутки.",
-        "No more orders today: 10 per browser and 20 per address a day.",
+        "Разборы закончились: не больше 10 на браузер и 20 на адрес за последние 24 часа.",
+        "No orders left: at most 10 per browser and 20 per address in the last 24 hours.",
     ),
     "e_ceiling": (
-        "Суточный лимит системы на все заявки исчерпан. Приходите завтра или напишите нам.",
-        "The system's daily limit for all orders is reached. Come back tomorrow or write to us.",
+        "Лимит системы на все заявки за последние 24 часа исчерпан. Попробуйте через несколько часов или напишите нам.",
+        "The system's limit for all orders in the last 24 hours is reached. Try again in a few hours or write to us.",
     ),
     "e_model_busy": (
         "Система сейчас не отвечает. Попробуйте через минуту.",

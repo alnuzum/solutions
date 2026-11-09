@@ -132,7 +132,7 @@ async def test_demo_order_to_deal_with_products_note_task_and_readback(
     assert index.status_code == 200
     no_style_no_script(index.text)
     assert re.findall(r'value="demo:(\w+)"', index.text) == ["amocrm", "bitrix24", "zoho"]
-    assert "Разборов на сегодня осталось: 10" in index.text
+    assert "Разборов осталось: 10" in index.text
     rid = run_id(await b.order(sample="order-ru.xlsx"))
     page = await b.http.get(f"/ru/orders/{rid}")
     assert page.status_code == 200
@@ -311,7 +311,7 @@ async def test_runs_per_session_counted_before_reading_parallel_and_failed_ones_
     # the failed ones keep counting
     again = await b.order(sample="order-ru.xlsx", csrf=token)
     assert again.status_code == 429
-    assert "Разборов на сегодня осталось: 0" in again.text
+    assert "Разборов осталось: 0" in again.text
 
 
 async def test_runs_per_address_across_sessions(make: Any) -> None:
@@ -346,7 +346,7 @@ async def test_demo_writes_per_session_are_counted_with_the_status_change(make: 
     assert len(h.crm.deals) == 2
     refused = next(r for r, a in zip(runs, answers, strict=True) if a.headers["location"].endswith("quota"))
     page = await b.http.get(f"/ru/orders/{refused}")
-    assert "Записей в демо на сегодня осталось: 0" in page.text
+    assert "Записей в демо осталось: 0" in page.text
 
 
 async def test_model_ceiling_of_the_whole_solution(make: Any, engine: AsyncEngine) -> None:
@@ -505,7 +505,7 @@ async def test_model_dollars_are_booked_at_the_worst_cost_before_the_call(
     # the longest document could cost more than the day allows: refused before the model is asked
     refused = await b.order(text=LONG)
     assert refused.status_code == 503
-    assert "Суточный лимит системы на все заявки исчерпан" in refused.text
+    assert "Лимит системы на все заявки за последние 24 часа исчерпан" in refused.text
     assert len(h.messages.requests) == 2
 
 
@@ -521,7 +521,7 @@ async def test_model_dollars_spent_today_stop_the_next_call(make: Any, engine: A
         )
     resp = await Browser(h.app).order(text=SHORT)
     assert resp.status_code == 503
-    assert "Суточный лимит системы" in resp.text
+    assert "Лимит системы на все заявки" in resp.text
     assert h.messages.requests == []
 
 
@@ -559,12 +559,12 @@ async def test_demo_crm_has_its_own_ceiling_apart_from_the_platform_quota(make: 
     resp = await late.decide(rid, {"action": "write"})
     assert resp.headers["location"].endswith("?n=full")
     page = await late.http.get(f"/ru/orders/{rid}")
-    assert "Демо Битрикс24 на сегодня заполнено" in page.text
+    assert "Демо Битрикс24 заполнено" in page.text
     assert "Демо других CRM открыто: amoCRM, Zoho CRM." in page.text
     assert re.search(r'value="write" disabled', page.text)
     start = await late.http.get("/ru/orders")
     assert re.search(r'value="demo:bitrix24" required disabled>', start.text)
-    assert "на сегодня заполнено" in start.text
+    assert re.search(r"<small class=\"muted\">· заполнено</small>", start.text)
     assert len(h.crm.deals) == 4
 
 
@@ -816,3 +816,35 @@ async def test_a_long_text_gets_our_page_and_costs_no_run(make: Any, engine: Asy
         assert "Документ слишком длинный для одной заявки." in resp.text
     # only the text that fitted counts as a run
     assert len(await rows(engine, "SELECT 1 FROM orders_runs")) == 1
+
+
+async def test_what_is_left_is_the_least_of_the_session_the_address_and_the_crm(make: Any) -> None:
+    """A second browser at the same address: the address has spent its writes and its orders, so the page
+    says 0 and does not offer what it would refuse."""
+    h = await make(*[choose_first()] * 3, orders_demo_writes_per_ip=2, orders_runs_per_ip=3)
+    first = Browser(h.app)
+    for _ in range(2):
+        rid = run_id(await first.order(sample="order-ru.xlsx"))
+        assert (await first.decide(rid, {"action": "write"})).headers["location"].endswith("?n=written")
+    second = Browser(h.app)
+    rid = run_id(await second.order(sample="order-ru.xlsx"))
+    page = (await second.http.get(f"/ru/orders/{rid}")).text
+    assert "Записей в демо осталось: 0" in page
+    assert re.search(r'<button class="btn" type="submit" name="action" value="write" disabled', page)
+    assert "Разборов осталось: 0" in (await second.http.get("/ru/orders")).text
+    assert "на сегодня" not in page and "завтра" not in page.lower()
+
+
+def test_no_limit_text_promises_a_new_day_or_calls_your_crm_a_demo() -> None:
+    from alnuzum_contracts.i18n import texts as contract_texts
+    from alnuzum_voice.i18n import texts as voice_texts
+
+    from alnuzum_orders.i18n import texts as order_texts
+
+    for texts in (order_texts, voice_texts, contract_texts):
+        for lang in ("ru", "en"):
+            for key, value in texts(lang).items():
+                low = value.lower()
+                assert not any(w in low for w in ("сегодня", "завтра", "today", "tomorrow", "дневной")), key
+                if key in ("e_ceiling", "n_quota", "e_runs", "e_stt_ceiling", "e_stt_mine"):
+                    assert "демо" not in low and "demo" not in low, key  # an own CRM sees them too

@@ -447,6 +447,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         conns = [c for c in await st.list(owner) if c.status == "active"]
         demo = sorted(getattr(request.app.state, "orders_demo", {}), key=CRMS.index)
         used = await orders.store(request).runs_today(owner=owner)
+        used_here = await orders.store(request).runs_today(ip_key=ip_key(request))
         full = await orders.store(request).demo_full({k: s.demo_limits(k) for k in demo})
         return kit.page(
             request,
@@ -458,7 +459,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             demo_full=full,
             samples=samples(),
             quality=quality(),
-            left=max(0, s.orders_runs_per_session - used),
+            # what reserve_run checks: the session's and the address's runs of 24 hours
+            left=max(0, min(s.orders_runs_per_session - used, s.orders_runs_per_ip - used_here)),
             model_on=orders.reader() is not None,
             **ctx,
         )
@@ -581,8 +583,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         full: dict[str, str] = {}
         others: list[str] = []
         if item.demo:
-            demo_left = max(
-                0, s.orders_demo_writes_per_session - await orders.store(request).writes_today(owner)
+            demo_left = await orders.store(request).demo_left(
+                owner, ip_key(request), item.crm, s.demo_limits(item.crm)
             )
             demo = sorted(getattr(request.app.state, "orders_demo", {}), key=CRMS.index)
             full = await orders.store(request).demo_full({k: s.demo_limits(k) for k in demo})

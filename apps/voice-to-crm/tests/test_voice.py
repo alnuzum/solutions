@@ -197,7 +197,7 @@ async def test_speech_has_its_own_minutes_a_day_and_says_so(make: Any, engine: A
     h.speech.fail = None
     await h.update(message(811, 2, voice={"file_id": "m1", "duration": 7, "file_size": len(SAMPLE)}))
     assert h.speech.calls == 1  # 8 + 45 + 8 > 60: not sent to the service at all
-    assert "На сегодня лимит распознавания исчерпан" in h.tg.texts()[-1]
+    assert "Лимит распознавания за последние 24 часа исчерпан" in h.tg.texts()[-1]
     await h.update(message(811, 3, text="По сделке Ромашка переведи на переговоры."))
     assert "Переговоры" in h.tg.texts()[-1]  # a typed command needs no speech
 
@@ -237,7 +237,7 @@ async def test_demo_writes_of_a_chat_are_bounded(make: Any) -> None:
     for n in (1, 3):
         await h.update(message(805, n, text="Ромашка"))
         await h.update(callback(805, n + 1, next(d for _, d in h.tg.buttons() if d.startswith("w:"))))
-    assert "Лимит демо-записей" in h.tg.texts()[-1]
+    assert "Лимит записей за последние 24 часа" in h.tg.texts()[-1]
     assert [k for k, _ in h.crm.writes] == ["note"]
 
 
@@ -722,7 +722,7 @@ async def test_voice_writes_into_demo_kommo_leave_the_deals_of_solution_1_alone(
         await h.update(callback(571, n + 1, next(d for _, d in h.tg.buttons() if d.startswith("w:"))))
     journal = await rows(engine, "SELECT action FROM crm_writes WHERE crm = 'kommo' AND ok")
     assert [a for (a,) in journal] == ["voice_update", "voice_update"]
-    assert "Демо Kommo на сегодня заполнено" in h.tg.texts()[-1]  # the third: voice's own ceiling a day
+    assert "Демо Kommo заполнено" in h.tg.texts()[-1]  # the third: voice's own ceiling a day
     assert await orders.demo_full(limits) == {}  # two voice writes, a total of two deals: still all there
 
 
@@ -736,7 +736,7 @@ async def test_speech_minutes_are_bounded_per_chat_and_others_keep_theirs(make: 
     for n in (1, 2, 3):
         await h.update(message(581, n, voice=voice))
     assert h.speech.calls == 2  # 2 + 2 minutes heard; the third two would pass 4
-    assert "Ваш лимит распознавания на сегодня исчерпан" in h.tg.texts()[-1]
+    assert "Ваш лимит распознавания за последние 24 часа исчерпан" in h.tg.texts()[-1]
     await h.update(message(582, 4, voice=voice))
     assert h.speech.calls == 3 and "лимит" not in h.tg.texts()[-1]  # another chat hears its own
     heard = await rows(engine, "SELECT owner, units FROM voice_spend WHERE kind = 'stt' ORDER BY created_at")
@@ -756,7 +756,7 @@ async def test_speech_minutes_are_bounded_per_address_across_sessions(make: Any,
             )
             if n < 2:
                 assert sent.status_code == 303
-    assert sent.status_code == 422 and "Ваш лимит распознавания на сегодня исчерпан" in sent.text
+    assert sent.status_code == 422 and "Ваш лимит распознавания за последние 24 часа исчерпан" in sent.text
     assert h.speech.calls == 2
 
 

@@ -342,10 +342,19 @@ class OrderStore:
         async with self._sessions() as session:
             return int(await session.scalar(query) or 0)
 
-    async def writes_today(self, owner: str) -> int:
-        """Demo deals of the session in the last day: written or being written."""
+    async def demo_left(self, owner: str, ip_key: str, crm: str, demo: DemoLimits) -> int:
+        """Demo deals this visitor may still write into this CRM: the least of what is left to the session,
+        to the address and to the CRM (in 24 hours and, with a total, in all) — what ``start_writing``
+        checks, so the page never offers a write it would refuse."""
         async with self._sessions() as session:
-            return await _demo_writes(session, OrderRun.owner == owner)
+            left = [
+                demo.per_session - await _demo_writes(session, OrderRun.owner == owner),
+                demo.per_ip - await _demo_writes(session, OrderRun.write_ip_key == ip_key[:64]),
+                demo.per_crm - await _demo_writes(session, OrderRun.crm == crm),
+            ]
+            if demo.total is not None:
+                left.append(demo.total - await _total_written(session, crm))
+        return max(0, min(left))
 
     async def demo_full(self, limits: dict[str, DemoLimits]) -> dict[str, str]:
         """The demo CRMs that take no more deals now: crm -> "full" (for today), "full_total" or "down"
@@ -467,24 +476,27 @@ async def _crm_state(session: AsyncSession, crm: str, demo: DemoLimits) -> str |
         return "down"
     if await _demo_writes(session, OrderRun.crm == crm) >= demo.per_crm:
         return "full"
-    if demo.total is not None:
-        # every deal the demo ever created there (the journal of the platform is kept), and those being
-        # written; other solutions' writes into a deal that exists create none
-        written = await session.scalar(
-            select(func.count())
-            .select_from(CrmWrite)
-            .where(
-                CrmWrite.owner == DEMO_OWNER,
-                CrmWrite.crm == crm,
-                CrmWrite.action == "order_deal",
-                CrmWrite.ok.is_(True),
-            )
-        )
-        flying = await session.scalar(
-            select(func.count())
-            .select_from(OrderRun)
-            .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.status == "writing")
-        )
-        if (written or 0) + (flying or 0) >= demo.total:
-            return "full_total"
+    if demo.total is not None and await _total_written(session, crm) >= demo.total:
+        return "full_total"
     return None
+
+
+async def _total_written(session: AsyncSession, crm: str) -> int:
+    """Every deal the demo ever created there (the journal of the platform is kept), and those being
+    written; other solutions' writes into a deal that exists create none."""
+    written = await session.scalar(
+        select(func.count())
+        .select_from(CrmWrite)
+        .where(
+            CrmWrite.owner == DEMO_OWNER,
+            CrmWrite.crm == crm,
+            CrmWrite.action == "order_deal",
+            CrmWrite.ok.is_(True),
+        )
+    )
+    flying = await session.scalar(
+        select(func.count())
+        .select_from(OrderRun)
+        .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.status == "writing")
+    )
+    return (written or 0) + (flying or 0)
