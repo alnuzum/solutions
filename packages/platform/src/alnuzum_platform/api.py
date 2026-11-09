@@ -21,6 +21,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Res
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from jinja2 import ChoiceLoader, FileSystemLoader
 from pydantic import BaseModel, Field
 from starlette.requests import Request as StarletteRequest
 
@@ -29,6 +30,7 @@ from alnuzum_crm.types import CrmKind
 from alnuzum_platform.config import Settings, get_settings
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import make_engine, make_sessionmaker, ping
+from alnuzum_platform.solutions import Kit, Solution, discover
 from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound, ConnectionStore
 from alnuzum_platform.web.connectors import Connectors
 from alnuzum_platform.web.routes import HookRefused, PageError, build_router, render_error
@@ -98,7 +100,7 @@ async def sweep(store: ConnectionStore, connectors: Connectors) -> tuple[int, in
     return checked, lost
 
 
-async def sweep_forever(app: FastAPI, minutes: int) -> None:
+async def sweep_forever(app: FastAPI, minutes: int, solutions: list[Solution] | None = None) -> None:
     while True:
         await asyncio.sleep(minutes * 60)
         store: ConnectionStore | None = app.state.store
@@ -108,16 +110,33 @@ async def sweep_forever(app: FastAPI, minutes: int) -> None:
                 log.info("sweep: %d checked, %d lost access", checked, lost)
             except Exception:
                 log.exception("sweep round failed")
+        for solution in solutions or []:
+            if solution.sweep is not None:
+                try:
+                    await solution.sweep(app)
+                except Exception:
+                    log.exception("sweep of %s failed", solution.slug)
 
 
-def create_app(settings: Settings | None = None, *, transport: object | None = None) -> FastAPI:
-    """``transport`` (an ``httpx.AsyncBaseTransport``) replaces the network of CRM calls in tests."""
+def create_app(
+    settings: Settings | None = None,
+    *,
+    transport: object | None = None,
+    solutions: list[Solution] | None = None,
+) -> FastAPI:
+    """``transport`` (an ``httpx.AsyncBaseTransport``) replaces the network of CRM calls in tests;
+    ``solutions`` replaces the installed ones (``[]``: the platform alone)."""
     settings = settings or get_settings()
     quiet_http_logs()
     connectors = Connectors(settings, transport=transport)  # type: ignore[arg-type]
     web_on = settings.strong(settings.session_secret)
     sessions = Sessions(settings.session_secret.get_secret_value(), secure=settings.secure_cookies)
     templates = Jinja2Templates(directory=str(WEB / "templates"))
+    found = discover() if solutions is None else solutions
+    templates.env.loader = ChoiceLoader(
+        [FileSystemLoader(str(WEB / "templates")), *(FileSystemLoader(str(s.templates)) for s in found)]
+    )
+    templates.env.globals["solutions"] = found
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -126,9 +145,16 @@ def create_app(settings: Settings | None = None, *, transport: object | None = N
         maker = make_sessionmaker(engine)
         keys = settings.secret_keys.get_secret_value()
         app.state.store = ConnectionStore(maker, Keyring.from_env(keys)) if keys else None
+        app.state.sessionmaker = maker
+        for solution in found:
+            if solution.startup is not None:
+                try:
+                    await solution.startup(app)
+                except Exception:
+                    log.exception("startup of %s failed", solution.slug)
         task = None
         if settings.sweep_minutes > 0:
-            task = asyncio.create_task(sweep_forever(app, settings.sweep_minutes))
+            task = asyncio.create_task(sweep_forever(app, settings.sweep_minutes, found))
         yield
         if task is not None:
             task.cancel()
@@ -204,7 +230,14 @@ def create_app(settings: Settings | None = None, *, transport: object | None = N
             raise HTTPException(404, "not found") from None
         return Response(status_code=204)
 
+    for solution in found:
+        app.mount(f"/static/{solution.slug}", StaticFiles(directory=str(solution.static)), name=solution.slug)
     app.mount("/static", StaticFiles(directory=str(WEB / "static")), name="static")
     if web_on:
+        for solution in found:
+            kit = Kit(
+                settings, sessions, connectors, templates, settings.quota_writes_per_day, solution.texts
+            )
+            app.include_router(solution.router(kit))
         app.include_router(build_router(settings.quota_writes_per_day, sessions, connectors, templates))
     return app

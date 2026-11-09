@@ -44,6 +44,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "apps/order-to-deal/src/alnuzum_orders/model.py" = ["E501"]
 "apps/order-to-deal/eval/**" = ["E501", "S603", "S101"]
 "apps/order-to-deal/src/alnuzum_orders/quality.py" = ["E501"]
+"apps/order-to-deal/src/alnuzum_orders/i18n.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]

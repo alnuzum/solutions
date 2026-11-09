@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ t.r_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css">{% endblock %}
+{% block body %}
+{% set tgt = (t['crm_' ~ info.crm.value] ~ (' · ' ~ t.o_demo|lower if demo else ' · ' ~ info.label)) %}
+<div class="head">
+  <div>{% if back %}<p class="back"><a href="/{{ lang }}/orders/{{ back }}">← {{ t.r_back }}</a></p>{% else %}<p class="back"><a href="/{{ lang }}/orders">← {{ t.o_title }}</a></p>{% endif %}
+  <h1>{{ t.r_title }}</h1><p>{{ t.r_lead.format(target=tgt) }}</p></div>
+</div>
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] }}</p>{% endif %}
+{% if request.query_params.get('n') == 'saved' %}<p class="err good" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.n_saved }}</p>{% endif %}
+{% set cats = (rules.categories.items()|list) if rules else [] %}
+{% set tiers = rules.volume if rules else [] %}
+<form class="card rules" method="post" action="/{{ lang }}/orders/rules/{{ target }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="back" value="{{ back }}">
+  <div class="rgrid">
+    <div>
+      <h2>{{ t.r_category }}</h2>
+      <table><thead><tr><th>{{ t.r_category }}</th><th class="r">{{ t.r_percent }}</th></tr></thead><tbody>
+      {% for i in range(8 if cats|length < 6 else cats|length + 2) %}{% set row = cats[i] if i < cats|length else none %}
+      <tr><td><input name="cat{{ i }}" maxlength="80" value="{{ row[0] if row else (typed.get('cat' ~ i, '') if typed else '') }}"></td><td class="r"><input class="n" name="pct{{ i }}" inputmode="decimal" value="{{ ('%g'|format(row[1]|float)) if row else (typed.get('pct' ~ i, '') if typed else '') }}"></td></tr>
+      {% endfor %}
+      </tbody></table>
+      <label class="fld">{{ t.r_default }}<input class="n" name="default" inputmode="decimal" value="{{ ('%g'|format(rules.default|float)) if rules else (typed.get('default', '') if typed else '') }}"></label>
+    </div>
+    <div>
+      <h2>{{ t.r_volume }}</h2>
+      <table><thead><tr><th>{{ t.r_from }}</th><th class="r">{{ t.r_percent }}</th></tr></thead><tbody>
+      {% for i in range(5) %}{% set row = tiers[i] if i < tiers|length else none %}
+      <tr><td><input name="from{{ i }}" inputmode="decimal" value="{{ ('%g'|format(row.start|float)) if row else (typed.get('from' ~ i, '') if typed else '') }}"></td><td class="r"><input class="n" name="vol{{ i }}" inputmode="decimal" value="{{ ('%g'|format(row.percent|float)) if row else (typed.get('vol' ~ i, '') if typed else '') }}"></td></tr>
+      {% endfor %}
+      </tbody></table>
+      <label class="fld">{{ t.r_round }}<select name="round">{% for v in ('0.01', '1', '10', '100') %}<option value="{{ v }}"{% if rules and ('%g'|format(rules.round|float)) == ('%g'|format(v|float)) %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    </div>
+  </div>
+  <button class="btn" type="submit">{{ t.r_save }}<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></button>
+</form>
+{% endblock %}

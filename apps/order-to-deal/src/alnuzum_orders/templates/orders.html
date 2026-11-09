@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ t.o_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css">{% endblock %}
+{% block body %}
+<div class="head">
+  <div><h1>{{ t.o_title }}</h1><p>{{ t.o_lead }}</p>
+  {% if quality %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.o_quality.format(acc=(quality.accuracy * 100)|round(1), lines=quality.lines, orders=quality.orders, flagged=(quality.wrong_flagged ~ ' / ' ~ quality.wrong) if quality.wrong else '—', date=quality.date) }}</p>{% endif %}
+  </div>
+</div>
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] }}</p>{% endif %}
+<form class="ord" method="post" action="/{{ lang }}/orders" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card">
+    <h2>{{ t.o_where }}</h2>
+    {% if demo %}
+    <h3>{{ t.o_demo }}</h3>
+    <div class="picks">
+      {% for k in demo %}<label class="pick"><input type="radio" name="target" value="demo:{{ k }}" required{% if target == 'demo:' ~ k or (not target and loop.first) %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}</span></label>{% endfor %}
+    </div>
+    <p class="muted small">{{ t.o_demo_note }}</p>
+    {% endif %}
+    <h3>{{ t.o_own }}</h3>
+    {% if conns %}
+    <div class="picks">
+      {% for c in conns %}<label class="pick"><input type="radio" name="target" value="conn:{{ c.id }}" required{% if target == 'conn:' ~ c.id %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg>{{ t['crm_' ~ c.crm.value] }} · {{ c.label }}</span></label>{% endfor %}
+    </div>
+    <p class="muted small">{{ t.o_own_note }}</p>
+    {% else %}
+    <p class="muted small">{{ t.o_own_note }} <a class="open" href="/{{ lang }}">{{ t.o_connect }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></a></p>
+    {% endif %}
+  </section>
+  <section class="plate">
+    <h2>{{ t.o_order }}</h2>
+    <h3>{{ t.o_try }}</h3>
+    <div class="picks light">
+      <label class="pick"><input type="radio" name="sample" value="" checked><span>{{ t.o_mine }}</span></label>
+      {% for name, key in samples.items() %}<label class="pick"><input type="radio" name="sample" value="{{ name }}"><span>{{ t[key] }}</span></label>{% endfor %}
+    </div>
+    <label class="fld">{{ t.o_or_file }}<input type="file" name="file" accept=".pdf,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.webp,application/pdf,image/*,text/plain,text/csv"></label>
+    <label class="fld">{{ t.o_or_text }}<textarea name="text" rows="4" maxlength="40000" spellcheck="false"></textarea></label>
+    <small><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>{{ t.o_file_hint }}</small>
+    <div class="go">
+      <button class="btn" type="submit"{% if not left %} disabled{% endif %}>{{ t.o_go }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+      <span>{{ t.o_left.format(n=left) }} · {{ t.o_wait }}</span>
+    </div>
+  </section>
+</form>
+{% endblock %}

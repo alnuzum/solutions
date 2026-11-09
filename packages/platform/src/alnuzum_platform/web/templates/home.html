@@ -60,6 +60,11 @@
     {% endfor %}
   </ul>
   {% else %}<p class="muted">{{ t.none_yet }}</p>{% endif %}
+  {% if solutions %}
+  <div class="kept sols"><h3>{{ t.solutions }}</h3>
+    <ul class="conns">{% for s in solutions %}<li><a href="/{{ lang }}/{{ s.slug }}"><svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg><span><b>{{ s.titles[lang] }}</b></span></a></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
   <div class="kept"><h3><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>{{ t.how_kept }}</h3><p>{{ t.how_kept_text }}</p></div>
  </section>
 </div>

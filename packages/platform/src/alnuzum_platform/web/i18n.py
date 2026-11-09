@@ -19,6 +19,7 @@ _T: dict[str, tuple[str, str]] = {
         "the connection turns itself off and its keys are erased.",
     ),
     "pick": ("Ваша CRM", "Your CRM"),
+    "solutions": ("Решения на этой CRM", "Solutions on this CRM"),
     "yours": ("Ваши подключения", "Your connections"),
     "none_yet": ("Пока ничего не подключено.", "Nothing connected yet."),
     "open": ("Открыть", "Open"),
