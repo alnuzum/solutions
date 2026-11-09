@@ -27,7 +27,7 @@ STT_PRICE_HOUR = Decimal("0.22")
 INTENT_MAX_TOKENS = 4000
 TASK_KINDS = ("call", "meeting", "offer", "invoice", "payment", "contract", "follow_up")
 UNITS = ("шт", "м", "уп", "кор", "кг", "л", "бухта")
-REFUSALS = ("delete", "price", "other")
+REFUSALS = ("delete", "price", "stage", "other")
 MAX_PRODUCTS = 15
 
 
@@ -173,7 +173,9 @@ Fill the schema with what the manager asks to change, and nothing else:
 - deal: how the manager names the deal — its title, the client's company or the contact person — as short \
 search strings (1-3), each in the letters it was said in; add the Russian spelling of an Uzbek name and the \
 Latin spelling of a Russian one when they differ;
-- stage: only if a move to another stage is asked; the id from <stages> whose name means it;
+- stage: only if a move to another stage is asked; the id from <stages> whose name means it (the names may \
+be in another language than the note); when no stage of <stages> means what was said, do not take a near one: \
+refuse it as "stage";
 - amount: only if the deal's sum is named, as a number;
 - close_date: only if a planned closing date is named;
 - products: goods to add, each with its name as a Russian catalog would write it (type, brand, rating, size: \
@@ -181,7 +183,7 @@ Latin spelling of a Russian one when they differ;
 - task: only if something must be done by a date: its kind, the due date (resolve «в пятницу», «ertaga», \
 «через неделю» against <today>; a weekday means the next one after today) and the time if named;
 - refused: everything asked that is none of the above, above all deleting anything or setting a price or a \
-sum of zero or less: "delete", "price" or "other".
+sum of zero or less: "delete", "price", "stage" (a stage this CRM does not have) or "other".
 Every item lists the numbers of the phrases it comes from. Leave out what is not asked."""
 
 

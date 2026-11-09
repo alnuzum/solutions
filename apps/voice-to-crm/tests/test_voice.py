@@ -542,3 +542,10 @@ async def test_the_bot_names_the_demo_deals_each_crm_has(make: Any) -> None:
     assert "Ромашка, Навруз Строй, Самарканд Текстиль, Бахор Маркет, Ташкент Сити Молл." in h.tg.texts()[-1]
     assert demo_deals("ru", "kommo") == "Ромашка, Навруз Строй"  # Kommo holds two demo deals
     assert demo_deals("en", "kommo") == "Romashka, Navruz Stroy"
+
+
+async def test_a_stage_the_crm_does_not_have_is_refused_by_name(make: Any) -> None:
+    h: Harness = await make(intent(refused=[{"what": "stage", "phrases": [1]}]))
+    await _pick_demo(h, 541)
+    await h.update(message(541, 1, text="По сделке Ромашка переведи на этап сверка с бухгалтерией."))
+    assert "такой стадии в этой CRM нет" in h.tg.texts()[-1]
