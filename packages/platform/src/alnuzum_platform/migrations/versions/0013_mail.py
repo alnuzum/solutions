@@ -70,6 +70,7 @@ def upgrade() -> None:
         sa.Column("crm", sa.String(16), nullable=False),
         sa.Column("kind", sa.String(16), nullable=False),
         sa.Column("record_id", sa.String(64), nullable=False),
+        sa.Column("ip_key", sa.String(64), nullable=True),
     )
     op.create_index("ix_mail_demo_records_crm_created", "mail_demo_records", ["crm", "created_at"])
 

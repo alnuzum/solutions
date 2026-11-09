@@ -181,15 +181,96 @@ async def test_the_demo_stops_creating_records_past_its_budget(make: Any, engine
     assert await b.write(run, cls="reply", deal="11") == "written"
 
 
-async def test_kommo_and_amocrm_have_a_small_budget_in_all(make: Any, engine: Any) -> None:
-    lim = Limits()
-    assert lim.new_bounds("kommo") == (3, 20) and lim.new_bounds("amocrm") == (3, 20)
-    assert lim.new_bounds("zoho") == (15, 200)
+async def test_the_demo_stops_creating_records_past_its_budget_in_all(make: Any, engine: Any) -> None:
     h: Harness = await make(mail_demo_new_total=1)
     h.crm.contacts.clear()
     b = Browser(h.app)
     run = run_id(await b.send())
     assert await b.write(run, cls="new", company="1") == "full_new"  # a contact and a deal: two records
+
+
+AMO = "demo:amocrm"
+
+
+async def test_amocrm_an_address_makes_one_new_client_a_day(make: Any, engine: Any) -> None:
+    """A technical account keeps 100 companies and contacts in all: one address makes at most one new
+    company and one new contact a day there; past it the page offers no new company and the deal goes
+    without a new contact."""
+    h: Harness = await make(answer("new", NAVRUZ))
+    h.crm.companies.clear()
+    h.crm.contacts.clear()
+    b = Browser(h.app)
+    run = run_id(await b.send(target=AMO, sample="new-pdf-card"))
+    assert await b.write(run, cls="new", company="new") == "written"
+    assert kinds(h) == ["company", "contact", "deal", "note", "task"]
+    made = await rows(engine, "SELECT kind, ip_key FROM mail_demo_records ORDER BY kind")
+    assert made == [("company", "203.0.113.7"), ("contact", "203.0.113.7"), ("deal", "203.0.113.7")]
+    h.crm.writes.clear()
+    h.messages.script.append(answer("new", NAVRUZ))
+    run = run_id(await b.send(target=AMO, sample="new-pdf-card"))
+    page = html.unescape((await b.http.get(f"/ru/mail/{run}")).text)
+    assert "Новая компания в демо сейчас не создаётся" in page
+    assert 'name="company" value="new"' not in page
+    assert await b.write(run, cls="new", company="new") == "no_choice"
+    assert await b.write(run, cls="new", company="none") == "written"
+    assert kinds(h) == ["deal", "note", "task"]  # no new contact either
+    # another address still may
+    h.messages.script.append(answer("new", NAVRUZ))
+    other = Browser(h.app, "203.0.113.50")
+    run = run_id(await other.send(target=AMO, sample="new-pdf-card"))
+    assert 'name="company" value="new"' in (await other.http.get(f"/ru/mail/{run}")).text
+
+
+async def test_amocrm_admits_new_clients_by_the_live_count_of_the_account(make: Any, engine: Any) -> None:
+    """Not a ceiling of the demo's own journal for ever: the account's own count of companies and contacts
+    (taken every ten minutes) with what is being created stays within 70 of its 100."""
+    h: Harness = await make(answer("new", NAVRUZ))
+    h.crm.companies.clear()
+    h.crm.contacts.clear()
+    h.crm.clients_count = 69
+    b = Browser(h.app)
+    run = run_id(await b.send(target=AMO, sample="new-pdf-card"))
+    assert 'name="company" value="new"' not in (await b.http.get(f"/ru/mail/{run}")).text
+    h2: Harness = await make(answer("new", NAVRUZ), answer("new", NAVRUZ))
+    h2.crm.companies.clear()
+    h2.crm.contacts.clear()
+    h2.crm.clients_count = 67
+    b2 = Browser(h2.app, "203.0.113.51")
+    run = run_id(await b2.send(target=AMO, sample="new-pdf-card"))
+    assert await b2.write(run, cls="new", company="new") == "written"  # 67 + 2 <= 70
+    # the count is not taken again for ten minutes: what the demo made since is added to it
+    b3 = Browser(h2.app, "203.0.113.52")
+    run = run_id(await b3.send(target=AMO, sample="new-pdf-card"))
+    assert 'name="company" value="new"' not in (await b3.http.get(f"/ru/mail/{run}")).text  # 67 + 2 + 2 > 70
+    assert h2.crm.counted == 1
+
+
+async def test_amocrm_that_does_not_count_makes_nothing_new(make: Any, engine: Any) -> None:
+    h: Harness = await make(answer("new", NAVRUZ))
+    h.crm.companies.clear()
+    h.crm.contacts.clear()
+    h.crm.fail_on = "count"
+    b = Browser(h.app)
+    run = run_id(await b.send(target=AMO, sample="new-pdf-card"))
+    assert 'name="company" value="new"' not in (await b.http.get(f"/ru/mail/{run}")).text
+    # it answers again by the write, but the page offered no new company: the deal goes without
+    assert await b.write(run, cls="new", company="none") == "written"
+    assert kinds(h) == ["deal", "note", "task"]
+
+
+async def test_a_write_past_the_room_turns_the_page_to_no_new_company(make: Any, engine: Any) -> None:
+    """Room at the reading, none by the write: «full_new», and the page no longer offers what it cannot make."""
+    h: Harness = await make(answer("new", NAVRUZ))
+    h.crm.companies.clear()
+    h.crm.contacts.clear()
+    b = Browser(h.app)
+    run = run_id(await b.send(target=AMO, sample="new-pdf-card"))
+    h.mail._counts["amocrm"] = (70, h.mail._counts["amocrm"][1])
+    assert await b.write(run, cls="new", company="new") == "full_new"
+    assert h.crm.writes == []
+    assert 'name="company" value="new"' not in (await b.http.get(f"/ru/mail/{run}")).text
+    assert await b.write(run, cls="new", company="none") == "written"
+    assert kinds(h) == ["deal", "note", "task"]
 
 
 # --- what the person may choose ---
@@ -339,8 +420,33 @@ async def test_one_address_takes_its_share_of_the_money_not_all_of_it(make: Any,
     assert spent == [("203.0.113.31",)]
 
 
-async def test_on_a_small_budget_an_address_still_reads_three_letters(make: Any, engine: Any) -> None:
-    """The stand's $0.5: a quarter is less than one worst booking, three of them are the share."""
+async def test_a_big_letter_does_not_raise_its_address_share(make: Any, engine: Any) -> None:
+    """The share is fixed by the bounds of the intake (a quarter of the day, one heaviest reading at least):
+    a letter's own booking never moves it."""
+    from alnuzum_mail.model import MAX_BOOKING
+
+    from alnuzum_orders.model import ModelError
+
+    h: Harness = await make(mail_usd_per_day=Decimal("1.5"))
+    gate = h.mail.gate(store_of(h), "x", "203.0.113.40")
+    await sql(
+        engine,
+        "INSERT INTO mail_spend (id, owner, kind, usd, units, ok, created_at, ip_key) "
+        "VALUES (:i, 'x', 'triage', 0.30, 1, true, now(), '203.0.113.40')",
+        i=uuid.uuid4(),
+    )
+    share = max(Decimal("0.375"), MAX_BOOKING)
+    with pytest.raises(ModelError) as big:
+        await gate("triage", share - Decimal("0.30") + Decimal("0.01"))
+    assert big.value.code == "e_ceiling_ip"
+    await gate("triage", share - Decimal("0.30") - Decimal("0.01"))  # the same share for a smaller one
+    with pytest.raises(ModelError) as past:
+        await gate("triage", MAX_BOOKING + Decimal("0.01"))
+    assert past.value.code == "e_too_big"
+
+
+async def test_on_a_small_budget_an_address_still_reads_letters(make: Any, engine: Any) -> None:
+    """The stand's $0.5: a quarter is less than one heaviest booking, the share is never less than one."""
     h: Harness = await make(mail_usd_per_day=Decimal("0.5"))
     b = Browser(h.app)
     assert run_id(await b.send()) and run_id(await b.send())

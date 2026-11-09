@@ -45,11 +45,11 @@ STUCK = timedelta(minutes=30)
 DEMO_DOWN_FOR = timedelta(minutes=30)
 RULES_KEEP = timedelta(days=30)  # the rules of a demo CRM, unchanged this long, are dropped
 LOCK_SPEND = 0x4D41494C  # the money ceiling of the solution ("MAIL")
-# one address may spend this part of the day's dollars, and never less than this many worst bookings
-ADDRESS_SHARE, ADDRESS_WORST = Decimal("0.25"), 3
+ADDRESS_SHARE = Decimal("0.25")  # of the day's dollars one address may spend (never less than one booking)
 LOCK_RUNS, LOCK_DEMO = 0x4D52, 0x4D44  # runs of an owner, an address or a connection; demo writes
 MAX_CREATES = 3  # records one write of a new request may create: a company, a contact, a deal
-SMALL = frozenset({"amocrm", "kommo"})  # technical accounts of 100 contacts and companies, 100 deals
+SMALL = frozenset({"amocrm", "kommo"})  # technical accounts of 100 contacts and companies in all
+CLIENTS = ("company", "contact")  # what a technical account counts to its 100; deals it does not
 
 
 class MailRun(Base):
@@ -106,6 +106,7 @@ class MailDemoRecord(Base):
     crm: Mapped[str] = mapped_column(String(16))
     kind: Mapped[str] = mapped_column(String(16))  # company | contact | deal
     record_id: Mapped[str] = mapped_column(String(64))
+    ip_key: Mapped[str | None] = mapped_column(String(64))  # the address whose write created it
 
 
 class CeilingReached(RuntimeError):
@@ -135,13 +136,11 @@ class Limits:
     # records the demo may create in a test account (companies, contacts, deals): a day and in all
     new_per_day: int = 15
     new_total: int = 200
-    small_new_per_day: int = 3
-    small_new_total: int = 20
-
-    def new_bounds(self, crm: str) -> tuple[int, int]:
-        if crm in SMALL:
-            return self.small_new_per_day, self.small_new_total
-        return self.new_per_day, self.new_total
+    # amoCRM and Kommo count companies and contacts only: a day, by one address a day (each kind), and
+    # the account's own live count with what is being created never past ``small_room`` of its 100
+    small_new_per_day: int = 6
+    small_per_ip: int = 1
+    small_room: int = 70
 
 
 @dataclass(frozen=True)
@@ -197,6 +196,54 @@ async def _demo_down(session: AsyncSession, crm: str) -> bool:
         .where(MailRun.demo, MailRun.crm == crm, MailRun.written_at > refused)
     )
     return not written
+
+
+async def _room(
+    session: AsyncSession,
+    crm: str,
+    ip_key: str,
+    creates: list[str],
+    limits: Limits,
+    *,
+    live: tuple[int, datetime] | None,
+    run_id: uuid.UUID | None,
+) -> bool:
+    """Whether the demo may still create ``creates`` in this test account. Writes of this CRM going on now
+    may still create theirs: each is counted at its most."""
+    made = select(func.count()).select_from(MailDemoRecord).where(MailDemoRecord.crm == crm)
+    going_q = (
+        select(func.count())
+        .select_from(MailRun)
+        .where(MailRun.demo, MailRun.crm == crm, MailRun.status == "writing")
+    )
+    if run_id is not None:
+        going_q = going_q.where(MailRun.id != run_id)
+    going = int(await session.scalar(going_q) or 0)
+    if crm not in SMALL:
+        today = int(await session.scalar(made.where(MailDemoRecord.created_at > _day())) or 0)
+        ever = int(await session.scalar(made) or 0)
+        held = MAX_CREATES * going
+        return (
+            today + held + len(creates) <= limits.new_per_day
+            and ever + held + len(creates) <= limits.new_total
+        )
+    clients = [k for k in creates if k in CLIENTS]
+    if not clients:
+        return True  # a deal: the technical account does not count deals
+    if live is None:
+        return False  # the account's count is unknown: nothing new is made in it
+    mine = made.where(MailDemoRecord.ip_key == ip_key[:64], MailDemoRecord.created_at > _day())
+    for kind in set(clients):
+        if int(await session.scalar(mine.where(MailDemoRecord.kind == kind)) or 0) >= limits.small_per_ip:
+            return False
+    kinds = made.where(MailDemoRecord.kind.in_(CLIENTS))
+    held = len(CLIENTS) * going
+    today = int(await session.scalar(kinds.where(MailDemoRecord.created_at > _day())) or 0)
+    if today + held + len(clients) > limits.small_new_per_day:
+        return False
+    count, taken = live
+    since = int(await session.scalar(kinds.where(MailDemoRecord.created_at > taken)) or 0)
+    return count + since + held + len(clients) <= limits.small_room
 
 
 class MailStore:
@@ -342,12 +389,15 @@ class MailStore:
         demo: bool,
         crm: str,
         ip_key: str,
-        creates: int,
+        creates: list[str],
         limits: Limits,
+        live: tuple[int, datetime] | None = None,
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner. Returns "ok", "busy", "quota"
         (the owner's or the address's demo writes of the day), "full" (this demo CRM's of the day), "full_new"
-        (the records the demo may still create in this test account) or "down" (it refuses records now)."""
+        (the records the demo may still create in this test account) or "down" (it refuses records now).
+        ``creates``: the kinds of records the write makes; ``live``: amoCRM's and Kommo's count of companies
+        and contacts and when it was taken."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
@@ -369,25 +419,10 @@ class MailStore:
                     return "quota"
                 if int(await session.scalar(count.where(MailRun.crm == crm)) or 0) >= limits.demo_per_crm:
                     return "full"
-                if creates:
-                    per_day, total = limits.new_bounds(crm)
-                    made = select(func.count()).select_from(MailDemoRecord).where(MailDemoRecord.crm == crm)
-                    today = int(await session.scalar(made.where(MailDemoRecord.created_at > _day())) or 0)
-                    ever = int(await session.scalar(made) or 0)
-                    # writes of this CRM going on now may still create theirs: each is counted at its most
-                    going = (
-                        select(func.count())
-                        .select_from(MailRun)
-                        .where(
-                            MailRun.demo,
-                            MailRun.crm == crm,
-                            MailRun.status == "writing",
-                            MailRun.id != run_id,
-                        )
-                    )
-                    held = MAX_CREATES * int(await session.scalar(going) or 0)
-                    if today + held + creates > per_day or ever + held + creates > total:
-                        return "full_new"
+                if creates and not await _room(
+                    session, crm, ip_key, creates, limits, live=live, run_id=run_id
+                ):
+                    return "full_new"
             done = await session.execute(
                 update(MailRun)
                 .where(MailRun.id == run_id, MailRun.owner == owner, MailRun.status.in_(("ready", "failed")))
@@ -395,8 +430,23 @@ class MailStore:
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
 
+    async def may_create(
+        self, crm: str, ip_key: str, limits: Limits, *, live: tuple[int, datetime] | None
+    ) -> bool:
+        """Whether a write from this address could make a new company and contact in this test account now
+        (asked when the letter is read; the write asks again under its lock)."""
+        async with self._sessions() as session:
+            return await _room(session, crm, ip_key, list(CLIENTS), limits, live=live, run_id=None)
+
     async def step_done(
-        self, run_id: uuid.UUID, step: str, *, crm: str, demo: bool, created: str | None
+        self,
+        run_id: uuid.UUID,
+        step: str,
+        *,
+        crm: str,
+        demo: bool,
+        created: str | None,
+        ip_key: str | None = None,
     ) -> None:
         """Kept before the next step begins: a retry skips it. A record the demo created goes to its journal
         in the same transaction."""
@@ -413,7 +463,11 @@ class MailStore:
             if demo and created:
                 session.add(
                     MailDemoRecord(
-                        id=uuid.uuid4(), crm=crm, kind=created, record_id=step.partition(":")[2][:64]
+                        id=uuid.uuid4(),
+                        crm=crm,
+                        kind=created,
+                        record_id=step.partition(":")[2][:64],
+                        ip_key=ip_key[:64] if ip_key else None,
                     )
                 )
 
@@ -489,18 +543,24 @@ class MailStore:
     # --- money ---
 
     async def reserve_spend(
-        self, owner: str, kind: str, *, budget: Decimal, worst: Decimal, ip_key: str | None = None
+        self,
+        owner: str,
+        kind: str,
+        *,
+        budget: Decimal,
+        worst: Decimal,
+        ip_key: str | None = None,
+        share: Decimal | None = None,
     ) -> uuid.UUID:
         """Booked at its worst cost before the call, under the global lock: within the day's dollars and, by
-        an address, within its share (a quarter of them, but room for three worst bookings at least)."""
+        an address, within its ``share`` of them (fixed by the caller, never by the call's own cost)."""
         async with self._sessions.begin() as session:
             await session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": LOCK_SPEND})
             day = select(func.coalesce(func.sum(MailSpend.usd), 0)).where(MailSpend.created_at > _day())
             spent = await session.scalar(day)
             if Decimal(spent or 0) + worst > budget:
                 raise CeilingReached(f"${budget} per day")
-            if ip_key is not None:
-                share = min(budget, max(ADDRESS_SHARE * budget, ADDRESS_WORST * worst))
+            if ip_key is not None and share is not None:
                 mine = await session.scalar(day.where(MailSpend.ip_key == ip_key[:64]))
                 if Decimal(mine or 0) + worst > share:
                     raise AddressCeilingReached(f"${share} per day")

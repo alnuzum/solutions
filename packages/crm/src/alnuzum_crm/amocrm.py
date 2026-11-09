@@ -373,6 +373,20 @@ class AmoCRM(CRM):
             if (u.get("rights") or {}).get("is_active", True) is not False
         ]
 
+    async def clients(self) -> int:
+        """Contacts and companies of the account, counted page by page: a technical account keeps 100 of them
+        in all and its API deletes none."""
+        total = 0
+        for path, key in (("/api/v4/contacts", "contacts"), ("/api/v4/companies", "companies")):
+            for page in range(1, 100):
+                data = await self._request("GET", path, params={"limit": 250, "page": page})
+                if not data:
+                    break
+                total += len(data.get("_embedded", {}).get(key, []))
+                if not data.get("_links", {}).get("next"):
+                    break
+        return total
+
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
             hits = await self._search("/api/v4/contacts", "contacts", contact.email.strip())

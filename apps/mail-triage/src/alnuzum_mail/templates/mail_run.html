@@ -71,12 +71,14 @@
     {% if not b.checked %}<p class="warn small">{{ t.m_bind_off.format(why=t['m_why_' ~ (b.error or 'unavailable')]) }}</p>{% endif %}
     {% if b.conflict %}<p class="warn small" role="alert">{{ t.m_conflict }}</p>{% endif %}
     <h3>{{ t.m_company }}</h3>
-    {% set chosen = choice.company or b.company or ('new' if not b.companies and reading.fields.company else 'none') %}
+    {% set chosen = choice.company or b.company or ('new' if not b.companies and reading.fields.company and b.get('allow_new', true) else 'none') %}
     {% for c in b.companies %}<label class="opt"><input type="radio" name="company" value="{{ c.id }}"{% if chosen == c.id %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span><b>{{ c.name }}</b><small>{% set why = [] %}{% for x in c.by %}{% set _ = why.append(t['by_' ~ x]) %}{% endfor %}{{ t.m_by.format(by=why | join(', ')) }}{% if c.inn %} · {{ t.f_inn }} {{ c.inn }}{% endif %}</small></span></label>{% endfor %}
     {% if b.checked and not b.companies %}<p class="muted small">{{ t.m_company_none_found }}</p>{% endif %}
-    {% if reading.fields.company and b.checked %}<label class="opt"><input type="radio" name="company" value="new"{% if chosen == 'new' %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span>{{ t.m_company_new.format(name=reading.fields.company.value) }}</span></label>{% endif %}
+    {% set allow_new = b.get('allow_new', true) %}
+    {% if not allow_new %}<p class="muted small">{{ t.m_new_off.format(crm=crm_name) }}</p>{% endif %}
+    {% if reading.fields.company and b.checked and allow_new %}<label class="opt"><input type="radio" name="company" value="new"{% if chosen == 'new' %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span>{{ t.m_company_new.format(name=reading.fields.company.value) }}</span></label>{% endif %}
     <label class="opt"><input type="radio" name="company" value="none"{% if chosen == 'none' %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span>{{ t.m_company_none }}</span></label>
-    {% if b.checked %}<p class="muted small">{{ t.m_contact_found if b.contact else t.m_contact_new }}</p>{% endif %}
+    {% if b.checked and (b.contact or allow_new) %}<p class="muted small">{{ t.m_contact_found if b.contact else t.m_contact_new }}</p>{% endif %}
     <h3>{{ t.m_route }}</h3>
     <p class="small">{% if route.rule %}{{ t.m_route_rule.format(n=route.rule, when=t['when_' ~ route.when], value=route.value) }}{% if route.stage_name %} → {{ t.m_route_stage.format(name=route.stage_name) }}{% endif %}{% if route.user_name and not run.demo %}, {{ t.m_route_user.format(name=route.user_name) }}{% endif %}{% else %}{{ t.m_route_none }}{% endif %}{% if run.demo %} {{ t.m_route_demo }}{% endif %}</p>
    </section>

@@ -5,16 +5,17 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from importlib import resources
-from typing import Any
+from typing import Any, cast
 
 from alnuzum_contracts.store import Seal
 from fastapi import FastAPI
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from alnuzum_crm.amocrm import ACCOUNT_LIMIT
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT, AmoCRM
 from alnuzum_crm.base import CRM
 from alnuzum_crm.errors import CrmAuthError, CrmError, CrmRateLimited, CrmUnavailable
 from alnuzum_crm.types import ContactIn
@@ -23,9 +24,18 @@ from alnuzum_mail import intake
 from alnuzum_mail.engine import DEMO_PREFIX, made_of, plan_of, values, write
 from alnuzum_mail.intake import Letter
 from alnuzum_mail.match import Keys, best, conflict, deals, rank, sender
-from alnuzum_mail.model import MailReader, Reading
+from alnuzum_mail.model import MAX_BOOKING, MailReader, Reading
 from alnuzum_mail.rules import load, route
-from alnuzum_mail.store import AddressCeilingReached, CeilingReached, Limits, MailStore, RunInfo
+from alnuzum_mail.store import (
+    ADDRESS_SHARE,
+    CLIENTS,
+    SMALL,
+    AddressCeilingReached,
+    CeilingReached,
+    Limits,
+    MailStore,
+    RunInfo,
+)
 from alnuzum_orders.model import Gate, ModelError, Usage
 from alnuzum_orders.store import DEMO_OWNER
 from alnuzum_orders.web import Parsing
@@ -41,6 +51,7 @@ from alnuzum_platform.store import (
 
 log = logging.getLogger("alnuzum_mail")
 MAX_LOOKS = 5  # looks into the CRM a run may ask for after its reading (fresh look, deal search)
+COUNT_FOR = timedelta(minutes=10)  # amoCRM's and Kommo's count of companies and contacts is taken again
 
 
 class MailSettings(BaseSettings):
@@ -56,15 +67,17 @@ class MailSettings(BaseSettings):
     mail_crm_seconds: float = 25.0  # looking into the CRM while a letter is read
     mail_demo_new_per_day: int = 15
     mail_demo_new_total: int = 200
-    mail_demo_new_per_day_small: int = 3  # amoCRM and Kommo: 100 contacts and companies, 100 deals
-    mail_demo_new_total_small: int = 20
+    # amoCRM and Kommo, 100 contacts and companies in all: those a day, and the account's live count kept
+    # at most at this many with what is being created
+    mail_demo_new_per_day_small: int = 6
+    mail_demo_room_small: int = 70
 
     def limits(self) -> Limits:
         return Limits(
             new_per_day=self.mail_demo_new_per_day,
             new_total=self.mail_demo_new_total,
             small_new_per_day=self.mail_demo_new_per_day_small,
-            small_new_total=self.mail_demo_new_total_small,
+            small_room=self.mail_demo_room_small,
         )
 
 
@@ -120,6 +133,7 @@ class Mail:
         self._reader = reader
         self.parsing = Parsing(self.settings.mail_parse_slots, self.settings.mail_parse_seconds)
         self._seal: Seal | None = None
+        self._counts: dict[str, tuple[int, datetime]] = {}  # amoCRM's and Kommo's companies and contacts
 
     def reader(self) -> MailReader:
         if self._reader is None:
@@ -158,12 +172,18 @@ class Mail:
 
     def gate(self, ms: MailStore, owner: str, ip_key: str | None = None) -> Gate:
         budget = self.settings.mail_usd_per_day
+        # an address's share of the day: a quarter, but one heaviest reading at least; a constant, so no
+        # letter raises it by its own size
+        share = min(budget, max(ADDRESS_SHARE * budget, MAX_BOOKING))
 
         async def gate(kind: str, worst: Decimal):  # type: ignore[no-untyped-def]
-            if worst > budget:  # no day would ever fit it: «tomorrow again» would be a lie
+            # no day would ever fit it, or it is past the bounds the share is made for
+            if worst > budget or worst > MAX_BOOKING:
                 raise ModelError("e_too_big")
             try:
-                spend_id = await ms.reserve_spend(owner, kind, budget=budget, worst=worst, ip_key=ip_key)
+                spend_id = await ms.reserve_spend(
+                    owner, kind, budget=budget, worst=worst, ip_key=ip_key, share=share
+                )
             except CeilingReached:
                 raise ModelError("e_ceiling") from None
             except AddressCeilingReached:
@@ -184,6 +204,32 @@ class Mail:
         if info.status != "active":
             raise ConnectionDisabled(str(info.id))
         return kit.connectors.adapter(info, await st.secrets(info.id), st)
+
+    async def live_count(self, app: FastAPI, kit: Kit, info: ConnectionInfo) -> tuple[int, datetime] | None:
+        """Companies and contacts of a demo amoCRM or Kommo and when they were counted, taken again every
+        ten minutes; None when the account does not answer (then nothing new is made in it)."""
+        crm = info.crm.value
+        have = self._counts.get(crm)
+        if have and datetime.now(UTC) - have[1] < COUNT_FOR:
+            return have
+        try:
+            taken = datetime.now(UTC)
+            async with await self.adapter(app, kit, info) as adapter:
+                counting = cast(AmoCRM, adapter).clients()  # SMALL: the amoCRM family
+                count = await asyncio.wait_for(counting, self.settings.mail_crm_seconds)
+        except (CrmError, ConnectionDisabled, ConnectionNotFound, TimeoutError):
+            return None
+        self._counts[crm] = (count, taken)
+        return self._counts[crm]
+
+    async def may_create(
+        self, app: FastAPI, kit: Kit, ms: MailStore, info: ConnectionInfo, ip_key: str | None
+    ) -> bool:
+        """Whether the demo of amoCRM or Kommo may make a new company and contact for this address now."""
+        if info.crm.value not in SMALL:
+            return True
+        live = await self.live_count(app, kit, info)
+        return await ms.may_create(info.crm.value, ip_key or "?", self.settings.limits(), live=live)
 
     # --- reading ---
 
@@ -298,6 +344,8 @@ class Mail:
             await ms.reject_run(run_id, "error")
             raise
         binding = await self.bind(app, kit, info, letter, reading, demo=demo)
+        if demo:
+            binding["allow_new"] = await self.may_create(app, kit, ms, info, ip_key)
         result = {
             "letter": letter.to_json(),
             "reading": reading.to_json(),
@@ -325,7 +373,9 @@ class Mail:
         info = await self.connections(app).get(run.connection_id, DEMO_OWNER if run.demo else conn_owner)
         letter, reading = Letter.of(result["letter"]), Reading.of(result["reading"])
         if query is None:
+            allow = (result.get("binding") or {}).get("allow_new", True)
             result["binding"] = await self.bind(app, kit, info, letter, reading, demo=run.demo)
+            result["binding"]["allow_new"] = allow
             await ms.save_result(run.id, run.owner, result)
             return "looked" if result["binding"]["checked"] else str(result["binding"]["error"])
         query = " ".join(query.split())[:80] or ("Демо" if run.demo else "")
@@ -373,9 +423,28 @@ class Mail:
         )
         done_before = await ms.steps_done(run.id)
         creates = plan.creates(made_of(done_before))
+        live = None
+        if run.demo and run.crm in SMALL and any(k in CLIENTS for k in creates):
+            try:
+                live = await self.live_count(app, kit, await st.get(run.connection_id, DEMO_OWNER))
+            except ConnectionNotFound:
+                live = None
         state = await ms.start_writing(
-            run.id, run.owner, demo=run.demo, crm=run.crm, ip_key=ip_key, creates=len(creates), limits=limits
+            run.id,
+            run.owner,
+            demo=run.demo,
+            crm=run.crm,
+            ip_key=ip_key,
+            creates=creates,
+            limits=limits,
+            live=live,
         )
+        if state == "full_new" and run.crm in SMALL and not done_before:
+            # the page stops offering what the demo cannot make; a deal without them still goes
+            result = dict(result) | {"binding": dict(result["binding"]) | {"allow_new": False}}
+            if result["choice"].get("company") == "new":
+                result["choice"] = {"cls": "new", "company": "none"}
+            await ms.save_result(run.id, run.owner, result)
         if state != "ok":
             return state
         owner = DEMO_OWNER if run.demo else conn_owner
@@ -397,7 +466,7 @@ class Mail:
         steps = await ms.steps_done(run.id)  # read while "writing" is ours alone
 
         async def mark(step: str, created: str | None) -> None:
-            await ms.step_done(run.id, step, crm=run.crm, demo=run.demo, created=created)
+            await ms.step_done(run.id, step, crm=run.crm, demo=run.demo, created=created, ip_key=ip_key)
 
         try:
             async with crm_ as crm:

@@ -348,7 +348,7 @@ def _choice(form: Any, run: RunInfo) -> dict[str, Any] | None:
             return None
         return {"cls": cls, "deal": deal}
     company = str(form.get("company") or "none")
-    has_name = "company" in (r.get("reading") or {}).get("fields", {})
+    has_name = "company" in (r.get("reading") or {}).get("fields", {}) and binding.get("allow_new", True)
     if company not in {str(c["id"]) for c in binding.get("companies") or []} | {"none"} | (
         {"new"} if has_name else set()
     ):

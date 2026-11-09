@@ -191,7 +191,10 @@ def plan_of(
             crm_text(v["company"], 200), inn=v.get("inn"), phone=v.get("phone"), email=v.get("email")
         )
     contact = None
-    if not binding.get("contact") and (v.get("person") or v.get("email") or v.get("phone")):
+    allow_new = binding.get("allow_new", True)  # the demo of amoCRM and Kommo: no room for a new client now
+    if chosen == "new" and not allow_new:
+        raise ValueError("a new company where the demo makes none")
+    if allow_new and not binding.get("contact") and (v.get("person") or v.get("email") or v.get("phone")):
         name = crm_text(v.get("person") or v.get("email") or v.get("phone") or "", 120)
         contact = ContactIn(name, email=v.get("email"), phone=v.get("phone"))
     deal = DealIn(

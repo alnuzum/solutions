@@ -15,8 +15,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from alnuzum_crm.base import digits, host
-from alnuzum_mail.intake import Letter
-from alnuzum_orders.model import ClaudeReader, Gate, Usage
+from alnuzum_mail.intake import MAX_ATTACHMENT_TEXT, MAX_BODY, MAX_IMAGES, Letter
+from alnuzum_mail.worker import MAX_ATTACHMENTS
+from alnuzum_orders.model import ClaudeReader, Gate, Usage, cost, worst_input
 
 TRIAGE_MAX_TOKENS = 6000
 FIELDS = ("company", "inn", "person", "position", "phone", "email", "website")
@@ -313,3 +314,17 @@ class MailReader(ClaudeReader):
             gate, "triage", TRIAGE_SYSTEM, prompt(letter, lang), TRIAGE_SCHEMA, TRIAGE_MAX_TOKENS
         )
         return apply_reading(data, letter, usage)
+
+
+# The heaviest booking one reading can have, from the bounds of the intake (not from any letter): the body,
+# three attachments' text, the headers and names (2 000 characters), at two bytes a character (Cyrillic,
+# Latin), and four pictures. A letter at the bounds in wider characters books more and is refused as too big.
+MAX_LETTER_BYTES = 2 * (MAX_BODY + MAX_ATTACHMENTS * MAX_ATTACHMENT_TEXT + 2_000)
+MAX_BOOKING = cost(
+    worst_input(
+        TRIAGE_SYSTEM,
+        [{"type": "text", "text": "x" * MAX_LETTER_BYTES}] + [{"type": "image"}] * MAX_IMAGES,
+        TRIAGE_SCHEMA,
+    ),
+    TRIAGE_MAX_TOKENS,
+)

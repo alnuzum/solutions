@@ -134,6 +134,8 @@ class FakeCRM:
         self.looked: list[dict[str, Any]] = []
         self.fail_on: str | None = None
         self.made = 0
+        self.clients_count = 10  # amoCRM's and Kommo's companies and contacts
+        self.counted = 0
 
     async def __aenter__(self) -> "FakeCRM":
         return self
@@ -208,6 +210,11 @@ class FakeCRM:
             Stage("C0:WON", "Успех", DealStatus.WON, "Продажи"),
         ]
 
+    async def clients(self) -> int:
+        self._maybe_fail("count")
+        self.counted += 1
+        return self.clients_count
+
     async def users(self) -> list[User]:
         return [User("7", "Мария Петрова"), User("8", "Иван Сидоров")]
 
@@ -258,7 +265,14 @@ async def make(engine: AsyncEngine, migrated: str) -> AsyncIterator[Callable[...
         messages = FakeMessages(list(script))
         reader._client = SimpleNamespace(beta=SimpleNamespace(messages=messages))  # type: ignore[assignment]
         mail = Mail(MailSettings(**({"anthropic_api_key": API_KEY} | kw)), reader=reader)
-        orders = Orders(OrderSettings(anthropic_api_key=API_KEY, demo_b24_webhook=DEMO_HOOK))
+        orders = Orders(
+            OrderSettings(
+                anthropic_api_key=API_KEY,
+                demo_b24_webhook=DEMO_HOOK,
+                demo_amocrm_domain="acme.amocrm.ru",
+                demo_amocrm_token="demo-amo-token-0123456789",
+            )
+        )
         app = create_app(
             Settings(
                 database_url=migrated,
