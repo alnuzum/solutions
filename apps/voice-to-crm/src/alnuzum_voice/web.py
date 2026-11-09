@@ -144,6 +144,7 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
             demos=demos,
             samples=list(SAMPLES.values()),
             bot=voice.settings.voice_tg_bot,
+            speech_off=await voice.speech_off(request.app),
             q=(q := quality()),
             q_word=commands_word(lang, int(q["commands"])) if q else "",
             **ctx,

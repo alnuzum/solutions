@@ -129,6 +129,16 @@ class Voice:
             self._scribe = Scribe(key)
         return self._scribe
 
+    async def speech_off(self, app: FastAPI) -> bool:
+        """Voice notes are not taken now (no key, the service out of credits, the day's minutes spent);
+        a typed command still is."""
+        if not self.settings.elevenlabs_api_key.get_secret_value():
+            return True
+        try:
+            return await self.store(app).speech_closed(self.settings.voice_stt_minutes_per_day * 60)
+        except VoiceError:
+            return False
+
     def bot(self) -> Bot | None:
         if self._bot is None and (token := self.settings.voice_tg_token.get_secret_value()):
             self._bot = Bot(token)
@@ -254,6 +264,8 @@ class Voice:
             await vs.reject_run(run_id, exc.code)
             raise VoiceError(exc.code) from None
         except (SpeechError, ModelError, VoiceError) as exc:
+            if exc.code == "e_stt_out":
+                await vs.speech_refused(owner)
             await vs.reject_run(run_id, exc.code)
             raise VoiceError(exc.code) from None
         except CrmError as exc:

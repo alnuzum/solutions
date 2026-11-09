@@ -42,6 +42,10 @@ KEEP = timedelta(days=1)
 LINK_LIFE = timedelta(minutes=10)
 LOCK_SPEND = 0x564F4943  # the money ceiling of the solution ("VOIC")
 LOCK_RUNS, LOCK_DEMO = 0x5652, 0x5644  # runs of an owner or an address; demo writes of an owner
+# a refusal of the speech service for its credits, kept as a spend of nothing: no seconds, no dollars
+SPEECH_OUT = "stt_out"
+# seconds of the day's speech under which no spoken command fits: the page then takes no voice notes
+MIN_SPEECH = 5
 
 
 class VoiceRun(Base):
@@ -437,6 +441,38 @@ class VoiceStore:
             values |= {"usd": usd, "units": units}
         async with self._sessions.begin() as session:
             await session.execute(update(VoiceSpend).where(VoiceSpend.id == spend_id).values(**values))
+
+    async def speech_refused(self, owner: str) -> None:
+        """The speech service refused for its credits: kept so the page says so before the next upload."""
+        async with self._sessions.begin() as session:
+            session.add(
+                VoiceSpend(id=uuid.uuid4(), owner=owner, kind=SPEECH_OUT, usd=Decimal(0), units=0, ok=False)
+            )
+
+    async def speech_closed(self, speech_seconds: int) -> bool:
+        """Voice notes are not taken now: the speech service refused for its credits in the last 24 hours
+        and has heard nothing since, or the day's ``speech_seconds`` of all are spent."""
+        since = _day()
+        async with self._sessions() as session:
+            out = await session.scalar(
+                select(func.max(VoiceSpend.created_at)).where(
+                    VoiceSpend.kind == SPEECH_OUT, VoiceSpend.created_at > since
+                )
+            )
+            if out is not None:
+                heard_since = await session.scalar(
+                    select(func.count())
+                    .select_from(VoiceSpend)
+                    .where(VoiceSpend.kind == "stt", VoiceSpend.ok.is_(True), VoiceSpend.created_at > out)
+                )
+                if not heard_since:
+                    return True
+            heard = await session.scalar(
+                select(func.coalesce(func.sum(VoiceSpend.units), 0)).where(
+                    VoiceSpend.kind == "stt", VoiceSpend.created_at > since
+                )
+            )
+            return int(heard or 0) + MIN_SPEECH > speech_seconds
 
     async def spent_today(self) -> Decimal:
         async with self._sessions() as session:
