@@ -5,6 +5,7 @@ number) and quotes of the two drafts, cleaned and bounded; one task for the lawy
 There is nothing else: no text of the contract or of the model decides what is written, where, or whether.
 """
 
+import html
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -23,9 +24,11 @@ NOTE_ITEMS = 15
 QUOTE_MAX = 160
 RISK_ORDER = {"high": 0, "medium": 1, "low": 2}
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069]")
-# markup of the CRMs: BBCode (Bitrix24), HTML (Zoho keeps it, amoCRM and Odoo escape it): fullwidth brackets
-# read the same and parse as text
-_MARKUP = str.maketrans({"<": "＜", ">": "＞", "[": "［", "]": "］"})
+# How a CRM shows a note, read back live on 09.11 (API and the page): Zoho and Bitrix24 render it as HTML
+# («<b>x</b>» bold, «&lt;b&gt;» shown as «<b>»), so the note goes to them HTML-escaped, «&» first, and shows
+# what the contract says letter for letter; Bitrix24's adapter also turns [ ] into fullwidth brackets, so
+# BBCode cannot form. amoCRM, Kommo and Odoo escape a note themselves: escaped again it would show «&lt;».
+HTML_NOTES = frozenset({"zoho", "bitrix24"})
 
 TOPICS = {
     "ru": {
@@ -102,9 +105,15 @@ def plural_ru(n: int, one: str, few: str, many: str) -> str:
 
 
 def crm_text(value: str, limit: int) -> str:
-    """A quote of the contract for a CRM: one line, no control or direction characters, no markup, bounded."""
-    text = " ".join(_CONTROL.sub(" ", value).split()).translate(_MARKUP)
+    """A quote of the contract for a CRM: one line, no control or direction characters, bounded. Markup is
+    neutralised for the whole note by ``for_crm``."""
+    text = " ".join(_CONTROL.sub(" ", value).split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def for_crm(note: str, crm: str) -> str:
+    """The note as the CRM must get it to show it letter for letter."""
+    return html.escape(note, quote=False) if crm in HTML_NOTES else note
 
 
 # --- the stored result ---
@@ -239,9 +248,9 @@ class Step:
     arg: Any
 
 
-def steps(cmp: Comparison, *, lang: str, now: datetime | None = None) -> list[Step]:
+def steps(cmp: Comparison, *, lang: str, crm: str, now: datetime | None = None) -> list[Step]:
     """The note always; the task when something in the draft changes obligations."""
-    out = [Step("note", "add_note", note_text(cmp, lang, now))]
+    out = [Step("note", "add_note", for_crm(note_text(cmp, lang, now), crm))]
     if summary(cmp)["substantive"]:
         out.append(Step("task", "add_task", TaskIn(task_text(cmp, lang), task_due(now))))
     return out
@@ -257,13 +266,15 @@ async def write(
     cmp: Comparison,
     *,
     lang: str,
+    kind: str,
     now: datetime | None = None,
     done: frozenset[str] = frozenset(),
     mark: Callable[[str], Awaitable[None]] = _nothing,
 ) -> list[str]:
-    """The steps not ``done`` yet, in order, each ``mark``-ed as done before the next begins."""
+    """The steps not ``done`` yet, in order, each ``mark``-ed as done before the next begins. ``kind``: the
+    CRM, for how its note is escaped."""
     written = []
-    for step in steps(cmp, lang=lang, now=now):
+    for step in steps(cmp, lang=lang, crm=kind, now=now):
         if step.name in done:
             continue
         await getattr(crm, step.method)(deal_id, step.arg)
