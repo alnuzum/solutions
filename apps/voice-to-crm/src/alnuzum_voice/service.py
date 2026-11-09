@@ -290,7 +290,9 @@ class Voice:
             info = await st.get(run.connection_id, owner)
             if info.status != "active":
                 raise ConnectionDisabled(str(info.id))
-            write_id = await st.start_write(info.id, owner, "voice_update", quota)
+            write_id = await st.start_write(
+                info.id, owner, "voice_update", quota, scope="voice_" if run.demo else None
+            )
         except (QuotaExceeded, ConnectionDisabled, ConnectionNotFound) as exc:
             code = "quota" if isinstance(exc, QuotaExceeded) else "auth"
             await vs.finish_writing(run.id, ok=False, error=code)
