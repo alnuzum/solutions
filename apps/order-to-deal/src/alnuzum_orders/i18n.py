@@ -162,6 +162,18 @@ _T: dict[str, tuple[str, str]] = {
     "e_pages": ("В PDF больше 10 страниц.", "The PDF has more than 10 pages."),
     "e_image_size": ("Картинка больше 40 мегапикселей.", "The picture is over 40 megapixels."),
     "e_damaged": ("Файл повреждён или защищён паролем.", "The file is damaged or protected by a password."),
+    "e_unpacked": (
+        "Файл слишком большой: в распакованном виде таблица больше 50 МБ.",
+        "The file is too large: unpacked, the spreadsheet is over 50 MB.",
+    ),
+    "e_slow": (
+        "Файл слишком тяжёлый: разбор не уложился во время. Сохраните его меньше или текстом.",
+        "The file is too heavy: reading it took too long. Save it smaller or as text.",
+    ),
+    "e_busy": (
+        "Сейчас разбирается слишком много файлов. Повторите через минуту.",
+        "Too many files are being read right now. Try again in a minute.",
+    ),
     "e_empty": ("Выберите пример, файл или вставьте текст.", "Pick a sample, a file or paste text."),
     "e_too_long": ("Документ слишком длинный для одной заявки.", "The document is too long for one order."),
     "e_no_lines": ("В документе не нашлось ни одной позиции.", "No order lines were found in the document."),

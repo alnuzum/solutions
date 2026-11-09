@@ -9,12 +9,15 @@ nobody outside can open: the page shows the deal as the CRM returns it through t
 import ipaddress
 import json
 import logging
+import threading
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
+import anyio
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import SecretStr
@@ -69,6 +72,9 @@ class OrderSettings(BaseSettings):
     orders_runs_per_ip: int = 20
     # deals a visitor may write into the demo accounts per 24 hours
     orders_demo_writes_per_session: int = 5
+    # reading a file (pictures, PDF, spreadsheets) runs in threads: at most this many at a time, this long
+    orders_parse_slots: int = 2
+    orders_parse_seconds: float = 20.0
 
     demo_amocrm_domain: str = ""
     demo_amocrm_token: SecretStr = SecretStr("")
@@ -162,11 +168,66 @@ def quality() -> dict[str, Any] | None:
     return data
 
 
+T = TypeVar("T")
+
+
+class _Busy(Exception):
+    pass
+
+
+class Parsing:
+    """Reading a file (PIL, pypdf, openpyxl) takes seconds of CPU: it runs in a thread, so the event loop
+    keeps answering everybody else, the CRM hooks and /health. At most ``slots`` files are read at a
+    time (the container has 512 MB), each within ``seconds``. A thread cannot be stopped: one that runs
+    over its time is left to end and keeps its slot until it does, so no more than ``slots`` are ever
+    being read; the slot is taken inside the thread, so a job dropped before it started holds none."""
+
+    def __init__(self, slots: int, seconds: float) -> None:
+        self.slots, self.seconds = slots, seconds
+        self._lock = threading.Lock()
+        self.busy = 0
+
+    def _take(self) -> bool:
+        with self._lock:
+            if self.busy >= self.slots:
+                return False
+            self.busy += 1
+            return True
+
+    def _give(self) -> None:
+        with self._lock:
+            self.busy -= 1
+
+    async def read(self, fn: Callable[..., T], *args: Any) -> T:
+        started = False
+
+        def work() -> T:
+            nonlocal started
+            if not self._take():
+                raise _Busy
+            started = True
+            try:
+                return fn(*args)
+            finally:
+                self._give()
+
+        try:
+            with anyio.fail_after(self.seconds):
+                while True:
+                    try:
+                        return await anyio.to_thread.run_sync(work, abandon_on_cancel=True)
+                    except _Busy:
+                        await anyio.sleep(0.05)
+        except TimeoutError:
+            raise intake.IntakeError("e_slow" if started else "e_busy") from None
+
+
 class Orders:
     def __init__(self, settings: OrderSettings | None = None, reader: Reader | None = None) -> None:
         self.settings = settings or OrderSettings()
         self._reader = reader
         self.catalogs = CatalogCache()
+        self.parsing = Parsing(self.settings.orders_parse_slots, self.settings.orders_parse_seconds)
 
     def reader(self) -> Reader | None:
         if self._reader is not None:
@@ -359,29 +420,25 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         info, demo = await orders.target(kit, request, lang, target)
         ost = orders.store(request)
         reader = orders.reader()
-        try:
-            sample = str(form.get("sample") or "")
-            upload = form.get("file")
-            typed = str(form.get("text") or "")
-            if sample:
-                if sample not in samples():
-                    raise intake.IntakeError("e_type")
-                data = (resources.files("alnuzum_orders") / "samples" / sample).read_bytes()
-                source = intake.read(sample, data)
-            elif isinstance(upload, UploadFile) and upload.filename:
-                data = await upload.read(intake.MAX_BYTES + 1)
-                await upload.close()
-                source = intake.read(upload.filename[:120], data)
-                del data
-            elif typed.strip():
-                source = intake.from_text("text", typed)
-            else:
-                raise intake.IntakeError("e_empty")
-        except intake.IntakeError as exc:
-            return await start(request, lang, status=400, error=exc.code, target=target)
-        if reader is None and not source.columns:
-            return await start(request, lang, status=503, error="e_model_off", target=target)
-        # the run is counted before anything is read or asked: a failing or a parallel attempt counts too
+        # only what costs nothing is checked before the quota: which input, and its size
+        sample = str(form.get("sample") or "")
+        upload = form.get("file")
+        typed = str(form.get("text") or "")
+        name, data = "text", b""
+        if sample:
+            if sample not in samples():
+                return await start(request, lang, status=400, error="e_type", target=target)
+            name, data = sample, (resources.files("alnuzum_orders") / "samples" / sample).read_bytes()
+        elif isinstance(upload, UploadFile) and upload.filename:
+            name, data = upload.filename[:120], await upload.read(intake.MAX_BYTES + 1)
+            await upload.close()
+            if not data or len(data) > intake.MAX_BYTES:
+                error = "e_size" if data else "e_empty"
+                return await start(request, lang, status=400, error=error, target=target)
+        elif not typed.strip():
+            return await start(request, lang, status=400, error="e_empty", target=target)
+        # the run is counted before the file is read or the model asked: a failing, a heavy or a parallel
+        # attempt counts too
         try:
             run_id = await ost.reserve_run(
                 owner,
@@ -400,6 +457,17 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             await ost.reject_run(run_id, error)
             return await start(request, lang, status=status, error=error, target=target)
 
+        try:
+            if data:
+                source = await orders.parsing.read(intake.read, name, data)
+            else:
+                source = await orders.parsing.read(intake.from_text, "text", typed)
+        except intake.IntakeError as exc:
+            return await refuse(503 if exc.code == "e_busy" else 400, exc.code)
+        finally:
+            del data
+        if reader is None and not source.columns:
+            return await refuse(503, "e_model_off")
         try:
             catalog = await orders.catalog(kit, request, info, demo)
         except CrmError as exc:

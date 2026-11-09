@@ -225,8 +225,8 @@ async def test_refusals_of_the_order_form(make: Any, engine: AsyncEngine) -> Non
     assert resp.status_code == 400
     assert (await b.order(csrf=token)).status_code == 400
     assert (await b.order(sample="../../etc/passwd", csrf=token)).status_code == 400
-    # refusals before reading cost nothing
-    assert await rows(engine, "SELECT 1 FROM orders_runs") == []
+    # what is refused before reading costs nothing; a file that was read and refused is counted
+    assert await rows(engine, "SELECT status, error FROM orders_runs") == [("rejected", "e_type")]
 
 
 async def test_without_a_model_only_tables_with_a_header_are_read(make: Any) -> None:
@@ -390,3 +390,54 @@ async def test_demo_secrets_are_kept_encrypted_and_reused_on_restart(make: Any, 
 
 def test_intake_bound_matches_the_body_bound() -> None:
     assert intake.MAX_BYTES < MAX_BODY <= intake.MAX_BYTES + 512 * 1024
+
+
+# --- I1: reading a file never holds the event loop ---
+
+
+async def test_health_answers_while_a_file_is_read(make: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    h = await make(choose_first())
+    b = Browser(h.app)
+    token = await b.csrf()
+    real = intake.read
+
+    def slow(name: str, data: bytes) -> intake.Source:
+        time.sleep(1.5)
+        return real(name, data)
+
+    monkeypatch.setattr(intake, "read", slow)
+
+    async def health() -> float:
+        await asyncio.sleep(0.3)
+        began = time.monotonic()
+        resp = await b.http.get("/health")
+        assert resp.status_code == 200
+        return time.monotonic() - began
+
+    order, took = await asyncio.gather(b.order(sample="order-ru.xlsx", csrf=token), health())
+    assert order.status_code == 303
+    assert took < 1.0, took
+
+
+async def test_a_file_read_too_long_is_refused_and_counted(
+    make: Any, engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import time
+
+    h = await make(orders_parse_seconds=0.3, orders_parse_slots=1)
+    b = Browser(h.app)
+    token = await b.csrf()
+    monkeypatch.setattr(intake, "read", lambda name, data: time.sleep(1.0))
+    first, second = await asyncio.gather(
+        b.order(sample="order-ru.xlsx", csrf=token), b.order(sample="order-ru.xlsx", csrf=token)
+    )
+    assert sorted((first.status_code, second.status_code)) == [400, 503]
+    assert "разбор не уложился" in (first.text + second.text)
+    assert "слишком много файлов" in (first.text + second.text)
+    assert h.orders.parsing.busy == 1  # the late thread keeps its slot until it ends
+    await asyncio.sleep(1.0)
+    assert h.orders.parsing.busy == 0
+    got = sorted(e for (e,) in await rows(engine, "SELECT error FROM orders_runs"))
+    assert got == ["e_busy", "e_slow"]

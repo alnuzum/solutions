@@ -137,3 +137,69 @@ def test_spreadsheet_header_found_below_a_title_and_damaged_workbook() -> None:
     with pytest.raises(intake.IntakeError) as caught:
         intake.read("o.xlsx", xlsx([[None, None]]))
     assert caught.value.code == "e_empty"
+
+
+# --- C1: what a spreadsheet unpacks to is bounded before it is parsed ---
+
+
+def bomb(part: str, chunk: bytes, megabytes: int) -> bytes:
+    """A real workbook whose ``part`` is replaced by ``megabytes`` of ``chunk``, written in pieces (the
+    test itself never holds the unpacked part)."""
+    good = zipfile.ZipFile(io.BytesIO(xlsx([["Товар", "Количество"], ["Кабель", 5]])))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for info in good.infolist():
+            if info.filename != part:
+                z.writestr(info.filename, good.read(info.filename))
+        with z.open(part, "w", force_zip64=True) as f:
+            if part.endswith("sharedStrings.xml"):
+                f.write(b'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">')
+            piece = chunk * (1024 * 1024 // len(chunk))
+            for _ in range(megabytes):
+                f.write(piece)
+            if part.endswith("sharedStrings.xml"):
+                f.write(b"</sst>")
+    return out.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("part", "chunk"),
+    [("xl/sharedStrings.xml", b"<si><t>a</t></si>"), ("xl/worksheets/sheet1.xml", b"\x00")],
+)
+def test_spreadsheet_bomb_is_refused_before_it_is_parsed(
+    part: str, chunk: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tracemalloc
+
+    import openpyxl
+
+    data = bomb(part, chunk, 60)
+    assert len(data) < 1024 * 1024
+    assert intake.sniff(data) == "xlsx"
+
+    def never(*args: object, **kw: object) -> None:
+        raise AssertionError("openpyxl was asked to parse a bomb")
+
+    monkeypatch.setattr(openpyxl, "load_workbook", never)
+    tracemalloc.start()
+    try:
+        with pytest.raises(intake.IntakeError) as caught:
+            intake.read("o.xlsx", data)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert caught.value.code == "e_unpacked"
+    assert peak < 16 * 1024 * 1024, peak
+
+
+def test_unzip_bounds_count_every_part_and_the_ratio() -> None:
+    many = io.BytesIO()
+    with zipfile.ZipFile(many, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("xl/workbook.xml", "<workbook/>")
+        for n in range(4):
+            z.writestr(f"xl/media/p{n}.bin", b"\x00" * (15 * 1024 * 1024))  # 60 MB in four parts
+    with pytest.raises(intake.IntakeError) as caught:
+        intake.unzip_bounds(many.getvalue())
+    assert caught.value.code == "e_unpacked"
+    # an ordinary order is far inside every bound
+    intake.unzip_bounds(xlsx([["Товар", "Количество"]] + [[f"Кабель {n}", n] for n in range(500)]))

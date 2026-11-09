@@ -17,6 +17,12 @@ MAX_SIDE = 1568  # what the model reads without scaling it down itself
 MAX_ROWS = 500
 MAX_TEXT = 40_000
 MAX_LINES = 400
+# a spreadsheet is a zip: what it unpacks to is bounded before anything parses it (a few MB of deflate
+# can hold gigabytes of XML, and the reader keeps the shared strings whole)
+MAX_UNZIPPED = 50 * 1024 * 1024
+MAX_PART = 20 * 1024 * 1024
+MAX_RATIO = 200  # unpacked to packed, for a part over 1 MB
+MAX_ZIP_PARTS = 1000
 
 
 class IntakeError(ValueError):
@@ -115,9 +121,29 @@ def _table(name: str, rows: list[list[str]]) -> Source:
     return Source("table", name, lines, columns=columns, rows=body if columns else rows)
 
 
+def unzip_bounds(data: bytes) -> None:
+    """The declared sizes of the parts: the zip reader never unpacks more than a part declares (a part
+    that holds more fails its CRC), so bounding them bounds the memory of the parse."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            parts = z.infolist()
+    except (zipfile.BadZipFile, ValueError):
+        raise IntakeError("e_damaged") from None
+    if len(parts) > MAX_ZIP_PARTS:
+        raise IntakeError("e_unpacked")
+    total = 0
+    for part in parts:
+        total += part.file_size
+        if part.file_size > MAX_PART or total > MAX_UNZIPPED:
+            raise IntakeError("e_unpacked")
+        if part.file_size > 1024 * 1024 and part.file_size > MAX_RATIO * max(part.compress_size, 1):
+            raise IntakeError("e_unpacked")
+
+
 def _xlsx(name: str, data: bytes) -> Source:
     from openpyxl import load_workbook
 
+    unzip_bounds(data)
     try:
         wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     except Exception:
