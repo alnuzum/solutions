@@ -67,6 +67,8 @@ svg.ic{width:1em;height:1em;flex:none;display:inline-block;vertical-align:-.14em
 .btn:hover{transform:translateY(-1px)}
 .btn.dark{background:var(--deep)}
 .btn.ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgb(255 255 255 / .55);height:42px;font-size:14.5px}
+/* the main button of a result page (write into the CRM) stands on the page's own colour: it takes the accent fill */
+.res .acts .btn:not(.ghost){background:var(--ac)}
 .err{display:flex;gap:9px;align-items:flex-start;margin:0 0 16px;padding:12px 14px;border-radius:12px;background:var(--panel-up);box-shadow:inset 0 0 0 1px var(--warn);color:var(--on-deep);font-size:14.5px}
 .err .ic{color:var(--warn);font-size:17px;margin-top:2px}
 .err a{color:var(--ac-lite)}
@@ -89,8 +91,9 @@ svg.ic{width:1em;height:1em;flex:none;display:inline-block;vertical-align:-.14em
 .kept{margin-top:20px;padding-top:16px;border-top:1px solid var(--line-deep)}
 .kept p{margin:6px 0 0;font-size:14px;color:var(--on-deep-2)}
 .out{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:20px}
-.deal{display:block;margin:6px 0 4px;font-family:var(--disp);font-weight:600;font-size:28px;letter-spacing:-.025em;line-height:1.1;font-variant-numeric:tabular-nums}
-.deal.muted{font-size:20px}
+/* the number of a deal read back; a card of choosing a deal (section.card.deal) keeps the card's own type */
+span.deal{display:block;margin:6px 0 4px;font-family:var(--disp);font-weight:600;font-size:28px;letter-spacing:-.025em;line-height:1.1;font-variant-numeric:tabular-nums}
+span.deal.muted{font-size:20px}
 .open{display:inline-flex;align-items:center;gap:4px;color:var(--ac-lite);font-weight:500;font-size:14.5px;text-underline-offset:4px}
 .card dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px 14px;margin:18px 0 0;font-size:14px}
 .card dt{color:var(--on-deep-3)}
