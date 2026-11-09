@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ t.w_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/winback/winback.css">{% endblock %}
+{% block body %}
+{% set crm_name = t['crm_' ~ scan.crm] %}
+{% set good = ('task_set',) %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/winback/{{ scan.id }}">{{ t.w_back }}</a></p>
+  <h1>{{ row.name }}</h1>
+  <p>{{ t.w_row_cycle.format(n=row.cycle) }} · {{ t.w_row_since.format(date=last_shown, n=row.since) }}</p>
+  <p class="muted small">{{ crm_name }} · {{ t.w_row_orders.format(n=row.orders) }}</p>
+  </div>
+</div>
+{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in good %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in good else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] if error in t else t.e_crm_failed }}</p>{% endif %}
+<div class="oc wb">
+ <section class="src card">
+  <h2>{{ t.w_history }}</h2>
+  <p class="muted small">{{ t.w_history_hint }}</p>
+  <ol class="paper feed">
+   {% for o in orders %}
+   <li class="{% for r in o.refs %}r{{ r }} {% endfor %}{% if loop.first %}last{% endif %}">
+    <div class="top"><b>{{ t.w_order.format(date=o.day_shown) }}</b><span class="sum">{{ o.amount_shown }}</span></div>
+    {% if o.lines_shown %}<ul class="lines">{% for x in o.lines_shown %}<li><span>{{ x.name }}</span><span class="q">× {{ x.quantity }}</span><span class="sum">{{ x.total_shown }}</span></li>{% endfor %}</ul>{% else %}<p class="small">{{ t.w_no_lines }}</p>{% endif %}
+    <small class="deals">{{ t.w_deals.format(n=o.deals|length) }}: {% for d in o.deals %}{{ d.title }}{% if not loop.last %}; {% endif %}{% endfor %}</small>
+   </li>
+   {% endfor %}
+  </ol>
+ </section>
+ <div class="res">
+  <h2>{{ t.w_why }}</h2>
+  <p class="muted small">{{ t.w_hover }}</p>
+  <div class="items">
+   {% for r in reasons %}
+   <div class="it k-{{ r.kind }}" data-r="{{ r.r }}" tabindex="0"><b>{{ r.text }}</b></div>
+   {% endfor %}
+  </div>
+  <section class="card deal wb-task">
+   <h2>{{ t.w_task }}</h2>
+   {% if mine and mine.status == 'written' %}
+   <p class="good-line"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.w_set.format(due=mine_due) }}</p>
+   {% if scan.demo %}<p class="muted small">{{ t.w_set_demo }}</p>{% endif %}
+   {% endif %}
+   {% if standing %}
+   <p>{{ t.w_standing }}</p>
+   {% for s in standing %}<p class="muted small">{% if s.text %}{{ t.w_standing_own.format(text=s.text) }}{% elif s.minutes_left %}{{ t.w_standing_demo.format(n=s.minutes_left) }}{% endif %}{% if s.due %} · {{ t.w_due.format(due=moment(s.due)) }}{% endif %}</p>{% endfor %}
+   {% elif not error %}
+   <p class="muted small">{{ t.w_task_hint.format(due=due) }}</p>
+   <form method="post" action="/{{ lang }}/winback/{{ scan.id }}/{{ n }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="fld"><textarea name="text" maxlength="500" rows="4">{{ text }}</textarea></label>
+    <div class="acts"><button class="btn" type="submit" name="action" value="task">{{ t.w_task_go }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button></div>
+   </form>
+   {% endif %}
+  </section>
+ </div>
+</div>
+{% endblock %}

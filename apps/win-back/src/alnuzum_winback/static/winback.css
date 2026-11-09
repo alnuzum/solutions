@@ -1,0 +1,32 @@
+/* Additions to the order page's style for the win-back screens (dark room, history beside the reasons). */
+.head .keep{color:var(--on-deep-3)}
+.wb-list table{width:100%;border-collapse:collapse;font-size:14.5px}
+.wb-list th{text-align:left;font-weight:500;color:var(--on-deep-3);font-size:13px;padding:0 10px 8px 0}
+.wb-list td{padding:10px 10px 10px 0;border-top:1px solid var(--line-deep);vertical-align:top;font-variant-numeric:tabular-nums}
+.wb-list td small{display:block}
+.wb-list td a{color:inherit}
+.wb-list .others{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.wb-list .chip{display:inline-block;padding:2px 9px;border-radius:999px;background:rgb(143 178 255 / .12)}
+.feed{list-style:none;padding:16px 18px 20px}
+.feed>li{padding:10px 10px 10px 12px;margin:0 -6px 6px;border-radius:6px;white-space:normal;transition:background-color .15s,box-shadow .15s}
+.feed>li.last{box-shadow:inset 2px 0 0 rgb(43 87 212 / .55)}
+.feed .top{display:flex;justify-content:space-between;gap:12px}
+.feed .sum{font-variant-numeric:tabular-nums;white-space:nowrap}
+.feed .lines{list-style:none;margin:6px 0 4px;padding:0;font-size:13px}
+.feed .lines li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;padding:1px 0}
+.feed .lines .q{opacity:.7;font-variant-numeric:tabular-nums}
+.feed .deals{display:block;font-size:11.5px;opacity:.65;overflow-wrap:anywhere}
+.wb .it{cursor:default}
+.wb .it.k-cycle{box-shadow:inset 3px 0 0 #d9a441}
+.wb-task{margin-top:14px}
+.wb-task textarea{width:100%}
+.wb-task .good-line{display:flex;gap:8px;align-items:flex-start}
+@media (max-width:640px){.wb-list thead{display:none}.wb-list tr{display:grid;grid-template-columns:1fr 1fr;padding:8px 0;border-top:1px solid var(--line-deep)}.wb-list td{border:0;padding:2px 8px 2px 0}}
+.oc:has(.it[data-r="1"]:hover,.it[data-r="1"]:focus-within) .feed>li.r1{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="2"]:hover,.it[data-r="2"]:focus-within) .feed>li.r2{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="3"]:hover,.it[data-r="3"]:focus-within) .feed>li.r3{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="4"]:hover,.it[data-r="4"]:focus-within) .feed>li.r4{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="5"]:hover,.it[data-r="5"]:focus-within) .feed>li.r5{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="6"]:hover,.it[data-r="6"]:focus-within) .feed>li.r6{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="7"]:hover,.it[data-r="7"]:focus-within) .feed>li.r7{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-r="8"]:hover,.it[data-r="8"]:focus-within) .feed>li.r8{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}

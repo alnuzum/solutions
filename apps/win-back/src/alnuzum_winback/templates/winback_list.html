@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ t.w_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/winback/winback.css">{% endblock %}
+{% block body %}
+{% set crm_name = t['crm_' ~ scan.crm] %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/winback">← {{ t.w_new }}</a></p>
+  <h1>{{ t.w_title }}</h1>
+  <p>{{ t.w_counts.format(missed=r.counts.missed, on_cycle=r.counts.on_cycle, short=r.counts.short) }}</p>
+  <p class="muted small">{{ t.w_read.format(n=r.deals, crm=crm_name) }}</p>
+  {% if r.cut == 'cap' %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.w_cut_cap.format(n=r.deals) }}</p>{% elif r.cut == 'time' %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.w_cut_time.format(n=r.deals) }}</p>{% endif %}
+  </div>
+</div>
+<section class="card wb-list">
+  {% if rows %}
+  <table>
+    <thead><tr><th>{{ t.w_col_client }}</th><th>{{ t.w_col_cycle }}</th><th>{{ t.w_col_last }}</th><th>{{ t.w_col_lost }}</th><th></th></tr></thead>
+    <tbody>
+    {% for c in rows %}
+    <tr>
+      <td><a href="/{{ lang }}/winback/{{ scan.id }}/{{ c.n }}"><b>{{ c.name }}</b></a><small class="muted">{{ t.w_row_orders.format(n=c.orders) }}</small></td>
+      <td>{{ t.w_row_cycle.format(n=c.cycle) }}</td>
+      <td>{{ t.w_row_since.format(date=c.last_shown, n=c.since) }}</td>
+      <td><b>{{ t.w_row_lost.format(n=c.missed, sum=c.lost_shown) }}</b></td>
+      <td><a class="open" href="/{{ lang }}/winback/{{ scan.id }}/{{ c.n }}">{{ t.w_open }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if r.counts.missed > rows|length %}<p class="muted small">{{ t.w_more.format(n=rows|length) }}</p>{% endif %}
+  {% else %}
+  <p>{{ t.w_none }}</p>
+  {% endif %}
+  {% if r.others %}<p class="muted small others">{{ t.w_others }} {% for o in r.others %}<span class="chip">{{ o.name }} · {{ t['w_kind_' ~ o.kind] }}</span>{% endfor %}</p>{% endif %}
+</section>
+{% endblock %}

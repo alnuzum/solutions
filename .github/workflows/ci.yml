@@ -30,9 +30,9 @@ jobs:
       - name: ruff format
         run: uv run ruff format --check .
       - name: mypy --strict
-        run: uv run mypy packages apps/order-to-deal/src apps/voice-to-crm/src apps/contract-check/src apps/mail-triage/src
+        run: uv run mypy packages apps/order-to-deal/src apps/voice-to-crm/src apps/contract-check/src apps/mail-triage/src apps/win-back/src
       - name: bandit
-        run: uv run bandit -c pyproject.toml -r packages apps/order-to-deal/src apps/voice-to-crm/src apps/contract-check/src apps/mail-triage/src scripts -q
+        run: uv run bandit -c pyproject.toml -r packages apps/order-to-deal/src apps/voice-to-crm/src apps/contract-check/src apps/mail-triage/src apps/win-back/src scripts -q
       - name: pip-audit
         run: |
           uv export --frozen --no-emit-workspace --no-hashes --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
@@ -83,7 +83,7 @@ jobs:
           exit 1
       - name: the image carries the solutions
         run: |
-          docker compose exec -T platform python -c "from alnuzum_platform.solutions import discover; s = [x.slug for x in discover()]; print(s); assert s == ['contracts', 'mail', 'orders', 'voice'], s"
+          docker compose exec -T platform python -c "from alnuzum_platform.solutions import discover; s = [x.slug for x in discover()]; print(s); assert s == ['contracts', 'mail', 'orders', 'voice', 'winback'], s"
       - if: always()
         run: docker compose down -v
 
