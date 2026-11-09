@@ -346,6 +346,7 @@ async def test_zoho_asks_words_and_a_phone_and_reads_its_inn_field() -> None:
 
         crm._stage_types = stages  # type: ignore[method-assign]
         await crm.create_deal(DealIn("Письмо", stage_id="Needs Analysis", responsible_id="945982939"))
+        await crm.create_deal(DealIn("Д" * 200))  # Zoho refuses a deal name past 120 characters (live)
         with pytest.raises(CrmValidationError):
             await crm.create_deal(DealIn("Письмо", stage_id="Nowhere"))
     assert asked == [
@@ -365,6 +366,7 @@ async def test_zoho_asks_words_and_a_phone_and_reads_its_inn_field() -> None:
     ]
     record = sent[0]["data"][0]
     assert (record["Stage"], record["Owner"]) == ("Needs Analysis", {"id": "945982939"})
+    assert sent[1]["data"][0]["Deal_Name"] == "Д" * 120
 
 
 # --- Odoo ---

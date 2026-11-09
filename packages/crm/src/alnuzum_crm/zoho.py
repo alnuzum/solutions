@@ -475,7 +475,7 @@ class ZohoCRM(CRM):
             raise CrmValidationError(f"no stage {deal.stage_id!r} in Zoho", crm=self.kind.value)
         stage = deal.stage_id or next((s for s, t in stages.items() if t == "Open"), "Qualification")
         record: dict[str, Any] = {
-            "Deal_Name": deal.title,
+            "Deal_Name": deal.title[:120],  # Zoho refuses a longer one (INVALID_DATA, live 09.11)
             "Stage": stage,
             "Amount": float(deal.amount),
             "Closing_Date": date.today().isoformat(),
