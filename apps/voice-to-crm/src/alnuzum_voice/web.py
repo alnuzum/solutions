@@ -25,7 +25,7 @@ from alnuzum_platform.web.security import RateLimiter
 from alnuzum_voice import audio
 from alnuzum_voice.bot import Updates
 from alnuzum_voice.engine import Change, Result, choose_product, steps
-from alnuzum_voice.i18n import commands_word, texts
+from alnuzum_voice.i18n import texts
 from alnuzum_voice.service import Note, Voice, VoiceError
 from alnuzum_voice.store import RunNotFound, RunsExceeded
 from alnuzum_voice.text import MAX_PHRASES
@@ -186,8 +186,7 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
             samples=list(SAMPLES.values()),
             bot=voice.settings.voice_tg_bot,
             speech_off=await voice.speech_off(request.app),
-            q=(q := quality()),
-            q_word=commands_word(lang, int(q["commands"])) if q else "",
+            q=quality(),
             **ctx,
         )
 

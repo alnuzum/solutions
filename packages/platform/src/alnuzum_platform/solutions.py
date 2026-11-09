@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from alnuzum_platform.config import Settings
 from alnuzum_platform.store import ConnectionInfo, ConnectionNotFound, ConnectionStore
 from alnuzum_platform.web.connectors import Connectors
-from alnuzum_platform.web.i18n import texts
+from alnuzum_platform.web.i18n import counted, texts
 from alnuzum_platform.web.routes import PageError
 from alnuzum_platform.web.security import Sessions
 
@@ -38,7 +38,7 @@ class Kit:
     extra_texts: Callable[[str], dict[str, str]] = field(default=lambda lang: {})
 
     def texts(self, lang: str) -> dict[str, str]:
-        return texts(lang) | self.extra_texts(lang)
+        return counted(texts(lang) | self.extra_texts(lang))
 
     def store_of(self, request: Request) -> ConnectionStore:
         found: ConnectionStore | None = request.app.state.store

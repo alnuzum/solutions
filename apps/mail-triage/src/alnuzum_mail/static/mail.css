@@ -2,6 +2,7 @@
    a field lights its place in the letter and the other way round; the class picked shows its own block. CSS only. */
 .mail .hdr,.mail .body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
 .mail .hdr{font-weight:600;margin:0 0 .4em}
+.mail .hdr .date{display:block}
 .mail .body{margin:.6em 0 0}
 .mail .hist{margin-top:1em}
 .mail .att{margin-top:.8em;padding-top:.6em;border-top:1px dashed var(--doubt)}

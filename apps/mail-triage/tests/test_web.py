@@ -803,3 +803,16 @@ async def test_the_request_reaches_a_task_with_no_markup(make: Any, engine: Any)
     deal = next(w[2] for w in h.crm.writes if w[0] == "deal")
     for text_ in (task.text, deal.title):
         assert not set("<>[]") & set(text_), text_
+
+
+async def test_the_reference_line_writes_its_counts_with_their_words(make: Any) -> None:
+    """«из 31 письма», «31 letters»: the count of letters takes the form of its number in both languages."""
+    h: Harness = await make()
+    b = Browser(h.app)
+    ru = html.unescape((await b.http.get("/ru/mail")).text)
+    en = html.unescape((await b.http.get("/en/mail")).text)
+    letters = web.quality()["letters"]  # type: ignore[index]
+    assert letters == 31  # the line below is checked on the set as it is
+    assert "На эталоне из 31 письма (русский, английский, узбекский): класс верен в" in ru
+    assert "31 писем" not in ru and "(0 лишних)" in ru
+    assert "On a reference set of 31 letters (Russian, English, Uzbek)" in en

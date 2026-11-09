@@ -28,7 +28,7 @@ RU = {
     "v_link_ready": "Откройте ссылку в Telegram в течение 10 минут; она срабатывает один раз:",
     "v_linked": "привязано чатов: {n}",
     "v_unlink": "Отвязать чаты",
-    "v_quality": "Эталон: {n} {word}, синтезированные голоса, {uz} из них по-узбекски. Доля ошибок слов "
+    "v_quality": "Эталон: {n:команда|команды|команд}, синтезированные голоса, {uz} из них по-узбекски. Доля ошибок слов "
     "распознавания {wer}, сделка найдена в {deal}, изменения без ошибок в {exact}, лишних изменений {extra}. "
     "Это чистая синтезированная речь: точность на живых голосовых с шумом эталон не обещает.",
     "v_cost": "Распознавание и разбор: {usd} $",
@@ -156,7 +156,7 @@ EN = {
     "v_link_ready": "Open the link in Telegram within 10 minutes; it works once:",
     "v_linked": "bound chats: {n}",
     "v_unlink": "Unbind chats",
-    "v_quality": "Reference set: {n} {word}, synthesised voices, {uz} of them in Uzbek. Word error rate of the "
+    "v_quality": "Reference set: {n:command|commands}, synthesised voices, {uz} of them in Uzbek. Word error rate of the "
     "speech {wer}, deal found in {deal}, changes without a mistake in {exact}, extra changes {extra}. "
     "It is clean synthesised speech: the set promises nothing about live voice notes with noise.",
     "v_cost": "Speech and reading: {usd} $",
@@ -262,17 +262,6 @@ EN = {
 
 def texts(lang: str) -> dict[str, str]:
     return EN if lang == "en" else RU
-
-
-def commands_word(lang: str, n: int) -> str:
-    """«22 команды», «21 команда», «25 команд»; «22 commands»."""
-    if lang != "ru":
-        return "command" if n == 1 else "commands"
-    if n % 10 == 1 and n % 100 != 11:
-        return "команда"
-    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return "команды"
-    return "команд"
 
 
 DEALS = {

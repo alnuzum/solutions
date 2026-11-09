@@ -124,6 +124,8 @@ async def test_the_english_page_and_the_reference_numbers(make: Any, monkeypatch
     assert "100.0" not in ru + en and "1.0" not in ru.split("На эталоне", 1)[1].split("</p>", 1)[0]
     line = ru.split("На эталоне", 1)[1].split("</p>", 1)[0]
     assert "—" not in line and "найдено 44 из 44" in line and "ложных 0" in line
+    assert line.startswith(" из 4 пар договоров (внесено правок: 44")  # 4 пары → из 4 пар
+    assert "On a reference set of 4 pairs of contracts (44 changes made" in en
     measured = web.quality() or {}
     monkeypatch.setattr(web, "quality", lambda: {**measured, "quotes": 0.955})
     ru = (await b.http.get("/ru/contracts")).text

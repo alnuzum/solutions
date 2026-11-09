@@ -30,8 +30,7 @@
  <section class="src card">
   <h2>{{ t.m_letter }}</h2>
   <div class="paper doc mail">
-   <div class="hdr">{{ runs(src.h) }}</div>
-   {% if letter.date %}<p class="muted small">{{ t.m_date }}: {{ letter.date }}</p>{% endif %}
+   <div class="hdr">{{ runs(src.h) }}{% if letter.date %}<span class="date">{{ t.m_date }}: {{ letter.date }}</span>{% endif %}</div>
    <div class="body">{{ runs(src.b) }}</div>
    {% if letter.history %}<p class="muted small hist">{{ t.m_history.format(n=letter.history) }}</p>{% endif %}
    {% if letter.attachments %}<h3 class="att-h">{{ t.m_attachments }}</h3>{% endif %}

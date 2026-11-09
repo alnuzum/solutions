@@ -13,9 +13,9 @@ _T: dict[str, tuple[str, str]] = {
         "calculation and a task for what is left.",
     ),
     "o_quality": (
-        "Точность на эталонном наборе: {acc} строк ({lines} строк, {orders} заявок в четырёх форматах); "
+        "Точность на эталонном наборе: {acc} строк ({lines:строка|строки|строк}, {orders:заявка|заявки|заявок} в четырёх форматах); "
         "{mistakes}. Замер {date}.",
-        "Accuracy on the reference set: {acc} of lines ({lines} lines, {orders} orders in four formats); "
+        "Accuracy on the reference set: {acc} of lines ({lines:line|lines}, {orders:order|orders} in four formats); "
         "{mistakes}. Measured {date}.",
     ),
     "o_quality_flagged": (
@@ -102,9 +102,9 @@ _T: dict[str, tuple[str, str]] = {
     "o_write": ("Записать в {crm}", "Write into {crm}"),
     "o_write_note": (
         "В CRM: компания и контакт из реквизитов, сделка с {n} поз., заметка с расчётом{task}.",
-        "Into the CRM: company and contact from the requisites, a deal with {n} line(s), a note on the calculation{task}.",
+        "Into the CRM: company and contact from the requisites, a deal with {n:line|lines}, a note on the calculation{task}.",
     ),
-    "o_task_part": (", задача «проверить {n} поз.»", ", a task to check {n} line(s)"),
+    "o_task_part": (", задача «проверить {n} поз.»", ", a task to check {n:line|lines}"),
     "o_demo_left": (
         "Записей в демо осталось: {n} (счёт за последние 24 часа).",
         "Demo writes left: {n} (counted over the last 24 hours).",

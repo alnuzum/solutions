@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from alnuzum_contracts.clauses import Change, Clause, Comparison
 from alnuzum_crm.base import CRM
 from alnuzum_crm.types import TaskIn
+from alnuzum_platform.web.i18n import fill, plural
 
 TZ = ZoneInfo("Asia/Tashkent")
 DEMO_PREFIX = "Демо · "
@@ -76,6 +77,7 @@ WORDS = {
         "cosmetic": "правок оформления: {n}",
         "clause": "п. {name}",
         "new": "новый пункт",
+        "unnumbered": "пункт без номера",
         "was": "Было",
         "now": "Стало",
         "more": "…и ещё изменений: {n}. Полный разбор — на странице решения 24 часа.",
@@ -88,20 +90,15 @@ WORDS = {
         "cosmetic": "formatting edits: {n}",
         "clause": "cl. {name}",
         "new": "a new clause",
+        "unnumbered": "an unnumbered clause",
         "was": "Was",
         "now": "Now",
-        "more": "…and {n} more changes. The whole comparison is on the solution's page for 24 hours.",
+        "more": (
+            "…and {n:more change|more changes}. The whole comparison is on the solution's page for 24 hours."
+        ),
         "unrated": "not rated",
     },
 }
-
-
-def plural_ru(n: int, one: str, few: str, many: str) -> str:
-    if n % 10 == 1 and n % 100 != 11:
-        return one
-    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return few
-    return many
 
 
 def crm_text(value: str, limit: int) -> str:
@@ -199,7 +196,9 @@ def note_text(cmp: Comparison, lang: str, now: datetime | None = None) -> str:
     items = ordered(cmp)
     for n, c in enumerate(items, 1):
         name = clause_name(cmp, c)
-        where = w["clause"].format(name=crm_text(name, 20)) if name else w["new"]
+        # a clause without a number is new only when it was added; a changed one keeps being the old clause
+        unnamed = w["new"] if c.kind == "added" else w["unnumbered"]
+        where = w["clause"].format(name=crm_text(name, 20)) if name else unnamed
         level = risks.get(c.risk, "") if c.rated else w["unrated"]
         block = [f"{n}. {where} · {topics.get(c.topic, '')} · {level} · {kinds.get(c.kind, '')}"]
         was, now_q = quotes(cmp, c)
@@ -214,7 +213,7 @@ def note_text(cmp: Comparison, lang: str, now: datetime | None = None) -> str:
         size += cost
         listed += 1
     if listed < len(items):
-        lines += ["", w["more"].format(n=len(items) - listed)]
+        lines += ["", fill(w["more"], n=len(items) - listed)]
     return "\n".join(lines)[:NOTE_MAX]
 
 
@@ -222,11 +221,11 @@ def task_text(cmp: Comparison, lang: str) -> str:
     high = summary(cmp)["high"]
     if lang == "ru":
         if high:
-            word = plural_ru(high, "пункт", "пункта", "пунктов")
+            word = plural(high, ("пункт", "пункта", "пунктов"))
             return f"Юристу: {high} {word} высокого риска в редакции договора · Al-Nuzum"
         return "Юристу: проверить редакцию договора контрагента · Al-Nuzum"
     if high:
-        clauses = "clause" if high == 1 else "clauses"
+        clauses = plural(high, ("clause", "clauses"))
         return f"Lawyer: {high} high-risk {clauses} in the counterparty's draft · Al-Nuzum"
     return "Lawyer: review the counterparty's draft of the contract · Al-Nuzum"
 
