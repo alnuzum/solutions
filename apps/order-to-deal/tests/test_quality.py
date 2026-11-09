@@ -86,6 +86,7 @@ async def test_live_model_meets_the_bar_on_the_reference_set() -> None:
     summary = {k: v for k, v in report.items() if k != "details"}
     print(json.dumps(summary, ensure_ascii=False))
     assert quality.passes(report), summary
+    assert {"order": "request-en.txt", "injection_items": 0} in report["details"]
 
 
 async def test_odoo_quotation_without_requisites_gets_a_general_customer() -> None:
