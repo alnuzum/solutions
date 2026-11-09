@@ -342,7 +342,10 @@
    "expect": {
     "cls": "junk",
     "company": null,
-    "fields": {},
+    "fields": {
+     "company": "Академия закупок",
+     "email": "news@zakupki-academy-demo.ru"
+    },
     "injection": null
    }
   },
@@ -353,7 +356,13 @@
    "expect": {
     "cls": "junk",
     "company": null,
-    "fields": {},
+    "fields": {
+     "company": "SEO Top",
+     "person": "Антон",
+     "position": "менеджер",
+     "phone": "+7 999 123 45 67",
+     "email": "anton@seo-top-demo.ru"
+    },
     "injection": null
    }
   },
