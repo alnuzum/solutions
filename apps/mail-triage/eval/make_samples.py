@@ -1,18 +1,23 @@
-"""Make the sample letters of the mail triage page: six ``.eml`` files written by the demo companies (their
+"""Make the sample letters of the mail triage page: seven ``.eml`` files written by the demo companies (their
 requisites are those the demo accounts hold), and ``samples/truth.json`` with what each should give.
 
     uv run python apps/mail-triage/eval/make_samples.py
 
-Needs LibreOffice (``soffice``) for the PDF card of an enterprise. The files are committed: CI and the page
+Needs LibreOffice (``soffice``) for the PDF card of an enterprise and ``pypdfium2`` for its scan (a PDF of
+pictures with no text layer, as a scanner gives it). The files are committed: CI and the page
 read them, nobody runs this there.
 """
 
+import io
 import json
+import random
 import shutil
 import subprocess
 import tempfile
 from email.message import EmailMessage
 from pathlib import Path
+
+from PIL import Image, ImageFilter
 
 from alnuzum_files.testing import docx, paragraph, table
 
@@ -57,6 +62,13 @@ NAVRUZ_CARD = [
     ("Сайт: navruzstroy-demo.uz", False),
     ("Эл. почта: info@navruzstroy-demo.uz", False),
 ]
+
+NAVRUZ_SCAN = """Добрый день.
+
+По складу в Чирчике нужен ещё расчёт наружного освещения территории: 14 опор, прожекторы 150 Вт. Скан карточки предприятия во вложении.
+
+Дилшод
+"""
 
 ROMASHKA_REPLY = """Добрый день,
 
@@ -151,6 +163,29 @@ def card_pdf() -> bytes:
         return to_pdf(docx(body, numbering=None), Path(tmp), "card")
 
 
+def to_scan(pdf: bytes) -> bytes:
+    """Every page a slightly turned, blurred, noisy grey picture: no text layer is left."""
+    import pypdfium2 as pdfium
+
+    rng = random.Random(15)
+    pages = []
+    doc = pdfium.PdfDocument(pdf)
+    for n in range(len(doc)):
+        img = doc[n].render(scale=150 / 72).to_pil().convert("L")
+        img = img.rotate(
+            rng.uniform(-0.6, 0.6), expand=False, fillcolor=255, resample=Image.Resampling.BICUBIC
+        )
+        img = img.filter(ImageFilter.GaussianBlur(0.6))
+        noise = Image.effect_noise(img.size, 18).point(lambda v: 255 if v > 120 else 230)
+        img = Image.composite(img, noise, Image.new("L", img.size, 200))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "JPEG", quality=55)
+        pages.append(Image.open(io.BytesIO(buf.getvalue())))
+    out = io.BytesIO()
+    pages[0].save(out, "PDF", save_all=True, append_images=pages[1:], resolution=150)
+    return out.getvalue()
+
+
 SAMPLES = [
     {
         "id": "new-signature",
@@ -167,6 +202,15 @@ SAMPLES = [
         "title": {
             "ru": "Новый запрос, реквизиты в PDF-карточке (Navruz Stroy)",
             "en": "A new request, the requisites in a PDF card (Navruz Stroy, in Russian)",
+        },
+        "expect": {"cls": "new", "company": "Navruz Stroy", "inn": "306234567", "deal": None},
+    },
+    {
+        "id": "new-scan-card",
+        "file": "new-scan-card.eml",
+        "title": {
+            "ru": "Новый запрос, реквизиты в скане карточки (Navruz Stroy)",
+            "en": "A new request, the requisites in a scanned card (Navruz Stroy, in Russian)",
         },
         "expect": {"cls": "new", "company": "Navruz Stroy", "inn": "306234567", "deal": None},
     },
@@ -251,6 +295,19 @@ def main() -> None:
         card_pdf(), maintype="application", subtype="pdf", filename="Карточка предприятия Navruz Stroy.pdf"
     )
     made["new-pdf-card.eml"] = navruz
+    scanned = letter(
+        "Дилшод Расулов <d.rasulov@navruzstroy-demo.uz>",
+        "Склад в Чирчике: наружное освещение",
+        NAVRUZ_SCAN,
+        msg_id="navruz-scan",
+    )
+    scanned.add_attachment(
+        to_scan(card_pdf()),
+        maintype="application",
+        subtype="pdf",
+        filename="Карточка Navruz Stroy (скан).pdf",
+    )
+    made["new-scan-card.eml"] = scanned
     junk = letter(
         "Expo Digest <news@expo-digest-demo.com>",
         "Только до пятницы: скидка 40 % на стенд",

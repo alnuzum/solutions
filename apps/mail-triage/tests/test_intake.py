@@ -39,6 +39,15 @@ def test_the_samples_open() -> None:
     assert card.sources()["a1"] == att.text
 
 
+def test_the_scanned_card_goes_to_the_model_as_pictures() -> None:
+    """A PDF with no text layer: its pages are pictures the model reads; nothing in the letter's own text
+    gives the INN away."""
+    letter = from_eml(sample_bytes("new-scan-card.eml"))
+    (att,) = letter.attachments
+    assert att.kind == "scan" and att.pictures >= 1 and not att.text
+    assert len(letter.images) == att.pictures and "306234567" not in letter.body
+
+
 def test_a_letter_survives_its_json() -> None:
     letter = from_eml(sample_bytes("new-pdf-card.eml"))
     again = Letter.of(letter.to_json())
