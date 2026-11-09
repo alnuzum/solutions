@@ -60,7 +60,7 @@
    <p class="muted small">{{ t.m_hover }}</p>
    <div class="items">
     {% for key, f in fields %}
-    <div class="it" data-f="{{ key }}" tabindex="0"><small class="read">{{ t['f_' ~ key] }}{% if f.src == 'h' %} · {{ t.f_from_header }}{% elif f.src and f.src.startswith('a') %} · {{ (letter.attachments | selectattr('id', 'equalto', f.src) | first).name }}{% endif %}</small><b>{{ f.value }}</b></div>
+    <div class="it" data-f="{{ key }}" tabindex="0"><small class="read">{{ t['f_' ~ key] }}{% if f.src == 'h' %} · {{ t.f_from_header }}{% elif f.src and f.src.startswith('a') %} · {{ (letter.attachments | selectattr('id', 'equalto', f.src) | map(attribute='name') | first) or '' }}{% endif %}</small><b>{{ f.value }}</b></div>
     {% else %}<p class="muted small">{{ t.m_fields_none }}</p>{% endfor %}
    </div>
    {% set dropped_names = [] %}{% for x in reading.dropped %}{% set _ = dropped_names.append(t['f_' ~ x]) %}{% endfor %}

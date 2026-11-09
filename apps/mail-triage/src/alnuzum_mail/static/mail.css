@@ -1,0 +1,41 @@
+/* Additions to the order and contract pages' style for the mail triage: the letter beside its fields; hovering
+   a field lights its place in the letter and the other way round; the class picked shows its own block. CSS only. */
+.mail .hdr,.mail .body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+.mail .hdr{font-weight:600;margin:0 0 .4em}
+.mail .body{margin:.6em 0 0}
+.mail .hist{margin-top:1em}
+.mail .att{margin-top:.8em;padding-top:.6em;border-top:1px dashed var(--doubt)}
+.mail .att-h{margin:1.2em 0 .2em;font-size:15px}
+.mail .att-n{margin:0}
+.mail mark{color:inherit;padding:0 1px;border-radius:2px;background:rgb(43 87 212 / .1);transition:background-color .15s,box-shadow .15s}
+.res .it{transition:background-color .15s,box-shadow .15s}
+.res .it b{display:block;overflow-wrap:anywhere}
+.res .opt{display:flex;gap:.5rem;align-items:flex-start;margin:.35rem 0}
+.res .opt span{display:flex;flex-direction:column;gap:2px}
+.res .opt small{opacity:.75}
+.res .warn{color:var(--warn,#d9a441)}
+.res .acts{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1rem}
+.res .search{display:flex;gap:.5rem;margin-top:.8rem}
+.res .search input{flex:1;min-width:0}
+.rules-links a{white-space:nowrap}
+.rules td,.rules th{padding:.3rem .4rem;vertical-align:middle}
+.rules select,.rules input{max-width:100%}
+/* the class picked shows its own block and its own label of the button */
+.res .for-reply,.res .for-junk{display:none}
+.res:has(input[name="cls"][value="reply"]:checked) .for-reply{display:block}
+.res:has(input[name="cls"][value="reply"]:checked) .for-new{display:none}
+.res:has(input[name="cls"][value="junk"]:checked) .for-junk{display:block}
+.res:has(input[name="cls"][value="junk"]:checked) .for-new{display:none}
+.res .acts span.for-new{display:inline}
+.res:has(input[name="cls"][value="reply"]:checked) .acts span.for-reply,
+.res:has(input[name="cls"][value="junk"]:checked) .acts span.for-junk{display:inline}
+.res:has(input[name="cls"][value="reply"]:checked) .acts span.for-new,
+.res:has(input[name="cls"][value="junk"]:checked) .acts span.for-new{display:none}
+.res:has(input[name="cls"][value="reply"]:checked) form.search{display:flex}
+.oc:has(.it[data-f="company"]:hover,.it[data-f="company"]:focus-within) .src mark[data-f="company"],.oc:has(.src mark[data-f="company"]:hover) .it[data-f="company"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-f="inn"]:hover,.it[data-f="inn"]:focus-within) .src mark[data-f="inn"],.oc:has(.src mark[data-f="inn"]:hover) .it[data-f="inn"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-f="person"]:hover,.it[data-f="person"]:focus-within) .src mark[data-f="person"],.oc:has(.src mark[data-f="person"]:hover) .it[data-f="person"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-f="position"]:hover,.it[data-f="position"]:focus-within) .src mark[data-f="position"],.oc:has(.src mark[data-f="position"]:hover) .it[data-f="position"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-f="phone"]:hover,.it[data-f="phone"]:focus-within) .src mark[data-f="phone"],.oc:has(.src mark[data-f="phone"]:hover) .it[data-f="phone"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-f="email"]:hover,.it[data-f="email"]:focus-within) .src mark[data-f="email"],.oc:has(.src mark[data-f="email"]:hover) .it[data-f="email"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}
+.oc:has(.it[data-f="website"]:hover,.it[data-f="website"]:focus-within) .src mark[data-f="website"],.oc:has(.src mark[data-f="website"]:hover) .it[data-f="website"]{background:var(--hl);box-shadow:inset 3px 0 0 var(--hl-edge)}

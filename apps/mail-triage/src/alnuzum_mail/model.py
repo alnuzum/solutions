@@ -124,7 +124,11 @@ def prompt(letter: Letter, lang: str) -> list[dict[str, Any]]:
         content.append(
             {
                 "type": "image",
-                "source": {"type": "base64", "media_type": "image/jpeg", "data": base64.standard_b64encode(jpeg).decode()},
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": base64.standard_b64encode(jpeg).decode(),
+                },
             }
         )
     return content
@@ -255,17 +259,25 @@ def apply_reading(data: dict[str, Any], letter: Letter, usage: Usage | None = No
     for scan in data.get("scans") or []:
         if not isinstance(scan, dict):
             continue
-        item = next((a for a in letter.attachments if a.id == scan.get("id") and a.pictures and not a.text), None)
+        item = next(
+            (a for a in letter.attachments if a.id == scan.get("id") and a.pictures and not a.text), None
+        )
         if item is not None:
-            item.text = "\n".join(clean(x, 300) for x in str(scan.get("text") or "")[:SCAN_CHARS].split("\n")).strip()
+            item.text = "\n".join(
+                clean(x, 300) for x in str(scan.get("text") or "")[:SCAN_CHARS].split("\n")
+            ).strip()
     sources = letter.sources()
     everywhere = "\n".join(sources.values())
     cls = data.get("class") if data.get("class") in CLASSES else "new"
     language = data.get("language") if data.get("language") in LANGUAGES else "other"
-    reading = Reading(str(cls), str(language), clean(data.get("request") or "", 200), clean(data.get("why") or "", 200))
-    fields = data.get("fields") if isinstance(data.get("fields"), dict) else {}
+    reading = Reading(
+        str(cls), str(language), clean(data.get("request") or "", 200), clean(data.get("why") or "", 200)
+    )
+    got = data.get("fields")
+    fields: dict[str, Any] = got if isinstance(got, dict) else {}
     for key in FIELDS:
-        raw = fields.get(key) if isinstance(fields.get(key), dict) else {}
+        item = fields.get(key)
+        raw: dict[str, Any] = item if isinstance(item, dict) else {}
         value = raw.get("value")
         if not isinstance(value, str) or not value.strip():
             continue
@@ -297,5 +309,7 @@ class MailReader(ClaudeReader):
     question."""
 
     async def triage(self, letter: Letter, *, lang: str, gate: Gate) -> Reading:
-        data, usage = await self._ask(gate, "triage", TRIAGE_SYSTEM, prompt(letter, lang), TRIAGE_SCHEMA, TRIAGE_MAX_TOKENS)
+        data, usage = await self._ask(
+            gate, "triage", TRIAGE_SYSTEM, prompt(letter, lang), TRIAGE_SCHEMA, TRIAGE_MAX_TOKENS
+        )
         return apply_reading(data, letter, usage)

@@ -7,6 +7,7 @@ members = [
     "alnuzum-contracts",
     "alnuzum-crm",
     "alnuzum-files",
+    "alnuzum-mail",
     "alnuzum-orders",
     "alnuzum-platform",
     "alnuzum-solutions",
@@ -79,6 +80,29 @@ requires-dist = [
 ]
 
 [[package]]
+name = "alnuzum-mail"
+version = "0.1.0"
+source = { editable = "apps/mail-triage" }
+dependencies = [
+    { name = "alnuzum-contracts" },
+    { name = "alnuzum-crm" },
+    { name = "alnuzum-files" },
+    { name = "alnuzum-orders" },
+    { name = "alnuzum-platform" },
+    { name = "anthropic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alnuzum-contracts", editable = "apps/contract-check" },
+    { name = "alnuzum-crm", editable = "packages/crm" },
+    { name = "alnuzum-files", editable = "packages/files" },
+    { name = "alnuzum-orders", editable = "apps/order-to-deal" },
+    { name = "alnuzum-platform", editable = "packages/platform" },
+    { name = "anthropic", specifier = ">=2.6" },
+]
+
+[[package]]
 name = "alnuzum-orders"
 version = "0.1.0"
 source = { editable = "apps/order-to-deal" }
@@ -144,6 +168,7 @@ dependencies = [
     { name = "alnuzum-contracts" },
     { name = "alnuzum-crm" },
     { name = "alnuzum-files" },
+    { name = "alnuzum-mail" },
     { name = "alnuzum-orders" },
     { name = "alnuzum-platform" },
     { name = "alnuzum-voice" },
@@ -169,6 +194,7 @@ requires-dist = [
     { name = "alnuzum-contracts", editable = "apps/contract-check" },
     { name = "alnuzum-crm", editable = "packages/crm" },
     { name = "alnuzum-files", editable = "packages/files" },
+    { name = "alnuzum-mail", editable = "apps/mail-triage" },
     { name = "alnuzum-orders", editable = "apps/order-to-deal" },
     { name = "alnuzum-platform", editable = "packages/platform" },
     { name = "alnuzum-voice", editable = "apps/voice-to-crm" },

@@ -1,12 +1,10 @@
-"""Pages of the solution: a letter in, the letter beside what was read out of it and what the CRM holds, the lead,
-the note and the task by a button; the routing rules of a CRM. The pages run no script; hovering a field lights
-its place in the letter through CSS only."""
+"""Pages of the solution: a letter in, the letter beside what was read out of it and what the CRM holds, the
+lead, the note and the task by a button; the routing rules of a CRM. The pages run no script; hovering a field
+lights its place in the letter through CSS only."""
 
 import json
 import logging
 import uuid
-from datetime import timedelta
-from decimal import Decimal
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -148,7 +146,16 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
             return await start(request, lang, status=429, error="e_runs")
         try:
             await mail.read(
-                request.app, kit, ms, run_id=run_id, owner=owner, info=info, demo=demo, data=data, text=pasted, lang=lang
+                request.app,
+                kit,
+                ms,
+                run_id=run_id,
+                owner=owner,
+                info=info,
+                demo=demo,
+                data=data,
+                text=pasted,
+                lang=lang,
             )
         except MailError as exc:
             return await start(request, lang, status=422, error=exc.code, error_n=_limit(exc.code))
@@ -190,7 +197,12 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
     async def view(request: Request, lang: str, run_id: str) -> HTMLResponse:
         lang = _lang(lang)
         n = request.query_params.get("n")
-        return show(request, lang, await own_run(request, lang, run_id), notice=n if n and n.replace("_", "").isalpha() else None)
+        return show(
+            request,
+            lang,
+            await own_run(request, lang, run_id),
+            notice=n if n and n.replace("_", "").isalpha() else None,
+        )
 
     @router.post("/{lang}/mail/{run_id}")
     async def decide(request: Request, lang: str, run_id: str) -> Response:
@@ -222,7 +234,9 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
                 result = dict(run.result or {}) | {"choice": choice}
                 await ms.save_result(run.id, run.owner, result)
                 run = await ms.get_run(run.id, run.owner)
-            notice = await mail.confirm(request.app, kit, run, conn_owner=kit.owner(sid), ip_key=ip_key(request))
+            notice = await mail.confirm(
+                request.app, kit, run, conn_owner=kit.owner(sid), ip_key=ip_key(request)
+            )
             return redirect(f"{back}?n={notice}")
         return redirect(back)
 
@@ -235,7 +249,9 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
             info, demo = await target(request, lang, "conn:" + value)
         return info, demo, target_key(info, demo)
 
-    async def choices(request: Request, info: ConnectionInfo, demo: bool) -> tuple[list[Any], list[Any], str | None]:
+    async def choices(
+        request: Request, info: ConnectionInfo, demo: bool
+    ) -> tuple[list[Any], list[Any], str | None]:
         """The stages of the CRM and its users (an own CRM only: the test accounts' people are not shown)."""
         try:
             async with await mail.adapter(request.app, kit, info) as crm:
@@ -248,7 +264,13 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
         return [s for s in stages if s.kind.value == "open"], users, None
 
     async def rules_page(
-        request: Request, lang: str, value: str, *, status: int = 200, typed: dict[str, str] | None = None, **ctx: Any
+        request: Request,
+        lang: str,
+        value: str,
+        *,
+        status: int = 200,
+        typed: dict[str, str] | None = None,
+        **ctx: Any,
     ) -> HTMLResponse:
         sid = kit.need_session(request, lang)
         info, demo, key = await rules_target(request, lang, value)
@@ -290,12 +312,16 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
         try:
             rules = parse(typed, {s.id for s in stages}, {u.id for u in users})
         except RuleError as exc:
-            return await rules_page(request, lang, value, status=400, typed=typed, error=exc.code, error_n=exc.n)
+            return await rules_page(
+                request, lang, value, status=400, typed=typed, error=exc.code, error_n=exc.n
+            )
         names = {f"stage:{s.id}": (s.name + (f" · {s.pipeline}" if s.pipeline else ""))[:120] for s in stages}
         names |= {f"user:{u.id}": u.name[:120] for u in users}
         used = {f"stage:{r.stage}" for r in rules if r.stage} | {f"user:{r.user}" for r in rules if r.user}
         await mail.store(request.app, kit).set_rules(
-            kit.owner(sid), key, {"rules": [r.to_json() for r in rules], "names": {k: v for k, v in names.items() if k in used}}
+            kit.owner(sid),
+            key,
+            {"rules": [r.to_json() for r in rules], "names": {k: v for k, v in names.items() if k in used}},
         )
         return redirect(f"/{lang}/mail/rules/{value}?n=saved")
 
@@ -322,11 +348,13 @@ def _choice(form: Any, run: RunInfo) -> dict[str, Any] | None:
         return {"cls": cls, "deal": deal}
     company = str(form.get("company") or "none")
     has_name = "company" in (r.get("reading") or {}).get("fields", {})
-    if company not in {str(c["id"]) for c in binding.get("companies") or []} | {"none"} | ({"new"} if has_name else set()):
+    if company not in {str(c["id"]) for c in binding.get("companies") or []} | {"none"} | (
+        {"new"} if has_name else set()
+    ):
         return None
-    if not binding.get("checked") and company != "none" and not run.demo:
+    if company == "new" and not binding.get("checked"):
         # unbound: a new company could be a duplicate of one the CRM did not show; look again first
-        return None if company == "new" else {"cls": cls, "company": company}
+        return None
     return {"cls": cls, "company": company}
 
 
@@ -379,5 +407,3 @@ def make_solution(mail: Mail) -> Solution:
 
 
 solution = make_solution(Mail())
-
-__all__ = ["Decimal", "make_solution", "solution", "timedelta"]

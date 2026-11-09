@@ -1,15 +1,15 @@
 """From a letter read to what the CRM gets, and to what the page shows.
 
-The plan is built here out of the values the solution kept and the choices a person made on the page: never out
-of the letter's words directly. Every text that reaches a CRM is our template with the letter's values put in,
-one line each, bounded and HTML-escaped for the CRMs that show notes as HTML.
-"""
+The plan is built here out of the values the solution kept and the choices a person made on the page: never
+out of the letter's words directly. Every text that reaches a CRM is our template with the letter's values put
+in, one line each, bounded and HTML-escaped for the CRMs that show notes as HTML."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
 from alnuzum_contracts.engine import crm_text, for_crm, task_due
+
 from alnuzum_crm.base import CRM
 from alnuzum_crm.types import CompanyIn, ContactIn, DealIn, TaskIn
 from alnuzum_mail.intake import Letter
@@ -21,7 +21,7 @@ NOTE_MAX = 3500
 VALUE_MAX = 160
 EXCERPT = 300
 
-LABELS = {
+LABELS: dict[str, dict[str, Any]] = {
     "ru": {
         "head": "Письмо клиента · Al-Nuzum",
         "subject": "Тема",
@@ -36,7 +36,13 @@ LABELS = {
         "no_company": "без компании",
         "contact_found": "контакт найден",
         "contact_new": "контакт новый",
-        "by": {"inn": "по ИНН", "domain": "по домену", "email": "по почте", "name": "по названию", "phone": "по телефону"},
+        "by": {
+            "inn": "по ИНН",
+            "domain": "по домену",
+            "email": "по почте",
+            "name": "по названию",
+            "phone": "по телефону",
+        },
         "task": "Ответить на письмо: {request} · Al-Nuzum",
         "task_reply": "Ответить клиенту по сделке: {request} · Al-Nuzum",
         "attachments": "Вложения",
@@ -55,7 +61,13 @@ LABELS = {
         "no_company": "no company",
         "contact_found": "contact found",
         "contact_new": "new contact",
-        "by": {"inn": "by tax ID", "domain": "by domain", "email": "by e-mail", "name": "by name", "phone": "by phone"},
+        "by": {
+            "inn": "by tax ID",
+            "domain": "by domain",
+            "email": "by e-mail",
+            "name": "by name",
+            "phone": "by phone",
+        },
         "task": "Reply to the letter: {request} · Al-Nuzum",
         "task_reply": "Reply to the customer on the deal: {request} · Al-Nuzum",
         "attachments": "Attachments",
@@ -93,7 +105,9 @@ class Plan:
         return out
 
 
-def note_text(letter: Letter, reading: Reading, binding: dict[str, Any], choice: dict[str, Any], lang: str) -> str:
+def note_text(
+    letter: Letter, reading: Reading, binding: dict[str, Any], choice: dict[str, Any], lang: str
+) -> str:
     t = LABELS["en" if lang == "en" else "ru"]
     v = values(reading)
 
@@ -108,7 +122,11 @@ def note_text(letter: Letter, reading: Reading, binding: dict[str, Any], choice:
         lines.append(f"{t['from']}: {sender}")
     company = " · ".join(
         x
-        for x in (one(v.get("company")), f"{t['inn']} {one(v.get('inn'))}" if v.get("inn") else "", one(v.get("website")))
+        for x in (
+            one(v.get("company")),
+            f"{t['inn']} {one(v.get('inn'))}" if v.get("inn") else "",
+            one(v.get("website")),
+        )
         if x
     )
     if company:
@@ -167,7 +185,9 @@ def plan_of(
     company_id = chosen if chosen in known else None
     company = None
     if chosen == "new" and v.get("company"):
-        company = CompanyIn(crm_text(v["company"], 200), inn=v.get("inn"), phone=v.get("phone"), email=v.get("email"))
+        company = CompanyIn(
+            crm_text(v["company"], 200), inn=v.get("inn"), phone=v.get("phone"), email=v.get("email")
+        )
     contact = None
     if not binding.get("contact") and (v.get("person") or v.get("email") or v.get("phone")):
         name = crm_text(v.get("person") or v.get("email") or v.get("phone") or "", 120)
@@ -186,7 +206,8 @@ def plan_of(
 
 
 def made_of(steps: list[str]) -> dict[str, str]:
-    """``company:<id>``, ``contact:<id>``, ``deal:<id>``, ``note``, ``task`` → by name (an empty id: none made)."""
+    """``company:<id>``, ``contact:<id>``, ``deal:<id>``, ``note``, ``task`` → by name (an empty id: none
+    made)."""
     out = {}
     for step in steps:
         name, _, value = step.partition(":")

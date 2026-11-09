@@ -1,5 +1,5 @@
-"""The work behind the page: a letter becomes a stored reading bound to the CRM, a person's choice becomes a lead
-with its company and contact, or a note and a task in a deal, or nothing."""
+"""The work behind the page: a letter becomes a stored reading bound to the CRM, a person's choice becomes a
+lead with its company and contact, or a note and a task in a deal, or nothing."""
 
 import asyncio
 import json
@@ -31,7 +31,13 @@ from alnuzum_orders.store import DEMO_OWNER
 from alnuzum_orders.web import Parsing
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.solutions import Kit
-from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound, ConnectionStore, QuotaExceeded
+from alnuzum_platform.store import (
+    ConnectionDisabled,
+    ConnectionInfo,
+    ConnectionNotFound,
+    ConnectionStore,
+    QuotaExceeded,
+)
 
 log = logging.getLogger("alnuzum_mail")
 MAX_LOOKS = 5  # looks into the CRM a run may ask for after its reading (fresh look, deal search)
@@ -69,7 +75,9 @@ class MailError(RuntimeError):
 
 
 def _truth() -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(resources.files("alnuzum_mail").joinpath("samples/truth.json").read_text())
+    data: dict[str, Any] = json.loads(
+        resources.files("alnuzum_mail").joinpath("samples/truth.json").read_text()
+    )
     return data
 
 
@@ -178,7 +186,7 @@ class Mail:
     # --- reading ---
 
     async def look(self, crm: CRM, letter: Letter, reading: Reading, *, demo: bool) -> dict[str, Any]:
-        """What the CRM holds of the sender: candidate companies, the contact, the deals a reply may go into."""
+        """What the CRM holds of the sender: candidate companies, the contact, deals a reply may go into."""
         v = values(reading)
         keys = Keys.of(v)
         hits = await crm.find_companies(
@@ -188,7 +196,9 @@ class Mail:
         company = best(companies)
         contact = None
         if v.get("email") or v.get("phone"):
-            contact = await crm.find_contact(ContactIn(v.get("person") or "", email=v.get("email"), phone=v.get("phone")))
+            contact = await crm.find_contact(
+                ContactIn(v.get("person") or "", email=v.get("email"), phone=v.get("phone"))
+            )
         found = []
         if company:
             found += await crm.deal_history(company_id=company, limit=50)
@@ -208,23 +218,42 @@ class Mail:
     async def bind(
         self, app: FastAPI, kit: Kit, info: ConnectionInfo, letter: Letter, reading: Reading, *, demo: bool
     ) -> dict[str, Any]:
-        """``look`` within its time; a CRM that fails or is slow leaves the letter unbound, said on the page."""
+        """``look`` within its time; a CRM failing or slow leaves the letter unbound, as the page says."""
         try:
             async with await self.adapter(app, kit, info) as crm:
-                return await asyncio.wait_for(self.look(crm, letter, reading, demo=demo), self.settings.mail_crm_seconds)
+                return await asyncio.wait_for(
+                    self.look(crm, letter, reading, demo=demo), self.settings.mail_crm_seconds
+                )
         except (ConnectionDisabled, ConnectionNotFound):
             error = "auth"
         except CrmError as exc:
             error = "auth" if crm_error(exc) == "auth" else "unavailable"
         except TimeoutError:
             error = "slow"
-        return {"checked": False, "error": error, "companies": [], "company": None, "contact": None, "deals": [], "deal": None}
+        return {
+            "checked": False,
+            "error": error,
+            "companies": [],
+            "company": None,
+            "contact": None,
+            "deals": [],
+            "deal": None,
+        }
 
-    async def route_of(self, ms: MailStore, owner: str, target: str, letter: Letter, reading: Reading) -> dict[str, Any]:
+    async def route_of(
+        self, ms: MailStore, owner: str, target: str, letter: Letter, reading: Reading
+    ) -> dict[str, Any]:
         saved = await ms.get_rules(owner, target) or {}
         rules = load(saved)
         v = values(reading)
-        found = route(rules, subject=letter.subject, body=letter.body, email=v.get("email"), site=v.get("website"), language=reading.language)
+        found = route(
+            rules,
+            subject=letter.subject,
+            body=letter.body,
+            email=v.get("email"),
+            site=v.get("website"),
+            language=reading.language,
+        )
         rule = rules[found.rule - 1] if found.rule else None
         names = saved.get("names") or {}
         return {
@@ -266,7 +295,10 @@ class Mail:
         result = {
             "letter": letter.to_json(),
             "reading": reading.to_json(),
-            "usage": {"calls": reading.usage.calls, "usd": str(reading.usage.usd.quantize(Decimal("0.0001")))},
+            "usage": {
+                "calls": reading.usage.calls,
+                "usd": str(reading.usage.usd.quantize(Decimal("0.0001"))),
+            },
             "binding": binding,
             "route": await self.route_of(ms, owner, target_key(info, demo), letter, reading),
             "choice": {"cls": reading.cls},
@@ -275,7 +307,9 @@ class Mail:
         }
         await ms.fill_run(run_id, result, summary(reading, letter))
 
-    async def look_again(self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, query: str | None) -> str:
+    async def look_again(
+        self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, query: str | None
+    ) -> str:
         """A fresh look into the CRM, or a search of deals by a name (a reply whose deal was not found)."""
         ms = self.store(app, kit)
         result = dict(run.result or {})
@@ -322,7 +356,14 @@ class Mail:
         lang = str(result.get("lang") or "ru")
         letter, reading = Letter.of(result["letter"]), Reading.of(result["reading"])
         plan = plan_of(
-            letter, reading, result["binding"], result["route"], result["choice"], crm=run.crm, lang=lang, demo=run.demo
+            letter,
+            reading,
+            result["binding"],
+            result["route"],
+            result["choice"],
+            crm=run.crm,
+            lang=lang,
+            demo=run.demo,
         )
         done_before = await ms.steps_done(run.id)
         creates = plan.creates(made_of(done_before))
@@ -337,7 +378,9 @@ class Mail:
             info = await st.get(run.connection_id, owner)
             crm_ = await self.adapter(app, kit, info)
             # a demo connection keeps a reserve per solution: letters never eat the writes of the other three
-            write_id = await st.start_write(info.id, owner, "mail_write", quota, scope="mail_" if run.demo else None)
+            write_id = await st.start_write(
+                info.id, owner, "mail_write", quota, scope="mail_" if run.demo else None
+            )
         except (QuotaExceeded, ConnectionDisabled, ConnectionNotFound) as exc:
             code = "quota" if isinstance(exc, QuotaExceeded) else "auth"
             await ms.finish_writing(run.id, ok=False, error=code)
@@ -356,7 +399,11 @@ class Mail:
                         await ms.finish_writing(run.id, ok=False, error="not_demo")
                         return "not_demo"
                 deal_id = await write(crm, plan, done=steps, mark=mark)
-                url = None if run.demo or not deal_id else crm.deal_link(kit.connectors.account_of(info), deal_id)
+                url = (
+                    None
+                    if run.demo or not deal_id
+                    else crm.deal_link(kit.connectors.account_of(info), deal_id)
+                )
         except CrmError as exc:
             code = crm_error(exc)
             await st.finish_write(write_id, ok=False, error=code)

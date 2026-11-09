@@ -1,5 +1,5 @@
-"""What the solution keeps: a run of a letter for 24 hours, the routing rules of an owner per CRM, the money of
-every paid call, and the records the demo created in the test accounts.
+"""What the solution keeps: a run of a letter for 24 hours, the routing rules of an owner per CRM, the money
+of every paid call, and the records the demo created in the test accounts.
 
 The letter, what was read out of it and what the CRM was found to hold are sealed with the platform's keys
 (AES-GCM, bound to the row's id): the nightly copy of the database lives on the backup host for two weeks and
@@ -8,8 +8,7 @@ tombstone the quotas still count. The demo's records are only ids in the test ac
 those accounts keep the records (amoCRM and Kommo cannot delete them through the API).
 
 Quotas are counted from these tables, each taken before the work it pays for, in one transaction under an
-advisory lock, so parallel requests cannot both take the last one, and an attempt that fails stays counted.
-"""
+advisory lock, so parallel requests cannot both take the last one, and an attempt that fails stays counted."""
 
 import uuid
 from dataclasses import dataclass
@@ -18,7 +17,22 @@ from decimal import Decimal
 from typing import Any
 
 from alnuzum_contracts.store import Seal
-from sqlalchemy import Boolean, DateTime, Integer, LargeBinary, Numeric, String, Uuid, cast, delete, func, or_, select, text, update
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    Uuid,
+    cast,
+    delete,
+    func,
+    or_,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
@@ -48,7 +62,9 @@ class MailRun(Base):
     status: Mapped[str] = mapped_column(String(16))
     sealed: Mapped[bytes | None] = mapped_column(LargeBinary)
     summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # the class and counts, no text
-    steps: Mapped[list[str] | None] = mapped_column(JSONB)  # company:<id>, contact:<id>, deal:<id>, note, task
+    steps: Mapped[list[str] | None] = mapped_column(
+        JSONB
+    )  # company:<id>, contact:<id>, deal:<id>, note, task
     deal_url: Mapped[str | None] = mapped_column(String(500))
     error: Mapped[str | None] = mapped_column(String(40))
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -145,7 +161,13 @@ def _day() -> datetime:
 
 
 # what an erased run keeps: the fields the quotas count; the letter, what was read and found are gone
-TOMBSTONE: dict[str, Any] = {"status": "erased", "sealed": None, "summary": None, "deal_url": None, "erase_after": False}
+TOMBSTONE: dict[str, Any] = {
+    "status": "erased",
+    "sealed": None,
+    "summary": None,
+    "deal_url": None,
+    "erase_after": False,
+}
 
 
 async def _demo_down(session: AsyncSession, crm: str) -> bool:
@@ -162,7 +184,9 @@ async def _demo_down(session: AsyncSession, crm: str) -> bool:
     if refused is None:
         return False
     written = await session.scalar(
-        select(func.count()).select_from(MailRun).where(MailRun.demo, MailRun.crm == crm, MailRun.written_at > refused)
+        select(func.count())
+        .select_from(MailRun)
+        .where(MailRun.demo, MailRun.crm == crm, MailRun.written_at > refused)
     )
     return not written
 
@@ -284,8 +308,9 @@ class MailStore:
             return bool(done.rowcount)  # type: ignore[attr-defined]
 
     async def erase(self, run_id: uuid.UUID, owner: str) -> str:
-        """At its owner's word: erased at once, the row a tombstone the quotas still count ("erased"); while it
-        is being written, erased the moment the write ends ("pending"). "missing": not this owner's, or gone."""
+        """At its owner's word: erased at once, the row a tombstone the quotas still count ("erased"); while
+        it is being written, erased the moment the write ends ("pending"). "missing": not this owner's, or
+        gone."""
         async with self._sessions.begin() as session:
             row = await session.scalar(
                 select(MailRun)
@@ -302,11 +327,19 @@ class MailStore:
             return "erased"
 
     async def start_writing(
-        self, run_id: uuid.UUID, owner: str, *, demo: bool, crm: str, ip_key: str, creates: int, limits: Limits
+        self,
+        run_id: uuid.UUID,
+        owner: str,
+        *,
+        demo: bool,
+        crm: str,
+        ip_key: str,
+        creates: int,
+        limits: Limits,
     ) -> str:
-        """The only way to "writing": from "ready" or "failed", by the owner. Returns "ok", "busy", "quota" (the
-        owner's or the address's demo writes of the day), "full" (this demo CRM's of the day), "full_new" (the
-        records the demo may still create in this test account) or "down" (it refuses records now)."""
+        """The only way to "writing": from "ready" or "failed", by the owner. Returns "ok", "busy", "quota"
+        (the owner's or the address's demo writes of the day), "full" (this demo CRM's of the day), "full_new"
+        (the records the demo may still create in this test account) or "down" (it refuses records now)."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
@@ -316,9 +349,15 @@ class MailStore:
                     return "down"
                 writing = or_(MailRun.written_at > _day(), MailRun.status == "writing")
                 count = select(func.count()).select_from(MailRun).where(MailRun.demo, writing)
-                if int(await session.scalar(count.where(MailRun.owner == owner)) or 0) >= limits.demo_per_owner:
+                if (
+                    int(await session.scalar(count.where(MailRun.owner == owner)) or 0)
+                    >= limits.demo_per_owner
+                ):
                     return "quota"
-                if int(await session.scalar(count.where(MailRun.write_ip_key == ip_key)) or 0) >= limits.demo_per_ip:
+                if (
+                    int(await session.scalar(count.where(MailRun.write_ip_key == ip_key)) or 0)
+                    >= limits.demo_per_ip
+                ):
                     return "quota"
                 if int(await session.scalar(count.where(MailRun.crm == crm)) or 0) >= limits.demo_per_crm:
                     return "full"
@@ -336,9 +375,11 @@ class MailStore:
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
 
-    async def step_done(self, run_id: uuid.UUID, step: str, *, crm: str, demo: bool, created: str | None) -> None:
-        """Kept before the next step begins: a retry skips it. A record the demo created goes to its journal in
-        the same transaction."""
+    async def step_done(
+        self, run_id: uuid.UUID, step: str, *, crm: str, demo: bool, created: str | None
+    ) -> None:
+        """Kept before the next step begins: a retry skips it. A record the demo created goes to its journal
+        in the same transaction."""
         async with self._sessions.begin() as session:
             await session.execute(
                 update(MailRun)
@@ -350,7 +391,11 @@ class MailStore:
                 )
             )
             if demo and created:
-                session.add(MailDemoRecord(id=uuid.uuid4(), crm=crm, kind=created, record_id=step.partition(":")[2][:64]))
+                session.add(
+                    MailDemoRecord(
+                        id=uuid.uuid4(), crm=crm, kind=created, record_id=step.partition(":")[2][:64]
+                    )
+                )
 
     async def steps_done(self, run_id: uuid.UUID) -> list[str]:
         async with self._sessions() as session:
@@ -372,8 +417,9 @@ class MailStore:
                     setattr(row, name, value)
 
     async def release_stuck(self) -> tuple[int, int]:
-        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (a retry goes on from
-        the first step not done; one its owner asked to erase is erased now), "reading" becomes "rejected"."""
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (a retry goes on
+        from the first step not done; one its owner asked to erase is erased now), "reading" becomes
+        "rejected"."""
         cut = datetime.now(UTC) - STUCK
         async with self._sessions.begin() as session:
             stuck = (
@@ -446,20 +492,24 @@ class MailStore:
     async def spent_today(self) -> Decimal:
         async with self._sessions() as session:
             return Decimal(
-                await session.scalar(select(func.coalesce(func.sum(MailSpend.usd), 0)).where(MailSpend.created_at > _day()))
+                await session.scalar(
+                    select(func.coalesce(func.sum(MailSpend.usd), 0)).where(MailSpend.created_at > _day())
+                )
                 or 0
             )
 
     # --- the sweep ---
 
     async def purge(self) -> tuple[int, int]:
-        """The letter of a run older than 24 hours always (the row stays a tombstone while a quota still counts
-        its write), tombstones nothing counts any more, rules of connections that are not active and of demo
-        CRMs unchanged for 30 days, spends older than 30 days. The demo's journal of records stays."""
+        """The letter of a run older than 24 hours always (the row stays a tombstone while a quota still
+        counts its write), tombstones nothing counts any more, rules of connections that are not active and of
+        demo CRMs unchanged for 30 days, spends older than 30 days. The demo's journal of records stays."""
         cut = datetime.now(UTC) - KEEP
         async with self._sessions.begin() as session:
             await session.execute(
-                update(MailRun).where(MailRun.created_at < cut, MailRun.status != "erased").values(**TOMBSTONE)
+                update(MailRun)
+                .where(MailRun.created_at < cut, MailRun.status != "erased")
+                .values(**TOMBSTONE)
             )
             runs = await session.execute(
                 delete(MailRun).where(

@@ -1,10 +1,9 @@
-"""A customer's letter: an ``.eml`` file (its body, its headers, up to three attachments read) or a letter pasted
-as text (the header lines at its top, if any, are read as headers).
+"""A customer's letter: an ``.eml`` file (its body, its headers, up to three attachments read) or a letter
+pasted as text (the header lines at its top, if any, are read as headers).
 
-Nothing is cut silently: the history of earlier letters quoted below the new one is set aside and the page says
-how much of it there was; a body still over ``MAX_BODY`` is refused with the number; an attachment over
-``MAX_ATTACHMENT_TEXT`` is read from its start and the page says so.
-"""
+Nothing is cut silently: the history of earlier letters quoted below the new one is set aside and the page
+says how much of it there was; a body still over ``MAX_BODY`` is refused with the number; an attachment over
+``MAX_ATTACHMENT_TEXT`` is read from its start and the page says so."""
 
 import re
 from dataclasses import asdict, dataclass, field
@@ -121,7 +120,9 @@ def from_text(text: str) -> Letter:
     n = 0
     while n < len(lines) and (found := _HEAD.match(lines[n].strip())):
         key = found.group(1).casefold()
-        heads.setdefault({"от": "from", "кому": "to", "тема": "subject", "дата": "date"}.get(key, key), found.group(2))
+        heads.setdefault(
+            {"от": "from", "кому": "to", "тема": "subject", "дата": "date"}.get(key, key), found.group(2)
+        )
         n += 1
     name, address = parseaddr(heads.get("from", ""))
     body, history = split_history("\n".join(lines[n:]))
@@ -146,7 +147,9 @@ def from_text(text: str) -> Letter:
 def _read_attachment(n: int, raw: dict[str, Any], images: list[tuple[str, bytes]]) -> Attachment:
     import base64
 
-    item = Attachment(f"a{n}", str(raw.get("name") or "—"), str(raw.get("kind") or "other"), int(raw.get("size") or 0))
+    item = Attachment(
+        f"a{n}", str(raw.get("name") or "—"), str(raw.get("kind") or "other"), int(raw.get("size") or 0)
+    )
     item.error = raw.get("error")
     text = str(raw.get("text") or "")
     data = base64.b64decode(raw["data"]) if raw.get("data") else b""
@@ -188,7 +191,9 @@ def from_eml(data: bytes) -> Letter:
     if _FORWARD.match(subject) and len(body) < 40:
         body, history = str(raw.get("body") or "").strip(), 0
     images: list[tuple[str, bytes]] = []
-    attachments = [_read_attachment(n, a, images) for n, a in enumerate(raw.get("attachments") or [], start=1)]
+    attachments = [
+        _read_attachment(n, a, images) for n, a in enumerate(raw.get("attachments") or [], start=1)
+    ]
     letter = Letter(
         "eml",
         str(raw.get("from_name") or ""),

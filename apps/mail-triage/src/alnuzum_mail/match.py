@@ -1,8 +1,7 @@
-"""Which company of the CRM wrote the letter, decided here and not by how a CRM searches: the INN, the domain of
-the site or of a corporate mailbox, the name without its legal form, the phone. A company whose INN differs from
-the letter's is never the one, whatever else agrees. And the deal a reply belongs to: the open deals of that
-company and contact, the one whose title shares most words with the subject first.
-"""
+"""Which company of the CRM wrote the letter, decided here and not by how a CRM searches: the INN, the domain
+of the site or of a corporate mailbox, the name without its legal form, the phone. A company whose INN differs
+from the letter's is never the one, whatever else agrees. And the deal a reply belongs to: the open deals of
+that company and contact, the one whose title shares most words with the subject first."""
 
 import re
 from dataclasses import dataclass
@@ -13,10 +12,44 @@ from alnuzum_crm.types import CompanyHit, Deal, DealStatus
 
 # mailboxes anybody can have: their domain says nothing about a company
 PUBLIC = frozenset(
-    """gmail.com googlemail.com mail.ru bk.ru inbox.ru list.ru internet.ru yandex.ru yandex.com yandex.uz
-    yandex.kz ya.ru rambler.ru outlook.com hotmail.com live.com msn.com yahoo.com icloud.com me.com mac.com
-    aol.com proton.me protonmail.com gmx.com gmx.de gmx.net mail.com zoho.com zohomail.com umail.uz mail.uz
-    inbox.uz ukr.net tut.by qip.ru""".split()
+    [
+        "gmail.com",
+        "googlemail.com",
+        "mail.ru",
+        "bk.ru",
+        "inbox.ru",
+        "list.ru",
+        "internet.ru",
+        "yandex.ru",
+        "yandex.com",
+        "yandex.uz",
+        "yandex.kz",
+        "ya.ru",
+        "rambler.ru",
+        "outlook.com",
+        "hotmail.com",
+        "live.com",
+        "msn.com",
+        "yahoo.com",
+        "icloud.com",
+        "me.com",
+        "mac.com",
+        "aol.com",
+        "proton.me",
+        "protonmail.com",
+        "gmx.com",
+        "gmx.de",
+        "gmx.net",
+        "mail.com",
+        "zoho.com",
+        "zohomail.com",
+        "umail.uz",
+        "mail.uz",
+        "inbox.uz",
+        "ukr.net",
+        "tut.by",
+        "qip.ru",
+    ]
 )
 WEIGHT = {"inn": 100, "domain": 80, "email": 80, "name": 60, "phone": 50}
 REASONS = tuple(WEIGHT)
@@ -78,13 +111,15 @@ def reasons(hit: CompanyHit, keys: Keys) -> list[str] | None:
 
 def rank(hits: list[CompanyHit], keys: Keys) -> list[dict[str, Any]]:
     """The candidates with a reason, the likeliest first: ``{"id", "name", "inn", "by", "score"}``."""
-    out = []
+    out: list[dict[str, Any]] = []
     for hit in hits:
         why = reasons(hit, keys)
         if not why:
             continue
         score = max(WEIGHT[w] for w in why) + 5 * (len(why) - 1)
-        out.append({"id": hit.id, "name": hit.name[:200], "inn": digits(hit.inn) or None, "by": why, "score": score})
+        out.append(
+            {"id": hit.id, "name": hit.name[:200], "inn": digits(hit.inn) or None, "by": why, "score": score}
+        )
     out.sort(key=lambda c: (-c["score"], len(c["id"]), c["id"]))
     return out[:MAX_COMPANIES]
 
@@ -107,12 +142,14 @@ def deals(found: list[Deal], subject: str, *, prefix: str | None = None) -> list
     that start with it (the demo writes only into its own deals)."""
     words = subject_words(subject)
     seen: set[str] = set()
-    out = []
+    out: list[dict[str, Any]] = []
     for d in found:
         if d.id in seen or (prefix and not d.title.startswith(prefix)):
             continue
         seen.add(d.id)
         shared = len(words & subject_words(d.title))
-        out.append({"id": d.id, "title": d.title[:200], "open": d.status is DealStatus.OPEN, "shared": shared})
+        out.append(
+            {"id": d.id, "title": d.title[:200], "open": d.status is DealStatus.OPEN, "shared": shared}
+        )
     out.sort(key=lambda d: (not d["open"], -d["shared"], d["title"]))
     return out[:MAX_DEALS]

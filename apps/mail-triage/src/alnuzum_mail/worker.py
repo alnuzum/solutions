@@ -1,12 +1,11 @@
-"""A letter from a stranger, opened in a process of its own (``python -I -m alnuzum_mail.worker <memory>``): the
-MIME tree (nested parts, encodings, RFC 2047 headers), its HTML turned into text, the text layer of a PDF
+"""A letter from a stranger, opened in a process of its own (``python -I -m alnuzum_mail.worker <memory>``):
+the MIME tree (nested parts, encodings, RFC 2047 headers), its HTML turned into text, the text layer of a PDF
 attachment. A memory ceiling, and the parent kills it on time, which it cannot do to a thread: a letter of
 thousands of nested parts or a PDF built to make its parser loop is stopped here, not in the platform.
 
-The ``.eml`` comes on stdin; out goes ``{"letter": {...}}`` or ``{"error": code}``; exit 4 is what the parser or
-the ceiling stopped. Attachments it does not read itself (a scan, a picture, a Word document) go back as
-bytes: the parent reads them in children of their own, one at a time.
-"""
+The ``.eml`` comes on stdin; out goes ``{"letter": {...}}`` or ``{"error": code}``; exit 4 is what the parser
+or the ceiling stopped. Attachments it does not read itself (a scan, a picture, a Word document) go back as
+bytes: the parent reads them in children of their own, one at a time."""
 
 import base64
 import json
@@ -38,7 +37,9 @@ _BLANKS = re.compile(r"\n{3,}")
 class _Text(HTMLParser):
     """The visible text of an HTML body: blocks on lines of their own, no scripts, styles or comments."""
 
-    BLOCKS = frozenset({"p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "blockquote"})
+    BLOCKS = frozenset(
+        {"p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "blockquote"}
+    )
     SKIP = frozenset({"script", "style", "head", "title"})
 
     def __init__(self) -> None:
@@ -73,7 +74,9 @@ def html_text(html: str) -> str:
 
 
 def tidy(text: str) -> str:
-    lines = [_SPACE.sub(" ", line).strip() for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    lines = [
+        _SPACE.sub(" ", line).strip() for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    ]
     return _BLANKS.sub("\n\n", "\n".join(lines)).strip()
 
 
@@ -139,7 +142,10 @@ def _attachment(part: EmailMessage) -> dict[str, Any]:
         return item | {"kind": kind if kind == "docx" else "image", "data": base64.b64encode(data).decode()}
     if kind == "text" and part.get_content_maintype() == "text":
         try:
-            return item | {"kind": "text", "text": tidy(data.decode(part.get_content_charset() or "utf-8", "replace"))}
+            return item | {
+                "kind": "text",
+                "text": tidy(data.decode(part.get_content_charset() or "utf-8", "replace")),
+            }
         except LookupError:
             return item | {"kind": "text", "text": tidy(data.decode("utf-8", "replace"))}
     return item | {"kind": "other"}
@@ -154,9 +160,11 @@ def open_letter(data: bytes) -> dict[str, Any]:
     attachments: list[dict[str, Any]] = []
     for n, part in enumerate(msg.iter_attachments()):
         if n >= MAX_ATTACHMENTS:
-            attachments.append({"name": " ".join(str(part.get_filename() or "").split())[:120] or "—", "kind": "skipped"})
+            attachments.append(
+                {"name": " ".join(str(part.get_filename() or "").split())[:120] or "—", "kind": "skipped"}
+            )
             continue
-        attachments.append(_attachment(part))  # type: ignore[arg-type]
+        attachments.append(_attachment(part))
     return {
         "from_name": name[:120],
         "from_email": address[:200],
@@ -164,7 +172,9 @@ def open_letter(data: bytes) -> dict[str, Any]:
         "subject": _header(msg, "Subject"),
         "date": _header(msg, "Date"),
         "in_reply_to": bool(_header(msg, "In-Reply-To") or _header(msg, "References")),
-        "bulk": bool(_header(msg, "List-Unsubscribe") or _header(msg, "Precedence").casefold() in ("bulk", "list")),
+        "bulk": bool(
+            _header(msg, "List-Unsubscribe") or _header(msg, "Precedence").casefold() in ("bulk", "list")
+        ),
         "body": _body(msg),
         "attachments": attachments,
     }

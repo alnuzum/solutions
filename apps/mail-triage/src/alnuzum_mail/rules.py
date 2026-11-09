@@ -1,6 +1,6 @@
-"""The company's own routing: a list of rules, the first that matches the letter decides the stage of the new deal
-and who leads it. A rule is «a word in the subject or the text», «the sender's domain» or «the language of the
-letter»; a letter no rule matches starts at the CRM's first stage, led by the owner of the connection.
+"""The company's own routing: a list of rules, the first that matches the letter decides the stage of the new
+deal and who leads it. A rule is «a word in the subject or the text», «the sender's domain» or «the language
+of the letter»; a letter no rule matches starts at the CRM's first stage, led by the owner of the connection.
 """
 
 import re
@@ -40,8 +40,8 @@ class RuleError(ValueError):
 
 
 def parse(form: dict[str, str], stages: set[str], users: set[str]) -> list[Rule]:
-    """Rows of the rules form (``when0``, ``value0``, ``stage0``, ``user0``…): empty rows are skipped; a stage or a
-    user the CRM does not have is refused with the row's number."""
+    """Rows of the rules form (``when0``, ``value0``, ``stage0``, ``user0``…): empty rows are skipped; a stage
+    or a user the CRM does not have is refused with the row's number."""
     out = []
     for i in range(MAX_RULES):
         when = form.get(f"when{i}", "")
@@ -68,17 +68,24 @@ def load(data: Any) -> list[Rule]:
     rules = []
     for raw in (data or {}).get("rules", [])[:MAX_RULES] if isinstance(data, dict) else []:
         if isinstance(raw, dict) and raw.get("when") in KINDS and raw.get("value"):
-            rules.append(Rule(str(raw["when"]), str(raw["value"]), raw.get("stage") or None, raw.get("user") or None))
+            rules.append(
+                Rule(str(raw["when"]), str(raw["value"]), raw.get("stage") or None, raw.get("user") or None)
+            )
     return rules
 
 
-def route(rules: list[Rule], *, subject: str, body: str, email: str | None, site: str | None, language: str) -> Route:
+def route(
+    rules: list[Rule], *, subject: str, body: str, email: str | None, site: str | None, language: str
+) -> Route:
     text = f"{subject}\n{body}".casefold()
     domains = {d for d in (mail_domain(email), host(site)) if d}
     for n, rule in enumerate(rules, start=1):
         if (
             (rule.when == "keyword" and rule.value in text)
-            or (rule.when == "domain" and any(d == rule.value or d.endswith("." + rule.value) for d in domains))
+            or (
+                rule.when == "domain"
+                and any(d == rule.value or d.endswith("." + rule.value) for d in domains)
+            )
             or (rule.when == "language" and rule.value == language)
         ):
             return Route(n, rule.stage, rule.user)
