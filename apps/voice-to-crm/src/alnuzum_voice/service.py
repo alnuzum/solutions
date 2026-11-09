@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_crm.errors import CrmAuthError, CrmError, CrmRateLimited, CrmUnavailable
 from alnuzum_orders.catalog import Catalog, CatalogCache, read_catalog
 from alnuzum_orders.demo_catalog import PREFIX
@@ -285,7 +286,7 @@ class Voice:
 
     async def confirm(self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, lang: str) -> str:
         """Write a confirmed plan; a retry after a failure goes on from the first step not done. Returns the
-        notice: written, quota, full, busy, failed, auth, no_deal."""
+        notice: written, quota, full, down, busy, failed, auth, no_deal."""
         result = Result.from_json(run.result or {})
         if not result.deal_id:
             return "no_deal"
@@ -322,6 +323,8 @@ class Voice:
             if code == "auth" and not run.demo:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("voice run %s not written: %s", run.id, code)
+            if code == ACCOUNT_LIMIT and run.demo:
+                return "down"  # the test account takes no records now: for half an hour the demo says so
             return "auth" if code == "auth" else "failed"
         except Exception:  # anything else: the run must not stay "writing" (a retry goes on from the step)
             log.exception("voice run %s not written", run.id)

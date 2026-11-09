@@ -36,6 +36,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_platform.db import Base
 
 KEEP = timedelta(days=1)
@@ -205,6 +206,30 @@ def _day() -> datetime:
     return datetime.now(UTC) - timedelta(days=1)
 
 
+DEMO_DOWN_FOR = timedelta(minutes=30)
+
+
+async def _demo_down(session: AsyncSession, crm: str) -> bool:
+    """The test account refused a demo write as over its records limit, and nothing was written there
+    since: for half an hour the demo of that CRM says it is unavailable instead of failing every person."""
+    refused = await session.scalar(
+        select(func.max(VoiceRun.writing_at)).where(
+            VoiceRun.demo,
+            VoiceRun.crm == crm,
+            VoiceRun.error == ACCOUNT_LIMIT,
+            VoiceRun.writing_at > datetime.now(UTC) - DEMO_DOWN_FOR,
+        )
+    )
+    if refused is None:
+        return False
+    written = await session.scalar(
+        select(func.count())
+        .select_from(VoiceRun)
+        .where(VoiceRun.demo, VoiceRun.crm == crm, VoiceRun.written_at > refused)
+    )
+    return not written
+
+
 class VoiceStore:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._sessions = sessions
@@ -310,12 +335,14 @@ class VoiceStore:
         self, run_id: uuid.UUID, owner: str, *, demo: bool, crm: str, limits: Limits
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner, after a confirmation. Returns
-        "ok", "busy" (written, being written or cancelled), "quota" (the owner's demo writes of the day) or
-        "full" (this demo CRM's of the day)."""
+        "ok", "busy" (written, being written or cancelled), "quota" (the owner's demo writes of the day),
+        "full" (this demo CRM's of the day) or "down" (its test account refuses records)."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
                 await _lock(session, LOCK_DEMO, "crm:" + crm)
+                if await _demo_down(session, crm):
+                    return "down"
                 since = _day()
                 writing = or_(VoiceRun.written_at > since, VoiceRun.status == "writing")
                 mine = await session.scalar(

@@ -782,3 +782,24 @@ async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_st
         fresh: ("writing", None),
         read: ("rejected", "interrupted"),
     }
+
+
+async def test_a_test_account_over_its_records_limit_says_the_demo_is_unavailable(
+    make: Any, engine: Any
+) -> None:
+    from alnuzum_crm.amocrm import ACCOUNT_LIMIT
+    from alnuzum_crm.errors import CrmPermissionError
+
+    h: Harness = await make()
+    b = Browser(h.app)
+
+    async def full(*_a: Any, **_k: Any) -> str:
+        raise CrmPermissionError("Payment Required", crm="bitrix24", status=400, code=ACCOUNT_LIMIT)
+
+    h.crm.add_note = full  # type: ignore[method-assign]
+    for _ in range(2):  # the second one does not go to the CRM for half an hour
+        run = run_id(await b.compare())
+        assert await written(b, run) == "down"
+    assert await rows(engine, "SELECT count(*) FROM crm_writes") == [(1,)]
+    page = await b.http.get(f"/ru/contracts/{run}?n=down")
+    assert "Демо этой CRM временно недоступно" in page.text

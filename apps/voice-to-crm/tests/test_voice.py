@@ -957,3 +957,29 @@ async def test_the_webhook_keeps_at_most_a_few_updates_in_work(make: Any) -> Non
     h.voice.tasks.clear()
     assert (await h.update(message(592, 1, text="/start"))).status_code == 200
     assert h.tg.texts()  # the same update, sent again, is answered
+
+
+async def test_a_test_account_over_its_records_limit_says_the_demo_is_unavailable(
+    make: Any, engine: Any
+) -> None:
+    from alnuzum_crm.amocrm import ACCOUNT_LIMIT
+    from alnuzum_crm.errors import CrmPermissionError
+
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 2)
+    await _pick_demo(h, 593)
+
+    async def full(*_a: Any, **_k: Any) -> None:
+        raise CrmPermissionError("Payment Required", crm="bitrix24", status=400, code=ACCOUNT_LIMIT)
+
+    h.crm.update_deal = full  # type: ignore[method-assign]
+    await h.update(message(593, 1, text="По сделке Ромашка переведи на переговоры."))
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    await h.update(callback(593, 2, button))
+    assert "Демо Битрикс24 временно недоступно" in h.tg.texts()[-1]
+    # the next visitor does not go to the CRM for half an hour: the same words, no write
+    h.crm.update_deal = None  # type: ignore[assignment,method-assign]
+    await h.update(message(593, 3, text="По сделке Ромашка переведи на переговоры."))
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    await h.update(callback(593, 4, button))
+    assert "Демо Битрикс24 временно недоступно" in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT count(*) FROM crm_writes") == [(1,)]

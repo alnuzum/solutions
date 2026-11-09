@@ -40,6 +40,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import Base
 
@@ -193,6 +194,30 @@ TOMBSTONE: dict[str, Any] = {
     "deal_url": None,
     "erase_after": False,
 }
+
+
+DEMO_DOWN_FOR = timedelta(minutes=30)
+
+
+async def _demo_down(session: AsyncSession, crm: str) -> bool:
+    """The test account refused a demo write as over its records limit, and nothing was written there
+    since: for half an hour the demo of that CRM says it is unavailable instead of failing every visitor."""
+    refused = await session.scalar(
+        select(func.max(ContractRun.writing_at)).where(
+            ContractRun.demo,
+            ContractRun.crm == crm,
+            ContractRun.error == ACCOUNT_LIMIT,
+            ContractRun.writing_at > datetime.now(UTC) - DEMO_DOWN_FOR,
+        )
+    )
+    if refused is None:
+        return False
+    written = await session.scalar(
+        select(func.count())
+        .select_from(ContractRun)
+        .where(ContractRun.demo, ContractRun.crm == crm, ContractRun.written_at > refused)
+    )
+    return not written
 
 
 class ContractStore:
@@ -352,13 +377,15 @@ class ContractStore:
         self, run_id: uuid.UUID, owner: str, *, demo: bool, crm: str, ip_key: str, limits: Limits
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner. Returns "ok", "busy" (written,
-        being written), "quota" (the owner's or the address's demo writes of the day) or "full" (this demo
-        CRM's of the day)."""
+        being written), "quota" (the owner's or the address's demo writes of the day), "full" (this demo
+        CRM's of the day) or "down" (its test account refuses records)."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
                 await _lock(session, LOCK_DEMO, "ip:" + ip_key)
                 await _lock(session, LOCK_DEMO, "crm:" + crm)
+                if await _demo_down(session, crm):
+                    return "down"
                 writing = or_(ContractRun.written_at > _day(), ContractRun.status == "writing")
                 count = select(func.count()).select_from(ContractRun).where(ContractRun.demo, writing)
                 if (
