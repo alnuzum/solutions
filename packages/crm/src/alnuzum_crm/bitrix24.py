@@ -17,6 +17,7 @@ import base64
 import contextlib
 import logging
 import re
+from collections.abc import Iterable
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, ClassVar
@@ -996,6 +997,22 @@ class Bitrix24(CRM):
     async def discard_task(self, task_id: str) -> None:
         with contextlib.suppress(CrmNotFound):
             await self._result("crm.activity.delete", {"id": int(record_id(task_id, self.kind.value))})
+
+    async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
+        wanted = sorted({record_id(i, self.kind.value) for i in ids}, key=int)
+        out: dict[str, str] = {}
+        for n in range(0, len(wanted), 50):
+            if contacts:
+                out |= await self._titles(
+                    "crm.contact.list",
+                    set(wanted[n : n + 50]),
+                    lambda r: " ".join(x for x in (r.get("NAME"), r.get("LAST_NAME")) if x),
+                )
+            else:
+                out |= await self._titles(
+                    "crm.company.list", set(wanted[n : n + 50]), lambda r: str(r.get("TITLE") or "")
+                )
+        return out
 
     async def _delete(self, method: str, ids: tuple[str, ...]) -> None:
         for i in ids:

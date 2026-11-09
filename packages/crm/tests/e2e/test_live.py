@@ -326,6 +326,8 @@ async def test_purchases_and_a_task_on_the_client(
                 assert [(x.product_id, x.quantity) for x in p.lines] == [(product, qty)], p.lines
                 assert all(x.unit_price == Decimal(100) for x in p.lines), p.lines
             assert (await crm.purchases(company_id=company, lines=False)).items[0].lines == ()
+            named = await crm.client_names([company])
+            assert list(named) == [company] and named[company].startswith("E2E"), named
             since = min(p.closed_at for p in mine) - timedelta(days=1)
             window = await crm.purchases(company_id=company, since=since, until=now + timedelta(days=1))
             assert {p.deal_id for p in mine} <= {p.deal_id for p in window.items}

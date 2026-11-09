@@ -1028,6 +1028,15 @@ class AmoCRM(CRM):
         body = {"is_completed": True, "result": {"text": E2E_TAG}}
         await self._request("PATCH", f"/api/v4/tasks/{int(record_id(task_id, self.kind.value))}", json=body)
 
+    async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
+        key = "contacts" if contacts else "companies"
+        wanted = sorted({int(record_id(i, self.kind.value)) for i in ids})
+        out: dict[str, str] = {}
+        for n in range(0, len(wanted), 50):
+            found = await self._names(f"/api/v4/{key}", key, set(wanted[n : n + 50]))
+            out |= {str(k): v for k, v in found.items()}
+        return out
+
     # --- cleanup ---
 
     async def discard(self, leftovers: Leftovers) -> None:

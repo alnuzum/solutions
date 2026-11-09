@@ -543,3 +543,71 @@ async def test_odoo_dates_a_won_opportunity_and_puts_an_activity_on_the_partner(
     assert listed == [ClientTask("8", "Позвонить", datetime(2026, 11, 12, tzinfo=UTC))]
     unlinks = [c for c in calls if c[:2] == ("mail.activity", "unlink")]
     assert [c[2] for c in unlinks] == [[[8]]], "a missing activity is not unlinked"
+
+
+# --- names of the clients a scan shows ---
+
+
+async def test_amocrm_names_companies_and_contacts_fifty_a_request() -> None:
+    asked: list[tuple[str, list[str]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        ids = request.url.params.get_list("filter[id][]")
+        key = request.url.path.rsplit("/", 1)[-1]
+        asked.append((key, ids))
+        rows = [{"id": int(i), "name": f"{key} {i}"} for i in ids if i != "77"]
+        return httpx.Response(200, json={"_embedded": {key: rows}})
+
+    async with _amo(handler) as crm:
+        got = await crm.client_names([str(i) for i in range(1, 61)] + ["77", "5"])
+        assert len(got) == 60 and got["5"] == "companies 5" and "77" not in got
+        assert [len(ids) for _, ids in asked] == [50, 11]
+        assert await crm.client_names(["9"], contacts=True) == {"9": "contacts 9"}
+        assert await crm.client_names([]) == {}
+        with pytest.raises(ValueError, match="id"):
+            await crm.client_names(["1/../x"])
+
+
+async def test_bitrix24_names_by_title_or_by_name_and_last_name() -> None:
+    calls: list[tuple[str, Any]] = []
+    results = {
+        "crm.company.list": lambda p: [{"ID": i, "TITLE": f"Co {i}"} for i in p["filter"]["ID"]],
+        "crm.contact.list": [{"ID": "4", "NAME": "Алишер", "LAST_NAME": "Каримов"}],
+    }
+    async with _b24(results, calls) as crm:
+        assert await crm.client_names(["3", "1"]) == {"1": "Co 1", "3": "Co 3"}
+        assert await crm.client_names(["4"], contacts=True) == {"4": "Алишер Каримов"}
+    assert calls[0] == ("crm.company.list", calls[0][1]) and calls[0][1]["filter"] == {"ID": ["1", "3"]}
+
+
+async def test_zoho_names_records_by_ids_and_skips_the_missing() -> None:
+    asked: list[tuple[str, dict[str, str]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append((request.url.path, dict(request.url.params)))
+        if request.url.path.endswith("/Contacts"):
+            return httpx.Response(204)
+        rows = [{"id": i, "Account_Name": f"A{i}"} for i in request.url.params["ids"].split(",") if i != "9"]
+        return httpx.Response(200, json={"data": rows})
+
+    async with _zoho(handler) as crm:
+        assert await crm.client_names(["3001", "9"]) == {"3001": "A3001"}
+        assert await crm.client_names(["5"], contacts=True) == {}
+    assert asked[0][1] == {"ids": "3001,9", "fields": "Account_Name"}
+    assert asked[1][1]["fields"] == "Full_Name"
+
+
+async def test_odoo_names_partners_archived_ones_too() -> None:
+    calls: list[tuple[str, str, Any, Any]] = []
+    answers = {("res.partner", "search_read"): [{"id": 7, "name": "Ромашка"}]}
+    async with _odoo(answers, calls) as crm:
+        assert await crm.client_names(["7", "7"]) == {"7": "Ромашка"}
+        assert await crm.client_names([]) == {}
+    assert calls == [
+        (
+            "res.partner",
+            "search_read",
+            [[["id", "in", [7]]]],
+            {"fields": ["name"], "context": {"active_test": False}},
+        )
+    ]

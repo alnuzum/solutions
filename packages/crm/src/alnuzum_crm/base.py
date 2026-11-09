@@ -3,6 +3,7 @@
 import re
 import unicodedata
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -225,6 +226,12 @@ class CRM(ABC):
     async def discard_task(self, task_id: str) -> None:
         """Delete a task where the CRM allows, otherwise complete it; a missing one is no error."""
         raise CrmUnsupported("tasks on a client", crm=self.kind.value)
+
+    async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
+        """The names of companies (of contacts with ``contacts``) by their ids, as ``purchases`` gives them;
+        an id the CRM does not have is left out. A purchase carries the id of its client only: a scan reads
+        the names of the clients it shows."""
+        raise CrmUnsupported("names of clients", crm=self.kind.value)
 
 
 def same_name(a: str, b: str) -> bool:
