@@ -24,6 +24,14 @@ from alnuzum_orders.intake import Source
 from alnuzum_orders.text import plain
 
 log = logging.getLogger("alnuzum_orders.model")
+# The spend journal by channel, a line a call. The app configures no logging (uvicorn prints only its own
+# lines, an INFO of ours would go nowhere), so this logger has a handler of its own, on stderr like uvicorn's
+spend_log = logging.getLogger("alnuzum_orders.spend")
+if not spend_log.handlers:
+    _stderr = logging.StreamHandler()
+    _stderr.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+    spend_log.addHandler(_stderr)
+    spend_log.setLevel(logging.INFO)
 
 MODEL = "claude-opus-5-5"
 # dollars per million tokens of claude-opus-5-5: input, output (the claude-api skill's price list, cached
@@ -456,8 +464,8 @@ class ClaudeReader:
         try:
             response, channel = await self._send(request)
             usage = Usage(1, response.usage.input_tokens or 0, response.usage.output_tokens or 0)
-            # the spend journal by channel: the ceilings count tokens whichever channel answered
-            log.info(
+            # the ceilings count tokens whichever channel answered
+            spend_log.info(
                 "model %s by %s: %d in, %d out, $%s",
                 kind,
                 channel,

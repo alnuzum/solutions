@@ -136,7 +136,9 @@ async def test_a_refusal_of_the_token_goes_by_the_key_and_the_key_keeps_it_15_mi
     api = Api(refusal)
     reader = _reader(api)
     gate = Gate()
-    caplog.set_level(logging.INFO, logger="alnuzum_orders.model")
+    caplog.set_level(logging.INFO, logger="alnuzum_orders.spend")
+    # the journal line reaches the container's log with no logging configured by the app
+    assert logging.getLogger("alnuzum_orders.spend").handlers
     answers, usage = await reader.choose(QUESTIONS, gate)
     assert answers[0].choice == 0 and usage.input_tokens == 1000
     assert api.by() == ["oauth", "key"]
