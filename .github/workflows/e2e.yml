@@ -75,7 +75,7 @@ jobs:
         run: uv run python scripts/odoo_bootstrap.py --url "$ODOO_URL" --db "$ODOO_DB" --password "$ODOO_PASSWORD" --wait 300
       - name: Live E2E
         # short tracebacks: no frame arguments (request headers) in the log
-        run: uv run pytest -m e2e -v --tb=short -p no:cacheprovider
+        run: uv run --frozen --no-sync pytest -m e2e -v --tb=short -p no:cacheprovider
         env:
           AMOCRM_DOMAIN: ${{ secrets.AMOCRM_DOMAIN }}
           AMOCRM_TOKEN: ${{ secrets.AMOCRM_TOKEN }}
@@ -101,7 +101,7 @@ jobs:
       - run: uv sync --frozen
       - name: Reference set against the bar of the page
         # short tracebacks: no frame arguments in the log
-        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/order-to-deal/tests/test_quality.py
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/order-to-deal/tests/test_quality.py
         env:
           ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -122,7 +122,7 @@ jobs:
       - run: uv sync --frozen
       - name: Reference set against the bar of CI
         # short tracebacks: no frame arguments in the log
-        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/voice-to-crm/tests/test_quality.py
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/voice-to-crm/tests/test_quality.py
         env:
           ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -144,7 +144,7 @@ jobs:
       - run: uv sync --frozen
       - name: Reference set against the bar of CI
         # short tracebacks: no frame arguments in the log
-        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/contract-check/tests/test_quality.py
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/contract-check/tests/test_quality.py
         env:
           ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -189,3 +189,5 @@ def test_a_secret_of_the_live_jobs_reaches_only_the_step_that_needs_it() -> None
                 assert step not in holders, (name, step.get("name") or step.get("uses") or step.get("run"))
         if job["steps"][-1].get("env"):
             assert holders == [job["steps"][-1]], name
+        for step in holders:  # the environment is built before, with no key in it (narrow check M-7)
+            assert step["run"].startswith("uv run --frozen --no-sync "), name
