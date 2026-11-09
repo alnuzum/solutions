@@ -1,5 +1,9 @@
 """Texts of the pages and of the bot, Russian and English."""
 
+# the speech service is out of credits or the day's minutes are spent: said before an upload and in reply
+_OFF_RU = "Голосовые сейчас не принимаются: распознавание речи недоступно. Команды текстом работают, в том числе в демо."
+_OFF_EN = "Voice notes are not taken right now: speech recognition is unavailable. Typed commands work, the demo included."
+
 RU = {
     "v_title": "Голос менеджера → CRM",
     "v_home": "Голос менеджера → CRM",
@@ -25,7 +29,7 @@ RU = {
     "v_linked": "привязано чатов: {n}",
     "v_unlink": "Отвязать чаты",
     "v_quality": "Эталон: {n} {word}, синтезированные голоса, {uz} из них по-узбекски. Доля ошибок слов "
-    "распознавания {wer} %, сделка найдена в {deal} %, изменения без ошибок в {exact} %, лишних изменений {extra}. "
+    "распознавания {wer}, сделка найдена в {deal}, изменения без ошибок в {exact}, лишних изменений {extra}. "
     "Это чистая синтезированная речь: точность на живых голосовых с шумом эталон не обещает.",
     "v_cost": "Распознавание и разбор: {usd} $",
     "v_transcript": "Что сказано",
@@ -80,6 +84,8 @@ RU = {
     "e_slow": "Файл читается слишком долго.",
     "e_busy": "Сейчас занято, повторите через минуту.",
     "e_stt_busy": "Распознавание речи сейчас недоступно, повторите позже.",
+    "e_stt_out": _OFF_RU,
+    "v_speech_off": _OFF_RU,
     "e_stt_off": "Распознавание речи не настроено.",
     "e_no_speech": "Речь не распознана.",
     "e_ceiling": "Дневной лимит демо на распознавание и разбор исчерпан. Завтра снова.",
@@ -148,7 +154,7 @@ EN = {
     "v_linked": "bound chats: {n}",
     "v_unlink": "Unbind chats",
     "v_quality": "Reference set: {n} {word}, synthesised voices, {uz} of them in Uzbek. Word error rate of the "
-    "speech {wer} %, deal found in {deal} %, changes without a mistake in {exact} %, extra changes {extra}. "
+    "speech {wer}, deal found in {deal}, changes without a mistake in {exact}, extra changes {extra}. "
     "It is clean synthesised speech: the set promises nothing about live voice notes with noise.",
     "v_cost": "Speech and reading: {usd} $",
     "v_transcript": "What was said",
@@ -203,6 +209,8 @@ EN = {
     "e_slow": "The file takes too long to read.",
     "e_busy": "Busy right now, try again in a minute.",
     "e_stt_busy": "Speech recognition is unavailable right now, try again later.",
+    "e_stt_out": _OFF_EN,
+    "v_speech_off": _OFF_EN,
     "e_stt_off": "Speech recognition is not set up.",
     "e_no_speech": "No speech recognised.",
     "e_ceiling": "Today's demo limit for speech and reading is spent. Back tomorrow.",

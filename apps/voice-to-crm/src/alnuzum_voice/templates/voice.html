@@ -4,12 +4,13 @@
 {% block body %}
 <div class="head">
   <div><h1>{{ t.v_title }}</h1><p>{{ t.v_lead }}</p>
-  {% if q %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.v_quality.format(n=q.commands, word=q_word, uz=q.uzbek, wer=(q.wer * 100)|round(1), deal=(q.deal * 100)|round(0)|int, exact=(q.exact * 100)|round(0)|int, extra=q.extra) }}</p>{% endif %}
+  {% if q %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.v_quality.format(n=q.commands, word=q_word, uz=q.uzbek, wer=q.wer|pct(lang), deal=q.deal|pct(lang), exact=q.exact|pct(lang), extra=q.extra) }}</p>{% endif %}
   {% if bot %}<p><a class="open" href="https://t.me/{{ bot }}" rel="noopener noreferrer">{{ t.v_bot }} @{{ bot }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a><br><small class="muted">{{ t.v_bot_hint }}</small></p>{% endif %}
   </div>
 </div>
 {% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] if error in t else t.e_model_unreadable }}</p>{% endif %}
 {% if link_url %}<p class="err good" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.v_link_ready }} <a class="open lnk" href="{{ link_url }}" rel="noopener noreferrer">{{ link_url }}</a></p>{% endif %}
+{% if speech_off and error not in ('e_stt_out', 'e_stt_ceiling', 'e_stt_mine') %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.v_speech_off }}</p>{% endif %}
 <form class="ord" method="post" action="/{{ lang }}/voice" enctype="multipart/form-data">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <section class="card">

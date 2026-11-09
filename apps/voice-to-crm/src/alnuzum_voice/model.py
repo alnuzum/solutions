@@ -63,6 +63,22 @@ class SpeechError(RuntimeError):
         self.code = code
 
 
+def out_of_credits(resp: httpx.Response) -> bool:
+    """ElevenLabs refuses a request its credits do not cover before hearing it: 401 (402 for a payment)
+    with ``detail.status`` "quota_exceeded" and a message on the credits left, for a key's own limit and
+    for the plan's alike. A refusal for anything else (a wrong key) is not this."""
+    if resp.status_code not in (401, 402, 403):
+        return False
+    try:
+        body = resp.json()
+    except ValueError:
+        return False
+    detail = body.get("detail") if isinstance(body, dict) else None
+    if isinstance(detail, dict):
+        detail = f"{detail.get('status', '')} {detail.get('message', '')}"
+    return any(word in str(detail or "").lower() for word in ("quota", "credit"))
+
+
 class Scribe:
     """ElevenLabs speech to text: the key goes in a header, never in an address."""
 
@@ -89,6 +105,12 @@ class Scribe:
             )
             if resp.status_code in (429,) or resp.status_code >= 500:
                 raise SpeechError("e_stt_busy")  # no answer: the booking stays
+            if out_of_credits(resp):
+                spent = Spent(
+                    Decimal(0), seconds=0
+                )  # refused before hearing: nothing billed, nothing counted
+                log.warning("speech to text refused: %s, out of credits", resp.status_code)
+                raise SpeechError("e_stt_out")
             spent = Spent(worst, seconds=seconds)  # billed by the length of the audio
             if resp.status_code != 200:
                 log.warning("speech to text refused: %s", resp.status_code)

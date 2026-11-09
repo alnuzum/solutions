@@ -763,3 +763,84 @@ async def test_a_huge_text_is_refused_before_it_is_read(make: Any) -> None:
         fits = await c.post("/ru/voice", data=form | {"text": "я" * 2001})  # 4 KB: read, then refused
         assert fits.status_code == 422 and "Текст длиннее 2000 знаков" in fits.text
     assert took < 2 and h.messages.requests == []
+
+
+# --- what a visitor reads before an upload ---
+
+OFF_RU, OFF_EN = "Голосовые сейчас не принимаются", "Voice notes are not taken right now"
+# ElevenLabs on a request its credits do not cover (a key's own limit or the plan's)
+OUT_OF_CREDITS = {
+    "detail": {
+        "status": "quota_exceeded",
+        "message": "This request exceeds your quota of 100000. You have 2 credits remaining, while 3 credits "
+        "are required for this request.",
+    }
+}
+
+
+async def test_the_reference_numbers_read_as_a_reader_writes_them(make: Any) -> None:
+    from alnuzum_platform.web.i18n import percent
+
+    assert [percent(v, "ru") for v in (1, 0.985, 0.0847, 0)] == [
+        "100\u00a0%",
+        "98,5\u00a0%",
+        "8,5\u00a0%",
+        "0\u00a0%",
+    ]
+    assert [percent(v, "en") for v in (1, 0.985, 0.0847, 0)] == ["100%", "98.5%", "8.5%", "0%"]
+    h: Harness = await make()
+    async with h.client() as c:
+        ru, en = (await c.get("/ru/voice")).text, (await c.get("/en/voice")).text
+    assert "распознавания 8,5\u00a0%, сделка найдена в 100\u00a0%, изменения без ошибок в 100\u00a0%" in ru
+    assert "speech 8.5%, deal found in 100%, changes without a mistake in 100%" in en
+    assert "8.5 %" not in ru + en and OFF_RU not in ru and OFF_EN not in en
+
+
+async def test_out_of_credits_the_page_says_so_before_an_upload_and_the_bot_in_reply(
+    make: Any, engine: Any
+) -> None:
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 2)  # the typed and the heard
+    note = {"target": "demo:bitrix24"}
+    async with h.client() as c:
+        token = csrf_of((await c.get("/ru/voice")).text)
+        h.speech.fail, h.speech.body = (
+            401,
+            {"detail": {"status": "invalid_api_key", "message": "Invalid key"}},
+        )
+        wrong_key = await c.post(
+            "/ru/voice", data={"csrf": token, **note}, files={"audio": ("a.ogg", SAMPLE)}
+        )
+        assert wrong_key.status_code == 422 and OFF_RU not in wrong_key.text  # not a matter of credits
+        h.speech.body = OUT_OF_CREDITS
+        out = await c.post("/ru/voice", data={"csrf": token, **note}, files={"audio": ("a.ogg", SAMPLE)})
+        assert out.status_code == 422 and out.text.count(OFF_RU) == 1
+        assert OFF_RU in (await c.get("/ru/voice")).text and OFF_EN in (await c.get("/en/voice")).text
+    spent = await rows(engine, "SELECT kind, usd, units FROM voice_spend WHERE units = 0 ORDER BY created_at")
+    assert [(k, Decimal(u), n) for k, u, n in spent] == [("stt", 0, 0), ("stt_out", 0, 0)]  # refused: free
+    await _pick_demo(h, 931)
+    h.tg.files["q1"] = SAMPLE
+    await h.update(message(931, 1, voice={"file_id": "q1", "duration": 7, "file_size": len(SAMPLE)}))
+    assert OFF_RU in h.tg.texts()[-1]  # the bot answers a voice note the same
+    await h.update(message(931, 2, text="По сделке Ромашка переведи на переговоры."))
+    assert "Переговоры" in h.tg.texts()[-1]  # a typed command still works
+    h.speech.fail = None  # credits are back: the first note heard clears the line
+    async with h.client() as c:
+        token = csrf_of((await c.get("/ru/voice")).text)
+        sent = await c.post("/ru/voice", data={"csrf": token, **note}, files={"audio": ("a.ogg", SAMPLE)})
+        assert sent.status_code == 303
+        assert OFF_RU not in (await c.get("/ru/voice")).text
+
+
+async def test_the_day_s_minutes_spent_or_no_key_the_page_says_so(make: Any, engine: Any) -> None:
+    h: Harness = await make(voice_stt_minutes_per_day=1)
+    async with h.client() as c:
+        assert OFF_RU not in (await c.get("/ru/voice")).text
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("INSERT INTO voice_spend (id, owner, kind, usd, units) VALUES (:i, 'x', 'stt', 0, 56)"),
+                {"i": uuid.uuid4()},
+            )
+        assert OFF_RU in (await c.get("/ru/voice")).text  # 4 s left: no spoken command fits
+    keyless: Harness = await make(elevenlabs_api_key="")
+    async with keyless.client() as c:
+        assert OFF_EN in (await c.get("/en/voice")).text

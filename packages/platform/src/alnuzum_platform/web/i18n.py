@@ -228,3 +228,12 @@ def pick_lang(accept_language: str | None) -> str:
         if code:
             return "en"
     return "ru"
+
+
+def percent(share: float, lang: str) -> str:
+    """A share (0.985) as a reader writes it: one decimal at most and no ``.0``; Russian with a decimal
+    comma and a non-breaking space before the sign (98,5 %), English without the space (98.5%)."""
+    shown = f"{round(float(share) * 100, 1):.1f}".removesuffix(".0")
+    if lang == "ru":
+        return shown.replace(".", ",") + " %"
+    return shown + "%"

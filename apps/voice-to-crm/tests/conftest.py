@@ -200,11 +200,12 @@ class FakeSpeech:
         self.text = text
         self.calls = 0
         self.fail: int | None = None
+        self.body: Any = {"detail": "busy"}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.calls += 1
         if self.fail:
-            return httpx.Response(self.fail, json={"detail": "busy"})
+            return httpx.Response(self.fail, json=self.body)
         return httpx.Response(200, json={"text": self.text, "language_code": "rus"})
 
 

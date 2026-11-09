@@ -635,3 +635,37 @@ async def test_a_drawing_process_that_hangs_is_killed_and_health_answers(
     with pytest.raises(ProcessLookupError):
         os.kill(int(pidfile.read_text()), 0)
     assert await rows(engine, "SELECT status, error FROM orders_runs") == [("rejected", "e_slow")]
+
+
+async def test_the_accuracy_reads_as_a_reader_writes_it(make: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The line of the reference set: 100 % in Russian, 100% in English, no stray zero, no dash."""
+    from alnuzum_orders import web
+
+    h = await make(choose_first())
+
+    async def pages() -> tuple[str, str]:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=h.app), base_url=ORIGIN) as c:
+            return (await c.get("/ru/orders")).text, (await c.get("/en/orders")).text
+
+    ru, en = await pages()
+    assert (
+        "Точность на эталонном наборе: 100\u00a0% строк (67 строк, 6 заявок в четырёх форматах); ошибок нет."
+        in ru
+    )
+    assert (
+        "Accuracy on the reference set: 100% of lines (67 lines, 6 orders in four formats); no mistakes."
+        in en
+    )
+    assert "100.0" not in ru + en and "—" not in ru.split("Точность", 1)[1].split("</p>", 1)[0]
+    shown = {
+        "accuracy": 0.985,
+        "lines": 67,
+        "orders": 6,
+        "wrong": 2,
+        "wrong_flagged": 1,
+        "date": "2026-11-09",
+    }
+    monkeypatch.setattr(web, "quality", lambda: shown)
+    ru, en = await pages()
+    assert "98,5\u00a0% строк" in ru and "ошибок 2, из них система сама пометила спорными 1." in ru
+    assert "98.5% of lines" in en and "mistakes: 2, of which the system itself marked 1 as unsure." in en
