@@ -1,6 +1,6 @@
 {
   "today": "2026-11-10",
-  "about": "Voice commands of a sales manager about the five demo deals. Audio: ElevenLabs eleven_v4, a different voice per command. Products by catalog article and quantity in the catalog's unit; stages by name of the reference pipeline; dates as of 'today'.",
+  "about": "Voice commands of a sales manager about the five demo deals. Audio: ElevenLabs eleven_v4, a different voice per command. Products by catalog article and quantity in the catalog's unit; stages by name of the reference pipeline; dates as of 'today'. A product listed under 'unsure' is one the words leave open (two catalog items fit them: WAGO for two wires, a box of 12 modules): the right plan leaves it to a person, with these among the candidates.",
   "stages": [
     {"id": "1:10", "name": "Первичный контакт", "kind": "open"},
     {"id": "1:20", "name": "Переговоры", "kind": "open"},
@@ -49,10 +49,10 @@
      "deal": "D3", "stage": "Закрыто и не реализовано", "task": {"kind": "call", "due": "2026-11-17"}},
     {"id": "ru-11", "lang": "ru", "script": "cyrl", "voice": "3EuKHIEZbSzrHGNmdYsx",
      "text": "Ромашка: добавь две упаковки клемм WAGO на два провода и проверить оплату в понедельник.",
-     "deal": "D1", "products": [["EL-KL-004", 200]], "task": {"kind": "payment", "due": "2026-11-16"}},
+     "deal": "D1", "unsure": [["EL-KL-001", "EL-KL-004"]], "task": {"kind": "payment", "due": "2026-11-16"}},
     {"id": "ru-12", "lang": "ru", "script": "cyrl", "voice": "sk83Bye6Z8drwXh0KBFz",
      "text": "Навруз Строй, этап принимают решение, добавь четыре щитка на двенадцать модулей.",
-     "deal": "D2", "stage": "Принимают решение", "products": [["EL-SH-004", 4]]},
+     "deal": "D2", "stage": "Принимают решение", "unsure": [["EL-SH-002", "EL-SH-004"]]},
     {"id": "uz-01", "lang": "uz", "script": "latn", "voice": "3EuKHIEZbSzrHGNmdYsx",
      "text": "Romashka bitimini muzokaralar bosqichiga o'tkazing, yigirmata o'n olti amperli IEK avtomatini qo'shing va juma kuni qo'ng'iroq qilish vazifasini qo'ying.",
      "deal": "D1", "stage": "Переговоры", "products": [["EL-AV-003", 20]], "task": {"kind": "call", "due": "2026-11-13"}},

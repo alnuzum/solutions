@@ -23,8 +23,9 @@ RU = {
     "v_link_ready": "Откройте ссылку в Telegram в течение 10 минут; она срабатывает один раз:",
     "v_linked": "привязано чатов: {n}",
     "v_unlink": "Отвязать чаты",
-    "v_quality": "Качество на эталоне ({n} команд, из них {uz} по-узбекски): доля ошибок слов распознавания {wer} %, "
-    "сделка найдена {deal} %, изменения без ошибок {exact} %, лишних изменений {extra}.",
+    "v_quality": "Эталон: {n} {word}, синтезированные голоса, {uz} из них по-узбекски. Доля ошибок слов "
+    "распознавания {wer} %, сделка найдена в {deal} %, изменения без ошибок в {exact} %, лишних изменений {extra}. "
+    "Это чистая синтезированная речь: точность на живых голосовых с шумом эталон не обещает.",
     "v_cost": "Распознавание и разбор: {usd} $",
     "v_transcript": "Что сказано",
     "v_typed": "Что написано",
@@ -143,8 +144,9 @@ EN = {
     "v_link_ready": "Open the link in Telegram within 10 minutes; it works once:",
     "v_linked": "bound chats: {n}",
     "v_unlink": "Unbind chats",
-    "v_quality": "Quality on the reference set ({n} commands, {uz} in Uzbek): word error rate of the speech {wer} %, "
-    "deal found {deal} %, changes without a mistake {exact} %, extra changes {extra}.",
+    "v_quality": "Reference set: {n} {word}, synthesised voices, {uz} of them in Uzbek. Word error rate of the "
+    "speech {wer} %, deal found in {deal} %, changes without a mistake in {exact} %, extra changes {extra}. "
+    "It is clean synthesised speech: the set promises nothing about live voice notes with noise.",
     "v_cost": "Speech and reading: {usd} $",
     "v_transcript": "What was said",
     "v_typed": "What was typed",
@@ -242,3 +244,14 @@ EN = {
 
 def texts(lang: str) -> dict[str, str]:
     return EN if lang == "en" else RU
+
+
+def commands_word(lang: str, n: int) -> str:
+    """«22 команды», «21 команда», «25 команд»; «22 commands»."""
+    if lang != "ru":
+        return "command" if n == 1 else "commands"
+    if n % 10 == 1 and n % 100 != 11:
+        return "команда"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "команды"
+    return "команд"

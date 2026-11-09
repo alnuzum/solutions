@@ -24,6 +24,7 @@ from alnuzum_voice.text import NOTE_TEXT, clean, fold, variants
 TZ = ZoneInfo("Asia/Tashkent")
 DEMO_PREFIX = "Демо · "
 MAX_CANDIDATES = 6
+MIN_WORD = 4  # a word of a name searched alone when the whole name finds nothing
 SURE = 0.6  # the model's confidence in a product it chose among candidates
 
 TASKS = {
@@ -147,12 +148,22 @@ def _stage(s: Stage) -> dict[str, Any]:
 
 async def find_candidates(crm: CRM, queries: list[str], *, demo: bool) -> list[dict[str, Any]]:
     seen: dict[str, dict[str, Any]] = {}
-    for query in queries:
-        for text in variants(query):
+
+    async def search(texts: list[str]) -> None:
+        for text in texts:
             for hit in await crm.find_deals(text, limit=MAX_CANDIDATES * 2):
                 if demo and not hit.title.startswith(DEMO_PREFIX):
                     continue
                 seen.setdefault(hit.id, _hit(hit))
+
+    for query in queries:
+        await search(variants(query))
+    if not seen:
+        # a name heard with one wrong letter («Дилшот Расулов»): each longer word on its own
+        for query in queries:
+            for word in query.split():
+                if len(word) >= MIN_WORD:
+                    await search(variants(word))
     folded = [fold(q) for q in queries]
 
     def score(c: dict[str, Any]) -> tuple[int, int]:

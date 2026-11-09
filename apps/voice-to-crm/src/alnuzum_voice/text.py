@@ -26,6 +26,7 @@ _TO_CYRILLIC = [
     ("r", "р"), ("s", "с"), ("t", "т"), ("u", "у"), ("f", "ф"), ("x", "х"), ("q", "к"), ("h", "х"),
     ("c", "к"), ("w", "в"),
 ]  # fmt: skip
+_JOINED = re.compile(r"(?<=[a-zа-яёўқғҳ])(?=[A-ZА-ЯЁЎҚҒҲ])")
 _APOSTROPHES = str.maketrans({"ʻ": "'", "‘": "'", "’": "'", "`": "'", "ʼ": "'"})
 
 
@@ -85,10 +86,15 @@ def variants(query: str) -> list[str]:
     has_cyr = any("Ѐ" <= ch <= "ӿ" for ch in query)
     has_lat = any("a" <= ch.lower() <= "z" for ch in query)
     out = [query]
-    if has_cyr:
-        out.append(to_latin(query))
-    if has_lat:
-        out.append(to_cyrillic(query))
+    # speech services join a name: «НаврузСтрой» is searched as «Навруз Строй» too
+    split = _JOINED.sub(" ", query)
+    if split != query:
+        out.append(split)
+    for value in list(out):
+        if has_cyr:
+            out.append(to_latin(value))
+        if has_lat:
+            out.append(to_cyrillic(value))
     return list(dict.fromkeys(v for v in out if len(v) >= 2))
 
 

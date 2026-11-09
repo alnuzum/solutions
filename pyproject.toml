@@ -76,7 +76,7 @@ testpaths = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-dea
 addopts = "--import-mode=importlib -m 'not e2e and not quality'"
 markers = [
     "e2e: live calls into real CRM accounts (needs secrets)",
-    "quality: the order-to-deal reference set against the live model (needs ANTHROPIC_API_KEY)",
+    "quality: a reference set against the live model (needs ANTHROPIC_API_KEY; voice also ELEVENLABS_API_KEY)",
 ]
 
 [tool.coverage.run]
