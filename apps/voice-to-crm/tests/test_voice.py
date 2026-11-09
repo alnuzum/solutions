@@ -4,6 +4,12 @@ the speech cannot ask for more than the allowed changes, and nobody reaches anot
 
 import io
 import logging
+import math
+import socket
+import subprocess  # nosec B404: probes of our own decoder
+import sys
+import threading
+import time
 import uuid
 import wave
 from datetime import UTC, datetime, timedelta
@@ -282,8 +288,122 @@ def test_audio_is_measured_by_decoding() -> None:
     assert got.seconds == 8 and got.wav.startswith(b"RIFF")
     with pytest.raises(audio.AudioError, match="e_too_long"):
         audio.normalize(_wav(125))
-    with pytest.raises(audio.AudioError, match=r"e_damaged|e_no_audio"):
+    with pytest.raises(audio.AudioError, match="e_format"):
         audio.normalize(b"not audio at all" * 100)
+
+
+def _listener() -> tuple[socket.socket, list[int]]:
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    srv.settimeout(1.5)
+    hits: list[int] = []
+
+    def accept() -> None:
+        try:
+            conn, _ = srv.accept()
+            hits.append(1)
+            conn.close()
+        except OSError:
+            pass
+
+    threading.Thread(target=accept, daemon=True).start()
+    return srv, hits
+
+
+def _playlists(port: int) -> list[bytes]:
+    return [
+        f"#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:10,\nhttp://127.0.0.1:{port}/x.ts\n#EXT-X-ENDLIST\n".encode(),
+        b"ffconcat version 1.0\nfile 'file:///etc/passwd'\n",
+        f"[playlist]\nFile1=http://127.0.0.1:{port}/a.mp3\n".encode(),
+    ]
+
+
+def test_a_playlist_or_concat_never_reaches_ffmpeg(monkeypatch: pytest.MonkeyPatch) -> None:
+    srv, hits = _listener()
+    for data in _playlists(srv.getsockname()[1]):
+        assert audio.sniff(data[:16]) is None
+        with pytest.raises(audio.AudioError, match="e_format"):
+            audio.decode(data)  # in process: refused before FFmpeg is even imported
+        child = subprocess.run(  # noqa: S603  # nosec B603 - our own module
+            [*audio.COMMAND], input=data, capture_output=True, timeout=15, check=False
+        )
+        assert child.returncode == 6 and child.stdout == b""
+    monkeypatch.setattr(audio.subprocess, "run", _no_child)
+    for data in _playlists(1):
+        with pytest.raises(audio.AudioError, match="e_format"):
+            audio.normalize(data)
+    time.sleep(0.3)
+    srv.close()
+    assert hits == []
+
+
+def _no_child(*_a: Any, **_k: Any) -> Any:
+    raise AssertionError("a refused format must not start the decoder")
+
+
+def test_a_nested_open_is_refused_even_when_the_demuxer_asks() -> None:
+    srv, hits = _listener()
+    playlist = _playlists(srv.getsockname()[1])[0]
+    with pytest.raises(PermissionError):
+        audio._open(playlist, "hls")  # the demuxer we never name, forced: its open is still refused
+    time.sleep(0.3)
+    srv.close()
+    assert hits == []
+
+
+def test_the_decoder_child_cannot_open_a_file_or_a_socket() -> None:
+    probe = (
+        "import socket, av\n"
+        "from alnuzum_voice import audio\n"
+        "audio._load()\n"
+        "audio._seal()\n"
+        "out = []\n"
+        "for attempt in (lambda: open('/etc/hosts', 'rb'), lambda: socket.socket()):\n"
+        "    try:\n"
+        "        attempt(); out.append('opened')\n"
+        "    except OSError:\n"
+        "        out.append('refused')\n"
+        "print(','.join(out))\n"
+    )
+    child = subprocess.run(  # noqa: S603  # nosec B603 - fixed probe
+        [sys.executable, "-I", "-c", probe], capture_output=True, text=True, timeout=15, check=False
+    )
+    assert child.stdout.strip() == "refused,refused", child.stderr[-300:]
+
+
+def _encoded(form: str, codec: str, seconds: float = 2.0) -> bytes:
+    import av  # type: ignore[import-not-found,unused-ignore]
+
+    out = io.BytesIO()
+    with av.open(out, "w", format=form) as box:
+        stream = box.add_stream(codec, rate=48000 if codec == "libopus" else 44100)
+        stream.layout = "mono"
+        rate = stream.rate
+        count = int(rate * seconds)
+        tone = b"".join(
+            int(8000 * math.sin(2 * math.pi * 440 * i / rate)).to_bytes(2, "little", signed=True)
+            for i in range(count)
+        )
+        frame = av.AudioFrame(format="s16", layout="mono", samples=count)
+        frame.planes[0].update(tone)
+        frame.rate = rate
+        for packet in stream.encode(frame):
+            box.mux(packet)
+        for packet in stream.encode(None):
+            box.mux(packet)
+    return out.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("form", "codec", "head"),
+    [("mp3", "libmp3lame", "mp3"), ("ipod", "aac", "mp4"), ("webm", "libopus", "matroska")],
+)
+def test_mp3_m4a_and_webm_decode(form: str, codec: str, head: str) -> None:
+    data = _encoded(form, codec)
+    assert audio.sniff(data[:16]) == head
+    got = audio.normalize(data)
+    assert got.seconds in (2, 3) and got.wav.startswith(b"RIFF")
 
 
 def test_the_demo_origin_is_https() -> None:
