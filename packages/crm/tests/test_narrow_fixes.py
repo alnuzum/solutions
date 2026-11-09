@@ -279,6 +279,7 @@ def amo_catalog(price: int = 100) -> dict[str, Any]:
         "GET /api/v4/account": {"currency": "UZS", "drive_url": "https://drive-b.amocrm.ru"},
         "POST /api/v4/leads": {"_embedded": {"leads": [{"id": 1}]}},
         "POST /api/v4/leads/1/link": {"_embedded": {"links": []}},
+        "PATCH /api/v4/leads/1": {"id": 1},
     }
 
 
@@ -322,6 +323,19 @@ async def test_amo_line_at_catalog_price_in_account_currency_passes() -> None:
     )
 
 
+async def test_amo_budget_is_the_given_total_while_lines_keep_catalog_prices() -> None:
+    """Discounts amoCRM cannot keep on a line live in the budget: lines at the catalog price, the
+    budget is the total after the company's rules."""
+    crm, router = amo(amo_catalog())
+    line = DealLine("Widget", Decimal(3), Decimal(100), product_id="42")
+    async with crm:
+        await crm.create_deal(DealIn("d", (line,), total=Decimal("271.50")))
+    assert json.loads(router.sent("POST", "/api/v4/leads")[0].content)[0]["price"] == 272
+    # the link recounts the budget at catalog prices, so the total is put back after it
+    assert json.loads(router.sent("PATCH", "/api/v4/leads/1")[0].content) == {"price": 272}
+    assert router.requests[-1].method == "PATCH"
+
+
 async def test_odoo_currency_is_applied_or_refused() -> None:
     fake = FakeOdoo(
         {
@@ -347,7 +361,13 @@ async def test_bitrix_products_cursor_does_not_skip_rows() -> None:
     starts: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        _, body = b24_method(request)
+        method, body = b24_method(request)
+        if method == "catalog.catalog.list":
+            return httpx.Response(
+                200, json={"result": {"catalogs": [{"iblockId": 25, "productIblockId": None}]}}
+            )
+        if method == "catalog.product.list":
+            return httpx.Response(200, json={"result": {"products": []}})
         start = int(body["start"])
         starts.append(start)
         rows = [{"ID": str(i), "NAME": f"P{i}"} for i in range(start, min(start + 50, 120))]
@@ -434,3 +454,35 @@ async def test_odoo_found_contact_is_linked_only_when_it_has_no_company() -> Non
         await crm.find_or_create_contact(ContactIn("x", email="joe@corp.com"), company_id="5")
     writes = [args for model, method, args in fake.calls if method == "write"]
     assert writes == [[[6], {"parent_id": 5}]]
+
+
+# --- stage 2, I5: a webhook without the «catalog» scope still reads the products ---
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_bitrix_products_without_the_catalog_scope_come_without_stock(status: int) -> None:
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        method, body = b24_method(request)
+        asked.append(method)
+        if method.startswith("catalog."):
+            return httpx.Response(
+                status,
+                json={
+                    "error": "insufficient_scope",
+                    "error_description": "The request requires higher privileges",
+                },
+            )
+        start = int(body.get("start", 0))
+        rows = [{"ID": str(i), "NAME": f"P{i}", "PRICE": "10"} for i in range(start, min(start + 50, 60))]
+        nxt = start + 50 if start + 50 < 60 else None
+        return httpx.Response(200, json={"result": rows, **({"next": nxt} if nxt else {})})
+
+    async with bitrix(handler) as crm:
+        first = await crm.list_products(limit=50)
+        second = await crm.list_products(limit=50, cursor=first.next_cursor)
+    items = [*first.items, *second.items]
+    assert len(items) == 60 and all(p.stock is None for p in items)
+    assert crm.stock_denied is True
+    assert sum(m.startswith("catalog.") for m in asked) == 1  # not asked again on the next page

@@ -74,9 +74,14 @@ class DealIn:
     contact_id: str | None = None
     currency: str | None = None
     tags: tuple[str, ...] = ()
+    #: the deal sum when it differs from the sum of the lines: a CRM whose lines cannot keep their own
+    #: price (amoCRM, Kommo) gets the lines at the catalog price and the discounted sum here
+    total: Decimal | None = None
 
     @property
     def amount(self) -> Decimal:
+        if self.total is not None:
+            return self.total
         return sum((line.total for line in self.lines), Decimal(0))
 
 
@@ -116,18 +121,32 @@ class TaskIn:
 
 @dataclass(frozen=True, slots=True)
 class ProductIn:
+    """``unit`` is one of шт, м, уп, кор, кг, л (mapped to the CRM's own units where it has them);
+    ``category`` goes to the CRM's product sections where the adapter can create them; ``stock`` only
+    where the CRM keeps stock without warehouse documents."""
+
     name: str
     price: Decimal
     sku: str | None = None
+    unit: str | None = None
+    category: str | None = None
+    description: str | None = None
+    stock: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Product:
+    """``unit`` and ``category`` as the CRM names them; ``stock`` is None where the CRM keeps none."""
+
     id: str
     name: str
     sku: str | None
     price: Decimal | None
     currency: str | None
+    unit: str | None = None
+    category: str | None = None
+    description: str | None = None
+    stock: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)

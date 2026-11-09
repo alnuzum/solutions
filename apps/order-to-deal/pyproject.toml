@@ -1,0 +1,29 @@
+[project]
+name = "alnuzum-orders"
+version = "0.1.0"
+description = "Al-Nuzum open solution: a customer's order (PDF, Excel, photo, e-mail) becomes a CRM deal with catalog products"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "alnuzum-crm",
+    "alnuzum-platform",
+    "anthropic>=2.6",
+    "pypdf>=6.0",
+    "openpyxl>=3.1.5",
+    "pillow>=11.0",
+    "pypdfium2>=4.30",
+]
+
+[project.entry-points."alnuzum.solutions"]
+orders = "alnuzum_orders.web:solution"
+
+[tool.uv.sources]
+alnuzum-crm = { workspace = true }
+alnuzum-platform = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alnuzum_orders"]

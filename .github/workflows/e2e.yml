@@ -80,3 +80,22 @@ jobs:
       - name: Live E2E
         # short tracebacks: no frame arguments (request headers) in the log
         run: uv run pytest -m e2e -v --tb=short -p no:cacheprovider
+
+  quality:
+    name: Order to deal on the reference set (live model)
+    # nightly and on main: the model behind the page may change without a commit of ours
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Reference set against the bar of the page
+        # short tracebacks: no frame arguments in the log
+        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/order-to-deal/tests/test_quality.py

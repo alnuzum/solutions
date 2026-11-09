@@ -1,7 +1,7 @@
 {
  "meta": {
   "crm": "amocrm",
-  "run_id": "7fc44c69"
+  "run_id": "112434be"
  },
  "calls": [
   {
@@ -15,7 +15,7 @@
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=343571049&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=387585470&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -24,7 +24,7 @@
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+Co+7fc44c69&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+Co+112434be&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -37,39 +37,39 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":37842321,\"is_deleted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":37843441,\"is_deleted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+CO+7FC44C69&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+CO+112434BE&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=E2E+CO+7FC44C69&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37842321,\"name\":\"E2E Co 7fc44c69\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173972,\"updated_at\":1794173972,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"343571049\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?query=E2E+CO+7FC44C69&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=E2E+CO+112434BE&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37843441,\"name\":\"E2E Co 112434be\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184546,\"updated_at\":1794184546,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"387585470\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?query=E2E+CO+112434BE&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+CO+7FC44C69&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+CO+112434BE&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=E2E+CO+7FC44C69&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37842321,\"name\":\"E2E Co 7fc44c69\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173972,\"updated_at\":1794173972,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"343571049\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?query=E2E+CO+7FC44C69&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=E2E+CO+112434BE&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37843441,\"name\":\"E2E Co 112434be\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184546,\"updated_at\":1794184546,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"387585470\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?query=E2E+CO+112434BE&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=343571049&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=387585470&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=343571049&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37842321,\"name\":\"E2E Co 7fc44c69\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173972,\"updated_at\":1794173972,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"343571049\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?query=343571049&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=387585470&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37843441,\"name\":\"E2E Co 112434be\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184546,\"updated_at\":1794184546,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"387585470\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?query=387585470&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=443571049&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=487585470&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -78,16 +78,16 @@
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+Co+7fc44c69&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/companies?query=E2E+Co+112434be&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=E2E+Co+7fc44c69&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37842321,\"name\":\"E2E Co 7fc44c69\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173972,\"updated_at\":1794173972,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"343571049\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?query=E2E+Co+7fc44c69&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies?query=E2E+Co+112434be&limit=250&page=1\"}},\"_embedded\":{\"companies\":[{\"id\":37843441,\"name\":\"E2E Co 112434be\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184546,\"updated_at\":1794184546,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"387585470\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?query=E2E+Co+112434be&limit=250&page=1\"}},\"_embedded\":{\"tags\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-7fc44c69%40example.com&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-112434be%40example.com&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -96,7 +96,7 @@
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=003571049&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=007585470&limit=250&page=1",
    "op": "",
    "status": 204,
    "content_type": "text/html; charset=UTF-8",
@@ -109,34 +109,34 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":37842323,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842323\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":37843443,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843443\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=E2E-7FC44C69%40EXAMPLE.COM&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=E2E-112434BE%40EXAMPLE.COM&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=E2E-7FC44C69%40EXAMPLE.COM&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37842323,\"name\":\"E2E Person 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173974,\"updated_at\":1794173974,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842323?query=E2E-7FC44C69%40EXAMPLE.COM&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=E2E-112434BE%40EXAMPLE.COM&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37843443,\"name\":\"E2E Person 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184548,\"updated_at\":1794184548,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843443?query=E2E-112434BE%40EXAMPLE.COM&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=003571049&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=007585470&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=003571049&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37842323,\"name\":\"E2E Person 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173974,\"updated_at\":1794173974,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842323?query=003571049&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=007585470&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37843443,\"name\":\"E2E Person 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184548,\"updated_at\":1794184548,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843443?query=007585470&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-7fc44c69%40example.com&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-112434be%40example.com&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=e2e-7fc44c69%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37842323,\"name\":\"E2E Person 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173974,\"updated_at\":1794173974,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842323?query=e2e-7fc44c69%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=e2e-112434be%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37843443,\"name\":\"E2E Person 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184548,\"updated_at\":1794184548,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843443?query=e2e-112434be%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
@@ -145,52 +145,52 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":37842325,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":37843445,\"is_deleted\":false,\"is_unsorted\":false,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-7fc44c69%40example.com&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-112434be%40example.com&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-7fc44c69%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37842325,\"name\":\"E2E Lone 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173976,\"updated_at\":1794173976,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325?query=e2e-lone-7fc44c69%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-112434be%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37843445,\"name\":\"E2E Lone 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184550,\"updated_at\":1794184550,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445?query=e2e-lone-112434be%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-7fc44c69%40example.com&limit=250&page=1",
+   "url": "https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-112434be%40example.com&limit=250&page=1",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-7fc44c69%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37842325,\"name\":\"E2E Lone 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173976,\"updated_at\":1794173976,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325?query=e2e-lone-7fc44c69%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts?query=e2e-lone-112434be%40example.com&limit=250&page=1\"}},\"_embedded\":{\"contacts\":[{\"id\":37843445,\"name\":\"E2E Lone 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184550,\"updated_at\":1794184550,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445?query=e2e-lone-112434be%40example.com&limit=250&page=1\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts/37842325",
+   "url": "https://example.amocrm.ru/api/v4/contacts/37843445",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":37842325,\"name\":\"E2E Lone 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173976,\"updated_at\":1794173976,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325?page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}",
+   "body": "{\"id\":37843445,\"name\":\"E2E Lone 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184550,\"updated_at\":1794184550,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445?page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[]}}",
    "binary": false
   },
   {
    "method": "POST",
-   "url": "https://example.amocrm.ru/api/v4/contacts/37842325/link",
+   "url": "https://example.amocrm.ru/api/v4/contacts/37843445/link",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":37842321,\"to_entity_type\":\"companies\",\"metadata\":null}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":37843441,\"to_entity_type\":\"companies\",\"metadata\":null}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts/37842325",
+   "url": "https://example.amocrm.ru/api/v4/contacts/37843445",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":37842325,\"name\":\"E2E Lone 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173976,\"updated_at\":1794173977,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325?page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[{\"id\":37842321,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?page=1&limit=250\"}}}]}}",
+   "body": "{\"id\":37843445,\"name\":\"E2E Lone 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184550,\"updated_at\":1794184551,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-lone-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445?page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"companies\":[{\"id\":37843441,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?page=1&limit=250\"}}}]}}",
    "binary": false
   },
   {
@@ -217,7 +217,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements\"}},\"_embedded\":{\"elements\":[{\"id\":876775,\"name\":\"E2E product 7fc44c69\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173978,\"updated_at\":1794173978,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-7fc44c69\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876775?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements\"}},\"_embedded\":{\"elements\":[{\"id\":876839,\"name\":\"E2E product 112434be\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794184552,\"updated_at\":1794184552,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-112434be\"}],\"is_masked\":false},{\"field_id\":1901425,\"field_name\":\"Единица измерения\",\"field_code\":\"UNIT\",\"field_type\":\"select\",\"values\":[{\"value\":\"шт\",\"enum_id\":1234773,\"enum_code\":null}],\"is_masked\":false},{\"field_id\":1901417,\"field_name\":\"Описание\",\"field_code\":\"DESCRIPTION\",\"field_type\":\"textarea\",\"values\":[{\"value\":\"Категория: E2E\\nСинонимы: e2e 112434be\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876839?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
@@ -226,16 +226,16 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":33362122,\"name\":\"AlNuzum\",\"subdomain\":\"example\",\"language\":\"ru\",\"created_at\":1794173978,\"created_by\":0,\"updated_at\":1794173978,\"updated_by\":0,\"current_user_id\":14423942,\"country\":\"UZ\",\"currency\":\"UZS\",\"currency_symbol\":\"soʻm\",\"customers_mode\":\"disabled\",\"is_unsorted_on\":true,\"mobile_feature_version\":0,\"is_loss_reason_enabled\":true,\"is_helpbot_enabled\":false,\"is_technical_account\":false,\"contact_name_display_order\":1,\"drive_url\":\"https://drive-b.amocrm.ru\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/account\"}}}",
+   "body": "{\"id\":33362122,\"name\":\"Test User\",\"subdomain\":\"example\",\"language\":\"ru\",\"created_at\":1794184552,\"created_by\":0,\"updated_at\":1794184552,\"updated_by\":0,\"current_user_id\":14423942,\"country\":\"UZ\",\"currency\":\"UZS\",\"currency_symbol\":\"soʻm\",\"customers_mode\":\"disabled\",\"is_unsorted_on\":true,\"mobile_feature_version\":0,\"is_loss_reason_enabled\":true,\"is_helpbot_enabled\":false,\"is_technical_account\":false,\"contact_name_display_order\":1,\"drive_url\":\"https://drive-b.amocrm.ru\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/account\"}}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B%5D=876775&limit=250",
+   "url": "https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B%5D=876839&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B0%5D=876775&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":876775,\"name\":\"E2E product 7fc44c69\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173978,\"updated_at\":1794173978,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-7fc44c69\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876775?filter%5Bid%5D%5B0%5D=876775&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B0%5D=876839&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":876839,\"name\":\"E2E product 112434be\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794184552,\"updated_at\":1794184552,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-112434be\"}],\"is_masked\":false},{\"field_id\":1901425,\"field_name\":\"Единица измерения\",\"field_code\":\"UNIT\",\"field_type\":\"select\",\"values\":[{\"value\":\"шт\",\"enum_id\":1234773,\"enum_code\":null}],\"is_masked\":false},{\"field_id\":1901417,\"field_name\":\"Описание\",\"field_code\":\"DESCRIPTION\",\"field_type\":\"textarea\",\"values\":[{\"value\":\"Категория: E2E\\nСинонимы: e2e 112434be\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876839?filter%5Bid%5D%5B0%5D=876839&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
@@ -244,7 +244,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements\"}},\"_embedded\":{\"elements\":[{\"id\":876777,\"name\":\"E2E service 7fc44c69\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173979,\"updated_at\":1794173979,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876777?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements\"}},\"_embedded\":{\"elements\":[{\"id\":876841,\"name\":\"E2E service 112434be\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794184552,\"updated_at\":1794184552,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"request_id\":\"0\",\"invoice_link\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876841?page=1&limit=250\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
@@ -253,16 +253,16 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":32967283,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":32968429,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429\"}}}]}}",
    "binary": false
   },
   {
    "method": "POST",
-   "url": "https://example.amocrm.ru/api/v4/leads/32967283/link",
+   "url": "https://example.amocrm.ru/api/v4/leads/32968429/link",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":876775,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":2,\"catalog_id\":11503,\"price_id\":1901419}},{\"to_entity_id\":876777,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":3,\"catalog_id\":11503,\"price_id\":1901419}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429/links\"}},\"_embedded\":{\"links\":[{\"to_entity_id\":876839,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":2,\"catalog_id\":11503,\"price_id\":1901419}},{\"to_entity_id\":876841,\"to_entity_type\":\"catalog_elements\",\"metadata\":{\"quantity\":3,\"catalog_id\":11503,\"price_id\":1901419}}]}}",
    "binary": false
   },
   {
@@ -271,7 +271,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=UTF-8",
-   "body": "{\"max_file_size\":314572800,\"max_part_size\":524288,\"session_id\":502897995,\"upload_url\":\"https://drive-b.amocrm.ru/upload/UPLOAD\"}\n",
+   "body": "{\"max_file_size\":314572800,\"max_part_size\":524288,\"session_id\":502902871,\"upload_url\":\"https://drive-b.amocrm.ru/upload/UPLOAD\"}\n",
    "binary": false
   },
   {
@@ -280,12 +280,12 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=UTF-8",
-   "body": "{\"_links\":{\"download\":{\"href\":\"https://drive-b.amocrm.ru/download/ea6ede1e-0561-537f-9ca0-2151ae834805/080bcd47-281e-4d2e-b8bc-86bb3a288cf2/e2e-7fc44c69.txt\"},\"download_version\":{\"href\":\"https://drive-b.amocrm.ru/download/ea6ede1e-0561-537f-9ca0-2151ae834805/080bcd47-281e-4d2e-b8bc-86bb3a288cf2/080f7116-9e4f-49ef-a34d-471dac2c24e8/e2e-7fc44c69.txt\"},\"self\":{\"href\":\"https://drive-b.amocrm.ru/v1.0/files/080bcd47-281e-4d2e-b8bc-86bb3a288cf2\"}},\"created_at\":1794173980,\"created_by\":{\"type\":\"internal\",\"id\":14423942},\"deleted_at\":null,\"deleted_by\":null,\"has_multiple_versions\":false,\"id\":3432191333,\"is_trashed\":false,\"metadata\":{\"extension\":\"txt\",\"mime_type\":\"text/plain\"},\"name\":\"e2e-7fc44c69\",\"previews\":null,\"sanitized_name\":\"e2e-7fc44c69\",\"session_id\":502897995,\"size\":15,\"source_id\":null,\"type\":\"file\",\"updated_at\":1794173980,\"updated_by\":{\"type\":\"internal\",\"id\":14423942},\"uuid\":\"080bcd47-281e-4d2e-b8bc-86bb3a288cf2\",\"version_uuid\":\"080f7116-9e4f-49ef-a34d-471dac2c24e8\"}\n",
+   "body": "{\"_links\":{\"download\":{\"href\":\"https://drive-b.amocrm.ru/download/ea6ede1e-0561-537f-9ca0-2151ae834805/65d498ec-e823-4296-8d4c-1750f2c99cfb/e2e-112434be.txt\"},\"download_version\":{\"href\":\"https://drive-b.amocrm.ru/download/ea6ede1e-0561-537f-9ca0-2151ae834805/65d498ec-e823-4296-8d4c-1750f2c99cfb/64198bc2-ec14-47a5-b1c6-7f135e16d717/e2e-112434be.txt\"},\"self\":{\"href\":\"https://drive-b.amocrm.ru/v1.0/files/65d498ec-e823-4296-8d4c-1750f2c99cfb\"}},\"created_at\":1794184554,\"created_by\":{\"type\":\"internal\",\"id\":14423942},\"deleted_at\":null,\"deleted_by\":null,\"has_multiple_versions\":false,\"id\":3432210313,\"is_trashed\":false,\"metadata\":{\"extension\":\"txt\",\"mime_type\":\"text/plain\"},\"name\":\"e2e-112434be\",\"previews\":null,\"sanitized_name\":\"e2e-112434be\",\"session_id\":502902871,\"size\":15,\"source_id\":null,\"type\":\"file\",\"updated_at\":1794184554,\"updated_by\":{\"type\":\"internal\",\"id\":14423942},\"uuid\":\"65d498ec-e823-4296-8d4c-1750f2c99cfb\",\"version_uuid\":\"64198bc2-ec14-47a5-b1c6-7f135e16d717\"}\n",
    "binary": false
   },
   {
    "method": "PUT",
-   "url": "https://example.amocrm.ru/api/v4/leads/32967283/files",
+   "url": "https://example.amocrm.ru/api/v4/leads/32968429/files",
    "op": "",
    "status": 202,
    "content_type": "text/html; charset=UTF-8",
@@ -298,7 +298,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/notes\"}},\"_embedded\":{\"notes\":[{\"id\":768518635,\"entity_id\":32967283,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283/notes/768518635\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/notes\"}},\"_embedded\":{\"notes\":[{\"id\":768523059,\"entity_id\":32968429,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429/notes/768523059\"}}}]}}",
    "binary": false
   },
   {
@@ -307,70 +307,70 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":38712415,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks/38712415\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":38712825,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks/38712825\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/leads/32967283?with=catalog_elements",
+   "url": "https://example.amocrm.ru/api/v4/leads/32968429?with=catalog_elements",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":32967283,\"name\":\"E2E deal 7fc44c69\",\"price\":280,\"price_with_minor_units\":280.0,\"responsible_user_id\":14423942,\"group_id\":0,\"status_id\":89927674,\"pipeline_id\":11486734,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173979,\"updated_at\":1794173981,\"closed_at\":null,\"closest_task_at\":1794260380,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":33362122,\"labor_cost\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283?with=catalog_elements&page=1&limit=250\"}},\"_embedded\":{\"tags\":[{\"id\":253693,\"name\":\"e2e\",\"color\":null}],\"catalog_elements\":[{\"id\":876775,\"metadata\":{\"quantity\":2.5,\"catalog_id\":11503,\"price_id\":1901419},\"account_id\":33362122},{\"id\":876777,\"metadata\":{\"quantity\":3,\"catalog_id\":11503,\"price_id\":1901419},\"account_id\":33362122}],\"companies\":[{\"id\":37842321,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?with=catalog_elements&page=1&limit=250\"}}}]}}",
+   "body": "{\"id\":32968429,\"name\":\"E2E deal 112434be\",\"price\":280,\"price_with_minor_units\":280.0,\"responsible_user_id\":14423942,\"group_id\":0,\"status_id\":89927674,\"pipeline_id\":11486734,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184553,\"updated_at\":1794184554,\"closed_at\":null,\"closest_task_at\":1794270954,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":33362122,\"labor_cost\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429?with=catalog_elements&page=1&limit=250\"}},\"_embedded\":{\"tags\":[{\"id\":253693,\"name\":\"e2e\",\"color\":null}],\"catalog_elements\":[{\"id\":876839,\"metadata\":{\"quantity\":2.5,\"catalog_id\":11503,\"price_id\":1901419},\"account_id\":33362122},{\"id\":876841,\"metadata\":{\"quantity\":3,\"catalog_id\":11503,\"price_id\":1901419},\"account_id\":33362122}],\"companies\":[{\"id\":37843441,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?with=catalog_elements&page=1&limit=250\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B%5D=876775&filter%5Bid%5D%5B%5D=876777&limit=250",
+   "url": "https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B%5D=876839&filter%5Bid%5D%5B%5D=876841&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B0%5D=876775&filter%5Bid%5D%5B1%5D=876777&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":876775,\"name\":\"E2E product 7fc44c69\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173978,\"updated_at\":1794173978,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-7fc44c69\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876775?filter%5Bid%5D%5B0%5D=876775&filter%5Bid%5D%5B1%5D=876777&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}},{\"id\":876777,\"name\":\"E2E service 7fc44c69\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173979,\"updated_at\":1794173979,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876777?filter%5Bid%5D%5B0%5D=876775&filter%5Bid%5D%5B1%5D=876777&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements?filter%5Bid%5D%5B0%5D=876839&filter%5Bid%5D%5B1%5D=876841&limit=250&page=1\"}},\"_embedded\":{\"elements\":[{\"id\":876839,\"name\":\"E2E product 112434be\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794184552,\"updated_at\":1794184552,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-112434be\"}],\"is_masked\":false},{\"field_id\":1901425,\"field_name\":\"Единица измерения\",\"field_code\":\"UNIT\",\"field_type\":\"select\",\"values\":[{\"value\":\"шт\",\"enum_id\":1234773,\"enum_code\":null}],\"is_masked\":false},{\"field_id\":1901417,\"field_name\":\"Описание\",\"field_code\":\"DESCRIPTION\",\"field_type\":\"textarea\",\"values\":[{\"value\":\"Категория: E2E\\nСинонимы: e2e 112434be\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876839?filter%5Bid%5D%5B0%5D=876839&filter%5Bid%5D%5B1%5D=876841&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}},{\"id\":876841,\"name\":\"E2E service 112434be\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794184552,\"updated_at\":1794184552,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"10.25\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876841?filter%5Bid%5D%5B0%5D=876839&filter%5Bid%5D%5B1%5D=876841&limit=250&page=1\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/companies/37842321?with=leads",
+   "url": "https://example.amocrm.ru/api/v4/companies/37843441?with=leads",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":37842321,\"name\":\"E2E Co 7fc44c69\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173972,\"updated_at\":1794173972,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"343571049\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":32967283,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283?with=leads&page=1&limit=250\"}}}]}}",
+   "body": "{\"id\":37843441,\"name\":\"E2E Co 112434be\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184546,\"updated_at\":1794184546,\"closest_task_at\":null,\"is_deleted\":false,\"custom_fields_values\":[{\"field_id\":1903931,\"field_name\":\"ИНН\",\"field_code\":\"INN\",\"field_type\":\"text\",\"values\":[{\"value\":\"387585470\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":32968429,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429?with=leads&page=1&limit=250\"}}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B%5D=32967283&limit=250",
+   "url": "https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B%5D=32968429&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B0%5D=32967283&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":32967283,\"name\":\"E2E deal 7fc44c69\",\"price\":280,\"price_with_minor_units\":280.0,\"responsible_user_id\":14423942,\"group_id\":0,\"status_id\":89927674,\"pipeline_id\":11486734,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173979,\"updated_at\":1794173981,\"closed_at\":null,\"closest_task_at\":1794260380,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":33362122,\"labor_cost\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283?filter%5Bid%5D%5B0%5D=32967283&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":253693,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":37842321,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?filter%5Bid%5D%5B0%5D=32967283&limit=250&page=1\"}}}]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B0%5D=32968429&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":32968429,\"name\":\"E2E deal 112434be\",\"price\":280,\"price_with_minor_units\":280.0,\"responsible_user_id\":14423942,\"group_id\":0,\"status_id\":89927674,\"pipeline_id\":11486734,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184553,\"updated_at\":1794184554,\"closed_at\":null,\"closest_task_at\":1794270954,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":33362122,\"labor_cost\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429?filter%5Bid%5D%5B0%5D=32968429&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":253693,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":37843441,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?filter%5Bid%5D%5B0%5D=32968429&limit=250&page=1\"}}}]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/contacts/37842323?with=leads",
+   "url": "https://example.amocrm.ru/api/v4/contacts/37843443?with=leads",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"id\":37842323,\"name\":\"E2E Person 7fc44c69\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173974,\"updated_at\":1794173974,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-7fc44c69@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 357 10 49\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842323?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":32967283,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283?with=leads&page=1&limit=250\"}}}],\"companies\":[]}}",
+   "body": "{\"id\":37843443,\"name\":\"E2E Person 112434be\",\"first_name\":\"\",\"last_name\":\"\",\"responsible_user_id\":14423942,\"group_id\":0,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184548,\"updated_at\":1794184548,\"closest_task_at\":null,\"is_deleted\":false,\"is_unsorted\":false,\"custom_fields_values\":[{\"field_id\":1900665,\"field_name\":\"Email\",\"field_code\":\"EMAIL\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"e2e-112434be@example.com\",\"enum_id\":1234535,\"enum_code\":\"WORK\"}],\"is_masked\":false},{\"field_id\":1900663,\"field_name\":\"Телефон\",\"field_code\":\"PHONE\",\"field_type\":\"multitext\",\"values\":[{\"value\":\"+998 00 758 54 70\",\"enum_id\":1234523,\"enum_code\":\"WORK\"}],\"is_masked\":false}],\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843443?with=leads&page=1&limit=250\"}},\"_embedded\":{\"tags\":[],\"leads\":[{\"id\":32968429,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429?with=leads&page=1&limit=250\"}}}],\"companies\":[]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B%5D=32967283&limit=250",
+   "url": "https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B%5D=32968429&limit=250",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B0%5D=32967283&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":32967283,\"name\":\"E2E deal 7fc44c69\",\"price\":280,\"price_with_minor_units\":280.0,\"responsible_user_id\":14423942,\"group_id\":0,\"status_id\":89927674,\"pipeline_id\":11486734,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794173979,\"updated_at\":1794173981,\"closed_at\":null,\"closest_task_at\":1794260380,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":33362122,\"labor_cost\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283?filter%5Bid%5D%5B0%5D=32967283&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":253693,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":37842321,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321?filter%5Bid%5D%5B0%5D=32967283&limit=250&page=1\"}}}]}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads?filter%5Bid%5D%5B0%5D=32968429&limit=250&page=1\"}},\"_embedded\":{\"leads\":[{\"id\":32968429,\"name\":\"E2E deal 112434be\",\"price\":280,\"price_with_minor_units\":280.0,\"responsible_user_id\":14423942,\"group_id\":0,\"status_id\":89927674,\"pipeline_id\":11486734,\"loss_reason_id\":null,\"created_by\":0,\"updated_by\":0,\"created_at\":1794184553,\"updated_at\":1794184554,\"closed_at\":null,\"closest_task_at\":1794270954,\"is_deleted\":false,\"custom_fields_values\":null,\"score\":null,\"account_id\":33362122,\"labor_cost\":null,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429?filter%5Bid%5D%5B0%5D=32968429&limit=250&page=1\"}},\"_embedded\":{\"tags\":[{\"id\":253693,\"name\":\"e2e\",\"color\":null}],\"companies\":[{\"id\":37843441,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441?filter%5Bid%5D%5B0%5D=32968429&limit=250&page=1\"}}}]}}]}}",
    "binary": false
   },
   {
    "method": "GET",
-   "url": "https://example.amocrm.ru/api/v4/catalogs/11503/elements?page=1&limit=50&query=E2E+product+7fc44c69",
+   "url": "https://example.amocrm.ru/api/v4/catalogs/11503/elements?page=1&limit=50&query=E2E+product+112434be",
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements?page=1&limit=50&query=E2E+product+7fc44c69\"}},\"_embedded\":{\"elements\":[{\"id\":876775,\"name\":\"E2E product 7fc44c69\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794173978,\"updated_at\":1794173978,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-7fc44c69\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876775?page=1&limit=50&query=E2E+product+7fc44c69\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
+   "body": "{\"_page\":1,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements?page=1&limit=50&query=E2E+product+112434be\"}},\"_embedded\":{\"elements\":[{\"id\":876839,\"name\":\"E2E product 112434be\",\"created_by\":0,\"updated_by\":0,\"created_at\":1794184552,\"updated_at\":1794184552,\"is_deleted\":null,\"custom_fields_values\":[{\"field_id\":1901419,\"field_name\":\"Цена\",\"field_code\":\"PRICE\",\"field_type\":\"price\",\"values\":[{\"value\":\"100\"}],\"is_masked\":false},{\"field_id\":1901415,\"field_name\":\"Артикул\",\"field_code\":\"SKU\",\"field_type\":\"text\",\"values\":[{\"value\":\"E2E-112434be\"}],\"is_masked\":false},{\"field_id\":1901425,\"field_name\":\"Единица измерения\",\"field_code\":\"UNIT\",\"field_type\":\"select\",\"values\":[{\"value\":\"шт\",\"enum_id\":1234773,\"enum_code\":null}],\"is_masked\":false},{\"field_id\":1901417,\"field_name\":\"Описание\",\"field_code\":\"DESCRIPTION\",\"field_type\":\"textarea\",\"values\":[{\"value\":\"Категория: E2E\\nСинонимы: e2e 112434be\"}],\"is_masked\":false}],\"catalog_id\":11503,\"account_id\":33362122,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/catalogs/11503/elements/876839?page=1&limit=50&query=E2E+product+112434be\"}},\"_embedded\":{\"warning\":{\"message\":null}}}]}}",
    "binary": false
   },
   {
@@ -388,7 +388,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":38712415,\"updated_at\":1794173983,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks/38712415\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks\"}},\"_embedded\":{\"tasks\":[{\"id\":38712825,\"updated_at\":1794184557,\"request_id\":\"0\",\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/tasks/38712825\"}}}]}}",
    "binary": false
   },
   {
@@ -397,7 +397,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":32967283,\"updated_at\":1794173983,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32967283\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads\"}},\"_embedded\":{\"leads\":[{\"id\":32968429,\"updated_at\":1794184557,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/leads/32968429\"}}}]}}",
    "binary": false
   },
   {
@@ -406,7 +406,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":37842323,\"name\":\"E2E Person 7fc44c69\",\"updated_at\":1794173984,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842323\"}}},{\"id\":37842325,\"name\":\"E2E Lone 7fc44c69\",\"updated_at\":1794173984,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37842325\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts\"}},\"_embedded\":{\"contacts\":[{\"id\":37843443,\"name\":\"E2E Person 112434be\",\"updated_at\":1794184557,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843443\"}}},{\"id\":37843445,\"name\":\"E2E Lone 112434be\",\"updated_at\":1794184557,\"is_deleted\":false,\"is_unsorted\":false,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/contacts/37843445\"}}}]}}",
    "binary": false
   },
   {
@@ -415,7 +415,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/hal+json",
-   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":37842321,\"name\":\"E2E Co 7fc44c69\",\"updated_at\":1794173984,\"is_deleted\":false,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37842321\"}}}]}}",
+   "body": "{\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies\"}},\"_embedded\":{\"companies\":[{\"id\":37843441,\"name\":\"E2E Co 112434be\",\"updated_at\":1794184558,\"is_deleted\":false,\"_links\":{\"self\":{\"href\":\"https://example.amocrm.ru/api/v4/companies/37843441\"}}}]}}",
    "binary": false
   }
  ]

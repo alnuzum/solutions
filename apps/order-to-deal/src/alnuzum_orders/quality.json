@@ -1,0 +1,18 @@
+{
+ "date": "2026-11-09",
+ "model": "claude-opus-5-5",
+ "lines": 67,
+ "accuracy": 1.0,
+ "flagged": 1.0,
+ "wrong": 0,
+ "wrong_flagged": 0,
+ "found": 67,
+ "quantity": 0.9851,
+ "usage": {
+  "calls": 11,
+  "input": 18595,
+  "output": 4588,
+  "usd": "0.1661"
+ },
+ "orders": 6
+}

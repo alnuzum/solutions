@@ -258,8 +258,17 @@ async def run_conformance(
         _check(not await crm.link_contact(lone, co.id), "the found contact is now linked to the company")
         done.append("found contact linked to the company")
 
+        about = f"Категория: E2E\nСинонимы: e2e {run_id}"
         product_id = await crm.create_product(
-            ProductIn(f"E2E product {run_id}", Decimal(100), f"E2E-{run_id}")
+            ProductIn(
+                f"E2E product {run_id}",
+                Decimal(100),
+                f"E2E-{run_id}",
+                unit="шт",
+                category="E2E",
+                description=about,
+                stock=Decimal(7),
+            )
         )
         got.product_ids.append(product_id)
         lines = (
@@ -306,6 +315,10 @@ async def run_conformance(
         hit = await _poll(catalog_hit, sleep)
         _check(hit is not None, "product found in the catalog")
         _check(hit is not None and hit.price in (None, Decimal(100)), f"catalog price {hit and hit.price}")
+        _check(hit is not None and hit.description == about, f"description {hit and hit.description!r}")
+        _check(hit is not None and bool(hit.unit), f"catalog unit {hit and hit.unit!r}")
+        if "stock" in crm.capabilities:
+            _check(hit is not None and hit.stock == Decimal(7), f"catalog stock {hit and hit.stock}")
         done.append("catalog read")
 
         try:

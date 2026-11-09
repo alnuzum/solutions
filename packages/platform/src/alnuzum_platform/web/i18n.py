@@ -19,6 +19,7 @@ _T: dict[str, tuple[str, str]] = {
         "the connection turns itself off and its keys are erased.",
     ),
     "pick": ("Ваша CRM", "Your CRM"),
+    "solutions": ("Решения на этой CRM", "Solutions on this CRM"),
     "yours": ("Ваши подключения", "Your connections"),
     "none_yet": ("Пока ничего не подключено.", "Nothing connected yet."),
     "open": ("Открыть", "Open"),
@@ -64,9 +65,11 @@ _T: dict[str, tuple[str, str]] = {
     ),
     "bitrix24_text": (
         "Вставьте адрес входящего вебхука: Битрикс24 → Разработчикам → Другое → Входящий вебхук, "
-        "права «CRM (crm)». Адрес содержит ключ: мы храним его зашифрованным и больше не показываем.",
+        "права «CRM (crm)» и «Торговый каталог (catalog)»: без второго решения не увидят остатки товаров. "
+        "Адрес содержит ключ: мы храним его зашифрованным и больше не показываем.",
         "Paste the address of an inbound webhook: Bitrix24 → Developer resources → Other → Inbound "
-        "webhook, scope «CRM (crm)». The address holds a key: we keep it encrypted and never show it again.",
+        "webhook, scopes «CRM (crm)» and «Trade catalog (catalog)»: without the second, solutions do not see "
+        "product stock. The address holds a key: we keep it encrypted and never show it again.",
     ),
     "bitrix24_hint": (
         "Вебхуки работают на платных тарифах Битрикс24 с подпиской «Маркетплейс».",

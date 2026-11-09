@@ -5,7 +5,9 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_PROJECT
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
 COPY packages ./packages
-RUN uv sync --frozen --no-dev --no-editable --package alnuzum-platform
+COPY apps ./apps
+# the solutions bring the platform and the CRM adapters with them; their entry points mount their pages
+RUN uv sync --frozen --no-dev --no-editable --package alnuzum-orders
 
 FROM python:3.12-slim
 RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app

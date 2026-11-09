@@ -32,7 +32,9 @@ class CRM(ABC):
     kind: ClassVar[CrmKind]
     #: what differs between CRMs and matters to a caller:
     #: "inn" — companies can be found by INN; "fractional_amount" — deal amount keeps kopecks;
-    #: "delete" — test records are deleted (otherwise closed and tagged ``e2e``).
+    #: "delete" — test records are deleted (otherwise closed and tagged ``e2e``);
+    #: "line_prices" — a deal line keeps its own price (otherwise the catalog price, see ``DealIn.total``);
+    #: "stock" — products carry the quantity in stock.
     capabilities: ClassVar[frozenset[str]] = frozenset()
 
     async def __aenter__(self) -> Self:

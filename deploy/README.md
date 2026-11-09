@@ -10,7 +10,7 @@ pointing at the server; Caddy gets their certificates itself.
 | an environment | compose project `apps-<env>` from `/srv/apps/compose.app.yml`, its own Postgres, no published ports |
 | secrets of an environment | GitHub environments `stand` and `production`; on the server `/srv/apps/<env>/.env` (0600, owner `deploy-<env>`) |
 | test Odoo | compose project `odoo-e2e` from `/srv/apps/compose.odoo.yml`; `/srv/apps/odoo/.env` (0600) for its Postgres, `/srv/apps/odoo/odoo.conf` (0600, owner uid 100 of the image, directory 0700 root) for Odoo, so the password is not a command-line argument |
-| edge | Caddy: hooks take at most 64 KB, other requests 1 MB; `/connections` (admin API) answers 404 from outside |
+| edge | Caddy publishes 80 and 443 over its own network `edge-v6` (IPv6 with a ULA subnet), so an IPv6 visitor reaches it with his own address, not the gateway's; it reaches the environments over `edge-<env>`. Hooks take at most 64 KB, an order with its file (`POST /{ru,en}/orders`) 9 MB, other requests 1 MB; `/connections` (admin API) answers 404 from outside |
 
 ## Deploy
 

@@ -1,0 +1,349 @@
+{
+ "email-ru.txt": [
+  {
+   "fragment": "ВВГнг 3х2,5",
+   "sku": "EL-CB-004",
+   "qty": 200
+  },
+  {
+   "fragment": "3*1.5",
+   "sku": "EL-CB-003",
+   "qty": 150
+  },
+  {
+   "fragment": "16А однополюсный",
+   "sku": "EL-AV-003",
+   "qty": 12
+  },
+  {
+   "fragment": "25А 1п",
+   "sku": "EL-AV-005",
+   "qty": 6
+  },
+  {
+   "fragment": "УЗО 40А",
+   "sku": "EL-UZ-002",
+   "qty": 2
+  },
+  {
+   "fragment": "221-413",
+   "sku": "EL-KL-002",
+   "qty": 100
+  },
+  {
+   "fragment": "Гофра 20",
+   "sku": "EL-GF-002",
+   "qty": 300
+  },
+  {
+   "fragment": "3,5х35",
+   "sku": "EL-KP-002",
+   "qty": 15
+  },
+  {
+   "fragment": "Дюбель 6х40",
+   "sku": "EL-KP-014",
+   "qty": 10
+  },
+  {
+   "fragment": "Глосса",
+   "sku": "EL-RZ-001",
+   "qty": 40
+  },
+  {
+   "fragment": "двухклавишный Glossa",
+   "sku": "EL-RZ-004",
+   "qty": 15
+  },
+  {
+   "fragment": "68х45",
+   "sku": "EL-KR-003",
+   "qty": 60
+  },
+  {
+   "fragment": "25х16",
+   "sku": "EL-KK-004",
+   "qty": 30
+  },
+  {
+   "fragment": "Армстронг",
+   "sku": "EL-SV-010",
+   "qty": 8
+  }
+ ],
+ "order-ru.xlsx": [
+  {
+   "fragment": "NYM 3х2,5",
+   "sku": "EL-CB-012",
+   "qty": 100
+  },
+  {
+   "fragment": "ПВС 3х1,5",
+   "sku": "EL-CB-015",
+   "qty": 50
+  },
+  {
+   "fragment": "S201 C16",
+   "sku": "EL-AV-015",
+   "qty": 10
+  },
+  {
+   "fragment": "S203 C25",
+   "sku": "EL-AV-020",
+   "qty": 2
+  },
+  {
+   "fragment": "АВДТ32 C16",
+   "sku": "EL-UZ-007",
+   "qty": 4
+  },
+  {
+   "fragment": "221-412",
+   "sku": "EL-KL-001",
+   "qty": 200
+  },
+  {
+   "fragment": "3,6х200",
+   "sku": "EL-KP-023",
+   "qty": 5
+  },
+  {
+   "fragment": "4,8х300",
+   "sku": "EL-KP-029",
+   "qty": 3
+  },
+  {
+   "fragment": "Изолента синяя",
+   "sku": "EL-IZ-001",
+   "qty": 10
+  },
+  {
+   "fragment": "10/5",
+   "sku": "EL-IZ-006",
+   "qty": 20
+  },
+  {
+   "fragment": "12Вт",
+   "sku": "EL-SV-003",
+   "qty": 30
+  },
+  {
+   "fragment": "ЩРН-П-12",
+   "sku": "EL-SH-002",
+   "qty": 3
+  },
+  {
+   "fragment": "DIN",
+   "sku": "EL-SH-007",
+   "qty": 5
+  },
+  {
+   "fragment": "Шина нулевая",
+   "sku": "EL-SH-008",
+   "qty": 3
+  },
+  {
+   "fragment": "2х1.5",
+   "sku": "EL-CB-001",
+   "qty": 100
+  },
+  {
+   "fragment": "Стабилизатор",
+   "sku": null,
+   "qty": 1
+  }
+ ],
+ "request-en.txt": [
+  {
+   "fragment": "RCD 25A",
+   "sku": "EL-UZ-001",
+   "qty": 3
+  },
+  {
+   "fragment": "breaker 32A",
+   "sku": "EL-AV-006",
+   "qty": 10
+  },
+  {
+   "fragment": "3.5x41",
+   "sku": "EL-KP-003",
+   "qty": 20
+  },
+  {
+   "fragment": "7.6x400",
+   "sku": "EL-KP-026",
+   "qty": 2
+  },
+  {
+   "fragment": "floodlight 50W",
+   "sku": "EL-SV-013",
+   "qty": 4
+  },
+  {
+   "fragment": "HR2470",
+   "sku": "EL-IN-001",
+   "qty": 1
+  },
+  {
+   "fragment": "Solar panel",
+   "sku": null,
+   "qty": 6
+  }
+ ],
+ "zayavka-418.pdf": [
+  {
+   "fragment": "5х2,5",
+   "sku": "EL-CB-008",
+   "qty": 150
+  },
+  {
+   "fragment": "3х6",
+   "sku": "EL-CB-006",
+   "qty": 100
+  },
+  {
+   "fragment": "C32",
+   "sku": "EL-AV-011",
+   "qty": 4
+  },
+  {
+   "fragment": "С40",
+   "sku": "EL-AV-012",
+   "qty": 2
+  },
+  {
+   "fragment": "4Р 40А",
+   "sku": "EL-UZ-004",
+   "qty": 1
+  },
+  {
+   "fragment": "ЩРВ-П-24",
+   "sku": "EL-SH-005",
+   "qty": 2
+  },
+  {
+   "fragment": "ШНК",
+   "sku": "EL-SH-009",
+   "qty": 2
+  },
+  {
+   "fragment": "гофр",
+   "sku": "EL-GF-003",
+   "qty": 200
+  },
+  {
+   "fragment": "Клипса",
+   "sku": "EL-KP-033",
+   "qty": 2
+  },
+  {
+   "fragment": "6х60",
+   "sku": "EL-KP-019",
+   "qty": 5
+  },
+  {
+   "fragment": "100х100",
+   "sku": "EL-KR-001",
+   "qty": 25
+  },
+  {
+   "fragment": "8х160",
+   "sku": "EL-IN-010",
+   "qty": 4
+  }
+ ],
+ "photo-list.jpg": [
+  {
+   "fragment": "синий",
+   "sku": "EL-CB-017",
+   "qty": 100
+  },
+  {
+   "fragment": "ж/з",
+   "sku": "EL-CB-019",
+   "qty": 100
+  },
+  {
+   "fragment": "10А",
+   "sku": "EL-AV-002",
+   "qty": 8
+  },
+  {
+   "fragment": "бежев",
+   "sku": "EL-RZ-006",
+   "qty": 6
+  },
+  {
+   "fragment": "рамка",
+   "sku": "EL-RZ-023",
+   "qty": 4
+  },
+  {
+   "fragment": "2273-204",
+   "sku": "EL-KL-005",
+   "qty": 100
+  },
+  {
+   "fragment": "изолента",
+   "sku": "EL-IZ-002",
+   "qty": 5
+  },
+  {
+   "fragment": "свеча",
+   "sku": "EL-SV-007",
+   "qty": 10
+  },
+  {
+   "fragment": "DT-830",
+   "sku": "EL-IN-004",
+   "qty": 1
+  },
+  {
+   "fragment": "коронка",
+   "sku": "EL-IN-014",
+   "qty": 1
+  }
+ ],
+ "messy-ru.xlsx": [
+  {
+   "fragment": "кровельный",
+   "sku": "EL-KP-010",
+   "qty": 4
+  },
+  {
+   "fragment": "клоп",
+   "sku": "EL-KP-011",
+   "qty": 10
+  },
+  {
+   "fragment": "скоба",
+   "sku": "EL-KP-035",
+   "qty": 2
+  },
+  {
+   "fragment": "удлинитель",
+   "sku": "EL-UD-002",
+   "qty": 3
+  },
+  {
+   "fragment": "сетевой фильтр",
+   "sku": "EL-UD-003",
+   "qty": 2
+  },
+  {
+   "fragment": "UTP",
+   "sku": "EL-CB-022",
+   "qty": 305
+  },
+  {
+   "fragment": "КГ",
+   "sku": "EL-CB-024",
+   "qty": 25
+  },
+  {
+   "fragment": "стремянка",
+   "sku": null,
+   "qty": 1
+  }
+ ]
+}

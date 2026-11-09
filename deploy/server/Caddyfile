@@ -27,14 +27,29 @@
 	}
 }
 
-# the platform: CRM hooks take at most 64 KB (no CRM sends more), anything else 1 MB; the admin API
+# the platform: CRM hooks take at most 64 KB (no CRM sends more), an order with its file (POST
+# /ru/orders, /en/orders) 9 MB (the file itself at most 8 MB), anything else 1 MB; the admin API
 # (/connections) answers only from inside the server
 (platform) {
 	@hooks path /hooks/*
 	request_body @hooks {
 		max_size 64KB
 	}
-	request_body {
+	@order {
+		method POST
+		path_regexp ^/(ru|en)/orders$
+	}
+	request_body @order {
+		max_size 9MB
+	}
+	@other {
+		not path /hooks/*
+		not {
+			method POST
+			path_regexp ^/(ru|en)/orders$
+		}
+	}
+	request_body @other {
 		max_size 1MB
 	}
 	@admin path /connections /connections/*

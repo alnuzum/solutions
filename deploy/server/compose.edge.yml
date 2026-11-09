@@ -11,7 +11,14 @@ services:
       - data:/data
       - config:/config
       - /var/log/caddy:/var/log/caddy
-    networks: [edge-prod, edge-stand, edge-odoo]
+    networks:
+      # the published ports go to Caddy over this network: with an IPv6 address of its own Caddy gets a
+      # visitor's IPv6 address as it is (without one, docker-proxy hands every IPv6 visitor over from the
+      # network's gateway, and the quotas by address would see one visitor)
+      edge-v6: { gw_priority: 1 }
+      edge-prod: {}
+      edge-stand: {}
+      edge-odoo: {}
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE]
     security_opt: ["no-new-privileges:true"]
@@ -25,3 +32,4 @@ networks:
   edge-prod: { external: true }
   edge-stand: { external: true }
   edge-odoo: { external: true }
+  edge-v6: { external: true }

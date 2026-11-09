@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ t.o_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/orders/link.css">{% endblock %}
+{% macro num(v) %}{{ ("%.3f"|format(v|float)).rstrip("0").rstrip(".") }}{% endmacro %}
+{% macro money(v) %}{{ "{:,.2f}".format(v).replace(",", " ").removesuffix(".00") }}{% endmacro %}
+{% macro cand(ln, c, kind) %}<label class="opt"><input type="radio" name="c{{ ln.key }}" value="{{ c.id }}"{% if ln.choice == c.id %} checked{% endif %}{% if run.status in ('writing', 'written') %} disabled{% endif %}><span><b>{{ c.name }}</b><small>{{ c.sku or '' }} · {{ c.unit }}{% if c.price %} · {{ money(c.price|float) }}{% endif %}{% if c.stock is not none %} · {{ t.o_stock }} {{ c.stock|float|round(0)|int }}{% endif %}{% if kind == 'a' %} · {{ t.o_analogs|lower }}{% endif %}</small></span></label>{% endmacro %}
+{% block body %}
+{% set cur = r.catalog.currency or '' %}
+{% set crm_name = t['crm_' ~ run.crm] %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/orders">← {{ t.o_new }}</a></p>
+  <h1>{{ t.o_title }}</h1>
+  <p>{{ r.source.name }} · {{ crm_name }}{% if run.demo %} ({{ t.o_demo|lower }}){% endif %} · {{ t.o_cost.format(calls=r.usage.calls, usd=r.usage.usd[:6]) }}</p></div>
+</div>
+{% if r.catalog.warning and t.get(r.catalog.warning) %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[r.catalog.warning] }}</p>{% endif %}
+{% if demo_full %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t['n_' ~ demo_full].format(crm=crm_name) }}{% if demo_others %} {{ t.n_full_try }} {% for k in demo_others %}{{ t['crm_' ~ k] }}{% if not loop.last %}, {% endif %}{% endfor %}. <a href="/{{ lang }}/orders">{{ t.n_full_again }}</a>{% endif %}</p>
+{% elif notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
+
+{% if run.status == 'written' and run.readback %}
+<section class="card done">
+  <h2><svg class="ic" aria-hidden="true"><use href="#c-{{ run.crm }}"/></svg>{{ t.o_written.format(crm=crm_name) }}</h2>
+  <p class="muted">{{ t.o_readback.format(crm=crm_name) }}</p>
+  <span class="deal">{{ t.o_deal.format(id=run.readback.id) }}</span>
+  <p>{{ run.readback.title }}</p>
+  <table class="rb"><thead><tr><th>{{ t.o_lines_crm }}</th><th class="r">{{ t.o_qty }}</th><th class="r">{{ cur }}</th><th class="r">Σ</th></tr></thead><tbody>
+  {% for l in run.readback.lines %}<tr><td>{{ l.name }}{% if l.sku %} <small>{{ l.sku }}</small>{% endif %}</td><td class="r">{{ num(l.quantity) }}</td><td class="r">{{ money(l.price|float) }}</td><td class="r">{{ money(l.total|float) }}</td></tr>{% endfor %}
+  </tbody></table>
+  <p class="sum"><span>{{ t.o_amount }}</span><b>{{ money((run.readback.amount or 0)|float) }} {{ run.readback.currency or cur }}</b></p>
+  {% if run.deal_url %}<a class="open" href="{{ run.deal_url }}" rel="noopener noreferrer">{{ t.o_open_crm }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>{% endif %}
+</section>
+{% endif %}
+
+<div class="oc">
+ <section class="src card">
+  <h2>{{ t.o_source }}</h2>
+  {% if photo %}<img class="ph" src="/orders/sample/{{ photo }}" alt="">{% endif %}
+  {% if r.source.kind == 'image' %}<p class="muted small">{{ t.o_source_photo }}</p>{% endif %}
+  <ol class="paper">
+  {% for line in r.source.lines %}{% set m = marks.get(loop.index) %}<li data-n="{{ loop.index }}"{% if m %} class="mk{% if m == 'doubt' %} doubt{% endif %}"{% endif %}>{{ line }}</li>{% endfor %}
+  </ol>
+ </section>
+
+ <form class="res" method="post" action="/{{ lang }}/orders/{{ run.id }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>{{ t.o_understood }}</h2>
+  <p class="muted small">{{ t.o_hover }}</p>
+  <div class="items">
+  {% for ln in r.lines %}{% set c = ln.chosen %}{% set pl = by_key.get(ln.key) %}
+   <div class="it st-{{ ln.status }}{% if ln.short %} short{% endif %}" data-s="{{ ln.src|join(' ') }}" tabindex="0">
+    <i class="ring cf-{{ (ln.confidence * 10)|round(0)|int }}" aria-label="{{ (ln.confidence * 100)|round(0)|int }} %"><span>{{ (ln.confidence * 100)|round(0)|int }}</span></i>
+    <small class="read">{{ ln.key }}. «{{ ln.text }}»</small>
+    {% if ln.status == 'ok' and c %}
+     <b>{{ c.name }}</b>
+     <small class="meta">{{ c.sku or '' }} · {% if ln.by == 'article' %}{{ t.o_by_article }}{% elif ln.by == 'model' %}{{ t.o_by_model }}{% elif ln.by == 'person' %}{{ t.o_by_person }}{% else %}{{ t.o_by_name }}{% endif %}{% if c.stock is not none %} · {{ t.o_stock }} {{ c.stock|float|round(0)|int }}{% endif %}</small>
+     {% if pl %}<small class="calc"><em>{{ num(pl.quantity) }} {{ c.unit }}</em> × {{ money(pl.unit_price) }} = <em>{{ money(pl.total) }}</em>{% if pl.percent %} <span class="tag">{{ '+' if pl.percent > 0 else '' }}{{ num(pl.percent) }} %</span>{% endif %}{% if ln.rounded %} · {{ t.o_rounded }}{% endif %}</small>{% endif %}
+     {% if ln.short %}<small class="warn">{{ t.o_short.format(n=(c.stock|float|round(0)|int)) }}</small>{% endif %}
+    {% elif ln.status == 'not_found' %}
+     <b class="nf">{{ t.o_not_found }}</b>
+    {% else %}
+     <b class="nf">{% if ln.problem == 'qty' %}{{ t.o_problem_qty }}{% elif ln.problem == 'unit' %}{{ t.o_problem_unit }}{% else %}{{ t.o_unsure }}{% endif %}</b>
+    {% endif %}
+    {% if ln.candidates or ln.analogs %}
+    <details class="opts"{% if ln.status != 'ok' or ln.short %} open{% endif %}><summary>{{ t.o_unsure if ln.status == 'disputed' else t.o_analogs }}</summary>
+     {% for x in ln.candidates %}{{ cand(ln, x, 'c') }}{% endfor %}
+     {% for x in ln.analogs %}{% if x.id not in ln.candidates|map(attribute='id') %}{{ cand(ln, x, 'a') }}{% endif %}{% endfor %}
+     <label class="opt"><input type="radio" name="c{{ ln.key }}" value="skip"{% if run.status in ('writing', 'written') %} disabled{% endif %}><span><b>{{ t.o_skip }}</b></span></label>
+    </details>
+    {% endif %}
+    {% if ln.problem in ('qty', 'unit') %}<label class="fld q">{{ t.o_qty_fix }}<input name="q{{ ln.key }}" inputmode="decimal" value="{{ ln.qty_item or ln.qty or '' }}"></label>{% endif %}
+   </div>
+  {% endfor %}
+  </div>
+
+  <div class="sumbox">
+   <h3>{{ t.o_totals }} · <a href="/{{ lang }}/orders/rules/{{ target }}?back={{ run.id }}">{{ t.o_rules_edit }}</a></h3>
+   <p><span>{{ t.o_base_total }}</span><span>{{ money(p.base_total) }}</span></p>
+   <p><span>{{ t.o_cat_total }}</span><span>{{ money(p.subtotal) }}</span></p>
+   {% if p.tier %}<p><span>{{ t.o_volume.format(p=num(p.tier.percent), f=money(p.tier.start)) }}</span><span>−{{ money(p.subtotal - p.total) }}</span></p>{% endif %}
+   <p class="sum"><span>{{ t.o_total }}</span><b>{{ money(p.total) }} {{ cur }}</b></p>
+  </div>
+  <div class="cust">
+   <h3>{{ t.o_customer }}</h3>
+   {% if customer.company or customer.person or customer.email or customer.phone %}
+   <p>{{ [customer.company, customer.inn and ('ИНН ' ~ customer.inn), customer.person, customer.phone, customer.email]|select|join(' · ') }}</p>
+   {% else %}<p class="muted">{{ t.o_no_customer }}</p>{% endif %}
+  </div>
+  {% if run.status != 'written' %}
+  {% set left = r.lines|rejectattr('status', 'eq', 'ok')|list|length %}
+  <p class="muted small">{{ t.o_write_note.format(n=r.lines|selectattr('status', 'eq', 'ok')|list|length, task=(t.o_task_part.format(n=left) if left else '')) }}{% if demo_left is not none %} {{ t.o_demo_left.format(n=demo_left) }}{% endif %}</p>
+  <div class="acts">
+   <button class="btn ghost" type="submit" name="action" value="recalc">{{ t.o_recalc }}</button>
+   <button class="btn" type="submit" name="action" value="write"{% if demo_left == 0 or demo_full %} disabled{% endif %}>{{ t.o_write.format(crm=crm_name) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+  </div>
+  {% endif %}
+ </form>
+</div>
+{% endblock %}

@@ -15,6 +15,7 @@ moves to the JSON-2 API.
 """
 
 import base64
+import contextlib
 import itertools
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -86,7 +87,14 @@ def _dt(value: Any) -> datetime | None:
 
 class Odoo(CRM):
     kind: ClassVar[CrmKind] = CrmKind.ODOO
-    capabilities: ClassVar[frozenset[str]] = frozenset({"inn", "fractional_amount", "delete"})
+    capabilities: ClassVar[frozenset[str]] = frozenset({"inn", "fractional_amount", "delete", "line_prices"})
+    #: our units to the external ids of Odoo's standard units of measure
+    UNITS: ClassVar[dict[str, str]] = {
+        "шт": "product_uom_unit",
+        "м": "product_uom_meter",
+        "кг": "product_uom_kgm",
+        "л": "product_uom_litre",
+    }
 
     def __init__(
         self,
@@ -297,6 +305,18 @@ class Odoo(CRM):
         vals: dict[str, Any] = {"name": product.name, "list_price": float(product.price), "sale_ok": True}
         if product.sku:
             vals["default_code"] = product.sku
+        if product.description:
+            vals["description_sale"] = product.description
+        if product.unit and product.unit in self.UNITS:
+            with contextlib.suppress(CrmUnsupported):
+                vals["uom_id"] = await self._xmlid("uom", self.UNITS[product.unit])
+        if product.category:
+            found = await self._search("product.category", [["name", "=", product.category]], limit=1)
+            vals["categ_id"] = (
+                found[0]
+                if found
+                else int(await self.kw("product.category", "create", [{"name": product.category}]))
+            )
         return str(await self.kw("product.product", "create", [vals]))
 
     async def list_products(
@@ -306,14 +326,20 @@ class Odoo(CRM):
         if query:
             domain = ["&", *domain, "|", ["name", "ilike", query], ["default_code", "ilike", query]]
         offset = int(cursor or 0)
-        rows = await self._read(
-            "product.product",
-            domain,
-            ["name", "default_code", "list_price", "currency_id"],
-            offset=offset,
-            limit=limit,
-            order="id",
-        )
+        fields = [
+            "name",
+            "default_code",
+            "list_price",
+            "currency_id",
+            "uom_id",
+            "categ_id",
+            "description_sale",
+        ]
+        # stock exists only with the Inventory app
+        stocked = await self._has_model_field("product.product", "qty_available")
+        if stocked:
+            fields.append("qty_available")
+        rows = await self._read("product.product", domain, fields, offset=offset, limit=limit, order="id")
         items = tuple(
             Product(
                 id=str(r["id"]),
@@ -321,6 +347,10 @@ class Odoo(CRM):
                 sku=r.get("default_code") or None,
                 price=dec(r.get("list_price")),
                 currency=r["currency_id"][1] if r.get("currency_id") else None,
+                unit=r["uom_id"][1] if r.get("uom_id") else None,
+                category=r["categ_id"][1] if r.get("categ_id") else None,
+                description=r.get("description_sale") or None,
+                stock=dec(r.get("qty_available")) if stocked else None,
             )
             for r in rows
         )

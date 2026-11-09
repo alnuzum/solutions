@@ -115,7 +115,11 @@ def _dt(value: Any) -> datetime | None:
 
 class Bitrix24(CRM):
     kind: ClassVar[CrmKind] = CrmKind.BITRIX24
-    capabilities: ClassVar[frozenset[str]] = frozenset({"inn", "fractional_amount", "delete"})
+    capabilities: ClassVar[frozenset[str]] = frozenset(
+        {"inn", "fractional_amount", "delete", "line_prices", "stock"}
+    )
+    #: our units to the symbols of ``crm.measure.list``
+    UNITS: ClassVar[dict[str, str]] = {"шт": "шт", "м": "м", "кг": "кг", "л": "л.", "г": "г"}
 
     def __init__(
         self,
@@ -140,6 +144,12 @@ class Bitrix24(CRM):
         )
         self._currency: str | None = None
         self._preset: int | None = None
+        self._measures: dict[str, str] | None = None
+        self._sections: dict[str, str] | None = None
+        self._catalog_iblock: int | None = None
+        # the webhook has no «catalog» scope (or the portal no product catalog): products are read
+        # without stock, and the caller can tell the user which right to add
+        self.stock_denied = False
 
     def __repr__(self) -> str:
         return f"Bitrix24(host={self.host!r})"
@@ -176,10 +186,11 @@ class Bitrix24(CRM):
             return data
         code = str(data.get("error", ""))
         text = f"{method}: {str(data.get('error_description', '')).strip() or code or status}"
+        # a missing scope comes as 401 too: it is a right to add, not a webhook to replace
+        if code in SCOPE_CODES or (status == 403 and code not in AUTH_CODES):
+            raise CrmPermissionError(text, crm=crm, status=status, code=code)
         if code in AUTH_CODES or status == 401:
             raise CrmAuthError(text, crm=crm, status=status, code=code)
-        if code in SCOPE_CODES or status == 403:
-            raise CrmPermissionError(text, crm=crm, status=status, code=code)
         if code == "QUERY_LIMIT_EXCEEDED":
             raise CrmRateLimited(text, crm=crm, status=status, code=code)
         if code == "ERROR_METHOD_NOT_FOUND":
@@ -313,6 +324,32 @@ class Bitrix24(CRM):
 
     # --- catalog ---
 
+    async def _measure_names(self) -> dict[str, str]:
+        """Measure id -> symbol."""
+        if self._measures is None:
+            rows = await self._result("crm.measure.list") or []
+            self._measures = {
+                str(m["ID"]): str(m.get("SYMBOL_RUS") or m.get("SYMBOL") or m.get("CODE") or "") for m in rows
+            }
+        return self._measures
+
+    async def _section_names(self) -> dict[str, str]:
+        """Product section id -> name."""
+        if self._sections is None:
+            rows = await self._list("crm.productsection.list", {"select": ["ID", "NAME"]}, 500)
+            self._sections = {str(r["ID"]): str(r.get("NAME", "")) for r in rows}
+        return self._sections
+
+    async def _catalog_id(self) -> int:
+        if self._catalog_iblock is None:
+            data = await self._result("catalog.catalog.list") or {}
+            rows = data.get("catalogs", []) if isinstance(data, dict) else []
+            main = [r for r in rows if r.get("productIblockId") is None]
+            if not main:
+                raise CrmUnsupported("no product catalog in this portal", crm=self.kind.value)
+            self._catalog_iblock = int(main[0]["iblockId"])
+        return self._catalog_iblock
+
     async def create_product(self, product: ProductIn) -> str:
         fields: dict[str, Any] = {
             "NAME": product.name,
@@ -321,13 +358,59 @@ class Bitrix24(CRM):
         }
         if product.sku:
             fields["XML_ID"] = product.sku
-        return str(await self._result("crm.product.add", {"fields": fields}))
+        if product.description:
+            fields["DESCRIPTION"] = product.description
+        if product.unit and product.unit in self.UNITS:
+            symbol = self.UNITS[product.unit]
+            found = [i for i, sym in (await self._measure_names()).items() if sym == symbol]
+            if found:
+                fields["MEASURE"] = int(found[0])
+        if product.category:
+            sections = await self._section_names()
+            section = next((i for i, n in sections.items() if n == product.category), None)
+            if section is None:
+                section = str(
+                    await self._result(
+                        "crm.productsection.add",
+                        {"fields": {"NAME": product.category, "CATALOG_ID": await self._catalog_id()}},
+                    )
+                )
+                sections[section] = product.category
+            fields["SECTION_ID"] = int(section)
+        pid = str(await self._result("crm.product.add", {"fields": fields}))
+        if product.stock is not None:
+            await self._result(
+                "catalog.product.update", {"id": int(pid), "fields": {"quantity": float(product.stock)}}
+            )
+        return pid
+
+    async def _stock(self, ids: list[str]) -> dict[str, Decimal]:
+        if not ids:
+            return {}
+        data = await self._result(
+            "catalog.product.list",
+            {
+                "select": ["id", "iblockId", "quantity"],
+                "filter": {"iblockId": await self._catalog_id(), "id": [int(i) for i in ids]},
+            },
+        )
+        rows = data.get("products", []) if isinstance(data, dict) else []
+        return {str(r["id"]): Decimal(str(r["quantity"])) for r in rows if r.get("quantity") is not None}
 
     async def list_products(
         self, *, query: str | None = None, cursor: str | None = None, limit: int = 50
     ) -> Page[Product]:
         params: dict[str, Any] = {
-            "select": ["ID", "NAME", "PRICE", "CURRENCY_ID", "XML_ID"],
+            "select": [
+                "ID",
+                "NAME",
+                "PRICE",
+                "CURRENCY_ID",
+                "XML_ID",
+                "MEASURE",
+                "SECTION_ID",
+                "DESCRIPTION",
+            ],
             "order": {"ID": "ASC"},
             "start": int(cursor or 0),
         }
@@ -337,6 +420,14 @@ class Bitrix24(CRM):
         data = await self.call("crm.product.list", params)
         page = [r for r in data.get("result") or [] if isinstance(r, dict)]
         rows = page[:limit]
+        measures = await self._measure_names() if any(r.get("MEASURE") for r in rows) else {}
+        sections = await self._section_names() if any(r.get("SECTION_ID") for r in rows) else {}
+        stock: dict[str, Decimal] = {}
+        if not self.stock_denied:
+            try:
+                stock = await self._stock([str(r["ID"]) for r in rows])
+            except (CrmPermissionError, CrmUnsupported):
+                self.stock_denied = True
         items = tuple(
             Product(
                 id=str(r["ID"]),
@@ -345,6 +436,10 @@ class Bitrix24(CRM):
                 sku=str(r["XML_ID"]) if r.get("XML_ID") and str(r["XML_ID"]) != str(r["ID"]) else None,
                 price=dec(r.get("PRICE")),
                 currency=r.get("CURRENCY_ID") or None,
+                unit=measures.get(str(r.get("MEASURE") or "")) or None,
+                category=sections.get(str(r.get("SECTION_ID") or "")) or None,
+                description=r.get("DESCRIPTION") or None,
+                stock=stock.get(str(r["ID"])),
             )
             for r in rows
         )

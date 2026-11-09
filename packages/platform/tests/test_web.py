@@ -912,6 +912,7 @@ async def test_revoke_is_only_for_zoho_and_never_raises(app: FastAPI, net: Net) 
         "/ru",
         "/en/connections/2f1c0f3e-8f1e-4f5b-9a57-0f2b8c1d9e10?n=quota",
         "/ru/connections/2f1c0f3e-8f1e-4f5b-9a57-0f2b8c1d9e10?n=rejected&code=BAD%20TITLE",
+        "/en/orders/rules/demo:amocrm?n=saved",
         "https://www.amocrm.ru/oauth/?state=s&mode=popup&scopes[]=crm",
         "https://www.kommo.com/oauth?client_id=c&state=s",
         "https://accounts.zoho.com/oauth/v2/auth?client_id=c",
@@ -938,6 +939,7 @@ def test_redirect_goes_to_our_pages_and_consent_windows(location: str) -> None:
         "https://user@www.kommo.com/oauth",
         "https://www.kommo.com:8443/oauth",
         "javascript:alert(1)",
+        "/ru:evil.example",
         "",
     ],
 )
