@@ -30,6 +30,8 @@ from alnuzum_crm.http import RetryPolicy
 from alnuzum_crm.netguard import check_public_url
 from alnuzum_crm.oauth import (
     ZOHO_ACCOUNTS_HOSTS,
+    ZOHO_DEVELOPER_API,
+    ZOHO_US_API,
     amo_exchange_code,
     amo_refresh,
     normalize_amo_domain,
@@ -176,10 +178,14 @@ class Connectors:
             code,
             transport=self._transport,
         )
-        async with ZohoCRM(
-            api, StaticToken(tokens.access_token, crm="zoho"), transport=self._transport, retry=QUICK
-        ) as adapter:
-            account = await adapter.account()
+        try:
+            account = await self._zoho_account(api, tokens.access_token)
+        except CrmAuthError:
+            if api != ZOHO_US_API:
+                raise
+            # a Developer Edition token: the token server names the US host, which refuses it
+            api = ZOHO_DEVELOPER_API
+            account = await self._zoho_account(api, tokens.access_token)
         secrets = {
             "access_token": tokens.access_token,
             "refresh_token": tokens.refresh_token,
@@ -187,6 +193,12 @@ class Connectors:
             "accounts_server": server,
         }
         return Linked(CrmKind.ZOHO, api, account.id, account.name or api, secrets, {"web": account.web})
+
+    async def _zoho_account(self, api: str, access_token: str) -> AccountInfo:
+        async with ZohoCRM(
+            api, StaticToken(access_token, crm="zoho"), transport=self._transport, retry=QUICK
+        ) as adapter:
+            return await adapter.account()
 
     # --- forms ---
 
