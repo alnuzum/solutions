@@ -734,3 +734,11 @@ async def test_an_unexpected_failure_does_not_leave_the_run_writing(make: Any, e
     with pytest.raises(RuntimeError):
         await written(b, run)
     assert await rows(engine, "SELECT status, steps FROM contract_runs") == [("failed", ["note"])]
+
+
+async def test_the_deal_search_field_is_drawn_like_the_other_fields(make: Any) -> None:
+    """Found live: the field had the page's white text on the browser's white background."""
+    h: Harness = await make()
+    css = (await Browser(h.app).http.get("/static/contracts/contracts.css")).text
+    rule = css.split(".deal input[type=search]{", 1)[1].split("}", 1)[0]
+    assert "background:var(--deep)" in rule and "color:var(--on-deep)" in rule
