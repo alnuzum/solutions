@@ -95,7 +95,7 @@ def split_history(text: str) -> tuple[str, int]:
         start = _HISTORY.match(stripped) or (
             _OUTLOOK.match(stripped) and any(_OUTLOOK_NEXT.match(x.strip()) for x in lines[n + 1 : n + 4])
         )
-        if start and n > 0:
+        if start:  # a letter that is all quotation, or almost: kept whole
             body = "\n".join(lines[:n]).strip()
             if len("".join(body.split())) >= 20:
                 return body, len(text) - len("\n".join(lines[:n]))

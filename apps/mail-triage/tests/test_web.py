@@ -8,13 +8,13 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from alnuzum_contracts.store import Seal
 from alnuzum_mail import web
 from alnuzum_mail.engine import DEMO_NEW
 from alnuzum_mail.service import sample_bytes, samples
 from alnuzum_mail.store import Limits, MailStore
 from sqlalchemy import text
 
-from alnuzum_contracts.store import Seal
 from alnuzum_crm.types import CrmKind
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.web.security import Sessions
@@ -22,11 +22,11 @@ from alnuzum_platform.web.security import Sessions
 from .conftest import (
     KEYS,
     NAVRUZ,
-    FakeCRM,
     ORIGIN,
     ROMASHKA,
     SESSION_SECRET,
     Browser,
+    FakeCRM,
     Harness,
     answer,
     rows,
