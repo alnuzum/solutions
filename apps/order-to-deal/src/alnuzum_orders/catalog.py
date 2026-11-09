@@ -105,6 +105,8 @@ class Catalog:
     items: tuple[CatalogItem, ...]
     currency: str | None
     has_stock: bool
+    # what the CRM would not give, for the user: "w_b24_catalog" (a Bitrix24 webhook without «catalog»)
+    warning: str | None = None
 
     def by_id(self, item_id: str) -> CatalogItem | None:
         return next((i for i in self.items if i.id == item_id), None)
@@ -129,7 +131,8 @@ async def read_catalog(crm: CRM, *, prefix: str | None = None) -> Catalog:
             break
         cursor = page.next_cursor
     currency = next((i.currency for i in items if i.currency), None)
-    return Catalog(tuple(items), currency, any(i.stock is not None for i in items))
+    warning = "w_b24_catalog" if getattr(crm, "stock_denied", False) else None
+    return Catalog(tuple(items), currency, any(i.stock is not None for i in items), warning)
 
 
 class CatalogCache:

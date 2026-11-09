@@ -59,7 +59,7 @@ async def test_a_table_with_a_header_needs_no_model() -> None:
     ]
     assert result.lines[0].src == [2]
     assert result.usage["calls"] == 0
-    assert result.catalog == {"currency": "RUB", "count": 7, "has_stock": True}
+    assert result.catalog == {"currency": "RUB", "count": 7, "has_stock": True, "warning": None}
 
 
 async def test_units_packs_rounding_quantity_problems_and_short_stock() -> None:

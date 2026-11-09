@@ -147,6 +147,9 @@ class Bitrix24(CRM):
         self._measures: dict[str, str] | None = None
         self._sections: dict[str, str] | None = None
         self._catalog_iblock: int | None = None
+        # the webhook has no «catalog» scope (or the portal no product catalog): products are read
+        # without stock, and the caller can tell the user which right to add
+        self.stock_denied = False
 
     def __repr__(self) -> str:
         return f"Bitrix24(host={self.host!r})"
@@ -183,10 +186,11 @@ class Bitrix24(CRM):
             return data
         code = str(data.get("error", ""))
         text = f"{method}: {str(data.get('error_description', '')).strip() or code or status}"
+        # a missing scope comes as 401 too: it is a right to add, not a webhook to replace
+        if code in SCOPE_CODES or (status == 403 and code not in AUTH_CODES):
+            raise CrmPermissionError(text, crm=crm, status=status, code=code)
         if code in AUTH_CODES or status == 401:
             raise CrmAuthError(text, crm=crm, status=status, code=code)
-        if code in SCOPE_CODES or status == 403:
-            raise CrmPermissionError(text, crm=crm, status=status, code=code)
         if code == "QUERY_LIMIT_EXCEEDED":
             raise CrmRateLimited(text, crm=crm, status=status, code=code)
         if code == "ERROR_METHOD_NOT_FOUND":
@@ -418,7 +422,12 @@ class Bitrix24(CRM):
         rows = page[:limit]
         measures = await self._measure_names() if any(r.get("MEASURE") for r in rows) else {}
         sections = await self._section_names() if any(r.get("SECTION_ID") for r in rows) else {}
-        stock = await self._stock([str(r["ID"]) for r in rows])
+        stock: dict[str, Decimal] = {}
+        if not self.stock_denied:
+            try:
+                stock = await self._stock([str(r["ID"]) for r in rows])
+            except (CrmPermissionError, CrmUnsupported):
+                self.stock_denied = True
         items = tuple(
             Product(
                 id=str(r["ID"]),

@@ -589,3 +589,15 @@ async def test_demo_writes_per_address_count_the_address_that_writes(make: Any) 
     # A uploaded all four but wrote none: B's deals are not A's
     resp = await a.decide(runs[3], {"action": "write"})
     assert resp.headers["location"].endswith("?n=written")
+
+
+# --- I5: a Bitrix24 webhook without «catalog» ---
+
+
+async def test_a_catalog_without_stock_rights_says_which_right_to_add(make: Any) -> None:
+    h = await make(choose_first())
+    h.crm.stock_denied = True  # type: ignore[attr-defined]
+    b = Browser(h.app)
+    rid = run_id(await b.order("demo:bitrix24", sample="order-ru.xlsx"))
+    page = await b.http.get(f"/ru/orders/{rid}")
+    assert "нет права «Торговый каталог (catalog)»" in page.text

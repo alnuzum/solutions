@@ -12,6 +12,7 @@
   <h1>{{ t.o_title }}</h1>
   <p>{{ r.source.name }} · {{ crm_name }}{% if run.demo %} ({{ t.o_demo|lower }}){% endif %} · {{ t.o_cost.format(calls=r.usage.calls, usd=r.usage.usd[:6]) }}</p></div>
 </div>
+{% if r.catalog.warning and t.get(r.catalog.warning) %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[r.catalog.warning] }}</p>{% endif %}
 {% if demo_full %}<p class="err" role="status"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t['n_' ~ demo_full].format(crm=crm_name) }}{% if demo_others %} {{ t.n_full_try }} {% for k in demo_others %}{{ t['crm_' ~ k] }}{% if not loop.last %}, {% endif %}{% endfor %}. <a href="/{{ lang }}/orders">{{ t.n_full_again }}</a>{% endif %}</p>
 {% elif notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
 

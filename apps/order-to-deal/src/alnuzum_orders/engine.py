@@ -239,7 +239,12 @@ async def run(source: Source, catalog: Catalog, reader: Reader, gate: Gate) -> R
         source={"kind": source.kind, "name": source.name[:120], "lines": shown, "pages": source.pages},
         customer=asdict(extraction.customer),
         lines=lines,
-        catalog={"currency": catalog.currency, "count": len(catalog.items), "has_stock": catalog.has_stock},
+        catalog={
+            "currency": catalog.currency,
+            "count": len(catalog.items),
+            "has_stock": catalog.has_stock,
+            "warning": catalog.warning,
+        },
         usage={
             "calls": usage.calls,
             "input": usage.input_tokens,

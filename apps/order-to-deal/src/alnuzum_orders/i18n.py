@@ -122,6 +122,12 @@ _T: dict[str, tuple[str, str]] = {
     "n_full_try": ("Демо других CRM открыто:", "The demo of other CRMs is open:"),
     "n_full_again": ("начать заявку заново", "start the order again"),
     "o_full_mark": ("на сегодня заполнено", "full for today"),
+    "w_b24_catalog": (
+        "Остатков не видно: у вебхука Битрикс24 нет права «Торговый каталог (catalog)». Добавьте его в "
+        "настройках входящего вебхука, и остатки появятся в следующей заявке.",
+        "Stock is not shown: the Bitrix24 webhook has no «Trade catalog (catalog)» scope. Add it in the "
+        "inbound webhook's settings, and stock shows in the next order.",
+    ),
     "n_failed": (
         "CRM не приняла запись. Попробуйте ещё раз или проверьте подключение.",
         "The CRM refused the write. Try again or check the connection.",

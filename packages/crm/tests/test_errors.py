@@ -146,6 +146,7 @@ def b24(script: Script) -> Bitrix24:
         ),
         (401, {"error": "expired_token"}, e.CrmAuthError),
         (403, {"error": "insufficient_scope"}, e.CrmPermissionError),
+        (401, {"error": "insufficient_scope"}, e.CrmPermissionError),
         (404, {"error": "ERROR_METHOD_NOT_FOUND"}, e.CrmUnsupported),
         (400, {"error": "", "error_description": "Not found"}, e.CrmNotFound),
         (400, {"error": "ERROR_CORE", "error_description": "bad field"}, e.CrmValidationError),

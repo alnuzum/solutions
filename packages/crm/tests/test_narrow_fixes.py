@@ -454,3 +454,35 @@ async def test_odoo_found_contact_is_linked_only_when_it_has_no_company() -> Non
         await crm.find_or_create_contact(ContactIn("x", email="joe@corp.com"), company_id="5")
     writes = [args for model, method, args in fake.calls if method == "write"]
     assert writes == [[[6], {"parent_id": 5}]]
+
+
+# --- stage 2, I5: a webhook without the «catalog» scope still reads the products ---
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_bitrix_products_without_the_catalog_scope_come_without_stock(status: int) -> None:
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        method, body = b24_method(request)
+        asked.append(method)
+        if method.startswith("catalog."):
+            return httpx.Response(
+                status,
+                json={
+                    "error": "insufficient_scope",
+                    "error_description": "The request requires higher privileges",
+                },
+            )
+        start = int(body.get("start", 0))
+        rows = [{"ID": str(i), "NAME": f"P{i}", "PRICE": "10"} for i in range(start, min(start + 50, 60))]
+        nxt = start + 50 if start + 50 < 60 else None
+        return httpx.Response(200, json={"result": rows, **({"next": nxt} if nxt else {})})
+
+    async with bitrix(handler) as crm:
+        first = await crm.list_products(limit=50)
+        second = await crm.list_products(limit=50, cursor=first.next_cursor)
+    items = [*first.items, *second.items]
+    assert len(items) == 60 and all(p.stock is None for p in items)
+    assert crm.stock_denied is True
+    assert sum(m.startswith("catalog.") for m in asked) == 1  # not asked again on the next page
