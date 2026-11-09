@@ -171,7 +171,7 @@ def _check_quantity(line: Line, item: CatalogItem, catalog: Catalog) -> None:
         line.status = "disputed"
         return
     q = to_item_unit(qty, unit_of(line.unit), item)
-    if q.value is None:
+    if q.value is None or q.value <= 0:
         line.problem = "unit"
         line.status = "disputed"
         return
@@ -278,11 +278,19 @@ def apply_choices(
                 qty = Decimal(typed)
             except InvalidOperation:
                 continue
-            if qty.is_finite() and Decimal(0) < qty <= MAX_QTY:
-                line.qty_item = str(plain(qty.quantize(Decimal("0.001"))))
-                if line.problem in ("qty", "unit"):
-                    line.problem = None
-                    line.status = "ok" if line.choice else line.status
+            if not qty.is_finite() or not Decimal(0) < qty <= MAX_QTY:
+                continue
+            qty = qty.quantize(Decimal("0.001"))
+            if qty <= 0:
+                # nothing left after the three decimals: no quantity, the line waits for a person
+                line.qty_item, line.problem = None, "qty"
+                if line.status == "ok":
+                    line.status = "disputed"
+                continue
+            line.qty_item = str(plain(qty))
+            if line.problem in ("qty", "unit"):
+                line.problem = None
+                line.status = "ok" if line.choice else line.status
     for line in result.lines:
         if line.status == "ok" and line.choice and line.qty_item is None:
             line.status = "disputed"
@@ -296,7 +304,9 @@ def priced(result: Result, rules: Rules) -> Priced:
     for line in result.lines:
         c = line.chosen
         if line.status == "ok" and c is not None and line.qty_item is not None:
-            rows.append((line.key, Decimal(c.price or 0), c.category, Decimal(line.qty_item)))
+            base, qty = Decimal(c.price or 0), Decimal(line.qty_item)
+            if base > 0 and qty > 0:  # a product without a price is never sold at 0
+                rows.append((line.key, base, c.category, qty))
     return price(rows, rules)
 
 
@@ -363,12 +373,16 @@ def plan(result: Result, rules: Rules, *, line_prices: bool, lang: str, now: dat
     # every text below is ours: catalog names and articles, numbers, prices; nothing of the document
     # (its lines, its file name) and nothing the model wrote
     note.append(f"Al-Nuzum · {'заявка' if ru else 'order'} · {stamp}")
+    unpriced: list[Line] = []
     for line in result.lines:
         pl = by_key.get(line.key)
         c = line.chosen
-        if pl is None or c is None:
+        if c is None or line.status != "ok":
             continue
-        unit_price = pl.unit_price if line_prices else pl.base
+        unit_price = pl.unit_price if pl and line_prices else (pl.base if pl else Decimal(0))
+        if pl is None or pl.quantity <= 0 or unit_price <= 0:
+            unpriced.append(line)
+            continue
         if c.id in merged:
             prev = merged[c.id]
             merged[c.id] = (c, prev[1] + pl.quantity, unit_price)
@@ -397,13 +411,14 @@ def plan(result: Result, rules: Rules, *, line_prices: bool, lang: str, now: dat
             if ru
             else "Deal lines at catalog prices; the deal budget is the total after the rules."
         )
-    left = result.disputed
+    left = result.disputed + unpriced
     if left:
         note.append("Не добавлено, проверить:" if ru else "Not added, to check:")
         for line in left:
-            why = {"not_found": "нет в каталоге" if ru else "not in the catalog"}.get(
-                line.status, "спорная" if ru else "unsure"
-            )
+            why = {
+                "not_found": "нет в каталоге" if ru else "not in the catalog",
+                "ok": "нет цены в каталоге" if ru else "no price in the catalog",
+            }.get(line.status, "спорная" if ru else "unsure")
             where = ", ".join(str(int(n)) for n in line.src[:5])
             at = (f" (строки документа {where})" if ru else f" (document lines {where})") if where else ""
             note.append(f"- {line.key}.{at} — {why}")

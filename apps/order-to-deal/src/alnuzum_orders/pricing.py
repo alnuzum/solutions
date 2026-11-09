@@ -127,8 +127,16 @@ def demo_rules(currency: str | None) -> Rules:
     )
 
 
+CENT = Decimal("0.01")
+
+
 def money(value: Decimal, step: Decimal) -> Decimal:
-    return (value / step).quantize(Decimal(1), rounding=ROUND_HALF_UP) * step
+    """``value`` rounded to the step; a price never rounds to nothing: below half a step it keeps the
+    cent (at least 0.01)."""
+    out = (value / step).quantize(Decimal(1), rounding=ROUND_HALF_UP) * step
+    if value > 0 and out <= 0:
+        out = max(value.quantize(CENT, rounding=ROUND_HALF_UP), CENT)
+    return out
 
 
 @dataclass(frozen=True)

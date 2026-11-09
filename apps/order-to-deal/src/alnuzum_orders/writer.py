@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from alnuzum_crm.base import CRM
+from alnuzum_crm.errors import CrmValidationError
 from alnuzum_crm.types import CompanyIn, ContactIn, CrmKind, DealIn, TaskIn
 from alnuzum_orders.engine import Plan
 from alnuzum_orders.model import Customer
@@ -23,6 +24,11 @@ class Written:
 
 
 async def write(crm: CRM, plan: Plan, customer: Customer, *, lang: str, tags: tuple[str, ...]) -> Written:
+    if any(x.quantity <= 0 or x.unit_price <= 0 for x in plan.lines) or (
+        plan.total is not None and plan.total < 0
+    ):
+        # refused before anything is written: a deal line is a positive quantity at a positive price
+        raise CrmValidationError("a deal line without a positive quantity and price", crm=crm.kind.value)
     company_id = contact_id = None
     if customer.company:
         company_id = (

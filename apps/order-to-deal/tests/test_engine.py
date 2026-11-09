@@ -327,3 +327,41 @@ async def test_a_text_is_booked_by_its_bytes_and_an_oversized_request_is_never_s
         await reader.extract(intake.from_text("m", text), booking_gate(seen))
     assert caught.value.code == "e_too_long"
     assert messages.requests == [] and len(seen) == 1
+
+
+# --- I7: a quantity or a price that comes to nothing never reaches a deal ---
+
+
+async def test_a_quantity_quantized_to_zero_makes_the_line_disputed() -> None:
+    reader, _ = reader_with(extract_lines)
+    result = await run(intake.from_text("m", "Лампа светодиодная A60 12 Вт E27 - 3 шт"), CAT, reader, gate)
+    assert result.lines[0].status == "ok"
+    apply_choices(result, {"q1": "0.0004"})
+    line = result.lines[0]
+    assert line.qty_item != "0" and line.status != "ok" and line.problem == "qty"
+    assert plan(result, Rules(), line_prices=True, lang="ru").lines == ()
+
+
+async def test_a_product_without_a_price_is_left_for_a_person_and_the_writer_refuses_zero_lines() -> None:
+    from alnuzum_crm.errors import CrmValidationError
+    from alnuzum_crm.types import DealLine
+    from alnuzum_orders.engine import Plan
+    from alnuzum_orders.model import Customer
+    from alnuzum_orders.writer import write
+
+    from .conftest import FakeCRM
+
+    free = catalog(item(1, "Лампа светодиодная A60 12 Вт E27", sku="EL-SV-001", price="0", stock="5"))
+    reader, _ = reader_with(extract_lines)
+    result = await run(intake.from_text("m", "Лампа светодиодная A60 12 Вт E27 - 3 шт"), free, reader, gate)
+    the_plan = plan(result, Rules(), line_prices=True, lang="ru")
+    assert the_plan.lines == () and the_plan.left == 1 and "нет цены в каталоге" in the_plan.note
+    crm = FakeCRM()
+    for bad in (
+        DealLine("x", D(0), D(10), "1"),
+        DealLine("x", D(1), D(0), "1"),
+        DealLine("x", D(1), D(-5), "1"),
+    ):
+        with pytest.raises(CrmValidationError):
+            await write(crm, Plan("t", (bad,), None, "n", None, 0), Customer(), lang="ru", tags=())
+    assert crm.deals == {} and crm.companies == []

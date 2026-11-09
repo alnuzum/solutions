@@ -102,3 +102,21 @@ def test_demo_rules_follow_the_account_currency() -> None:
     assert uzs.volume[0].start == D(30000) * 155
     assert usd.volume[0].start == D(30000) * D("0.0125")
     assert rub.percent_for("Кабель и провод") == D(5)
+
+
+# --- I7: rounding never makes a price nothing ---
+
+
+def test_a_price_never_rounds_to_zero_or_below() -> None:
+    from alnuzum_orders.pricing import money
+
+    assert money(D(30), D(100)) == D(30)  # under half a step: kept to the cent
+    assert money(D(49.9), D(100)) == D("49.90")
+    assert money(D(60), D(100)) == D(100)
+    assert money(D("0.004"), D("0.01")) == D("0.01")
+    assert money(D(0), D(100)) == D(0)
+    rules = Rules(default=D(-90), volume=(Tier(D(0), D(90)),), round=D("0.01"))
+    p = price([(1, D("0.4"), None, D(1)), (2, D(499), None, D(2))], rules)
+    assert all(ln.unit_price > 0 for ln in p.lines) and p.total > 0
+    hundred = price([(1, D(30), None, D(3)), (2, D(499), None, D(1))], Rules(default=D(-90), round=D(100)))
+    assert [ln.unit_price for ln in hundred.lines] == [D(3), D("49.90")]
