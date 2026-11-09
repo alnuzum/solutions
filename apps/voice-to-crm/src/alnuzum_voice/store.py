@@ -23,6 +23,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Uuid,
+    cast,
     delete,
     func,
     or_,
@@ -62,6 +63,8 @@ class VoiceRun(Base):
     deal_url: Mapped[str | None] = mapped_column(String(500))
     error: Mapped[str | None] = mapped_column(String(40))
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the steps of the write already done, each named; once one is done the plan no longer changes
+    steps: Mapped[list[str] | None] = mapped_column(JSONB)
 
 
 class VoiceSpend(Base):
@@ -144,6 +147,7 @@ class RunInfo:
     readback: dict[str, Any] | None
     deal_url: str | None
     error: str | None
+    steps: list[str]
 
     @classmethod
     def of(cls, r: VoiceRun) -> "RunInfo":
@@ -159,6 +163,7 @@ class RunInfo:
             r.readback,
             r.deal_url,
             r.error,
+            list(r.steps or []),
         )
 
 
@@ -260,11 +265,15 @@ class VoiceStore:
         return RunInfo.of(row)
 
     async def save_result(self, run_id: uuid.UUID, owner: str, result: dict[str, Any]) -> bool:
+        """A person's choice, while nothing of the plan is written: a retry goes on with the plan it began."""
         async with self._sessions.begin() as session:
             done = await session.execute(
                 update(VoiceRun)
                 .where(
-                    VoiceRun.id == run_id, VoiceRun.owner == owner, VoiceRun.status.in_(("ready", "failed"))
+                    VoiceRun.id == run_id,
+                    VoiceRun.owner == owner,
+                    VoiceRun.status.in_(("ready", "failed")),
+                    VoiceRun.steps.is_(None),
                 )
                 .values(result=result)
             )
@@ -333,6 +342,24 @@ class VoiceStore:
                 .values(status="writing")
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
+
+    async def step_done(self, run_id: uuid.UUID, step: str) -> None:
+        """Kept before the next step begins: a retry skips it."""
+        async with self._sessions.begin() as session:
+            await session.execute(
+                update(VoiceRun)
+                .where(VoiceRun.id == run_id, VoiceRun.status == "writing")
+                .values(
+                    steps=func.coalesce(VoiceRun.steps, text("'[]'::jsonb")).op("||")(
+                        func.jsonb_build_array(cast(step, String))
+                    )
+                )
+            )
+
+    async def steps_done(self, run_id: uuid.UUID) -> list[str]:
+        async with self._sessions() as session:
+            found = await session.scalar(select(VoiceRun.steps).where(VoiceRun.id == run_id))
+        return list(found or [])
 
     async def finish_writing(
         self,

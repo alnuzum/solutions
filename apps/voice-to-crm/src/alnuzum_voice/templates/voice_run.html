@@ -10,7 +10,7 @@
   <h1>{{ t.v_title }}</h1>
   <p>{{ crm_name }}{% if run.demo %} ({{ t.v_demo|lower }}){% endif %} · {{ t.v_cost.format(usd=(r.usage.usd|float)|round(4)) }}</p></div>
 </div>
-{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice].format(crm=crm_name) }}</p>{% endif %}
+{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice].format(crm=crm_name, done=run.steps|length, total=steps_total) }}</p>{% endif %}
 {% if run.status == 'cancelled' %}<p class="err" role="status">{{ t.v_cancelled }}</p>{% endif %}
 
 {% if run.status == 'written' and run.readback %}

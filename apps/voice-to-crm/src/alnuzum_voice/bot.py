@@ -12,7 +12,7 @@ from alnuzum_crm.types import CrmKind
 from alnuzum_platform.solutions import Kit
 from alnuzum_platform.store import ConnectionNotFound
 from alnuzum_platform.web.i18n import texts as platform_texts
-from alnuzum_voice.engine import Change, Result
+from alnuzum_voice.engine import Change, Result, steps
 from alnuzum_voice.i18n import demo_deals, texts
 from alnuzum_voice.service import Note, Voice, VoiceError
 from alnuzum_voice.store import RunNotFound, RunsExceeded, chat_owner
@@ -284,7 +284,9 @@ class Updates:
                 await bot.answer(cid, t["b_old"])
                 return
             result.deal_id, result.deal_by = str(chosen["id"]), "person"
-            await vs.save_result(run.id, run.owner, result.to_json())
+            if not await vs.save_result(run.id, run.owner, result.to_json()):
+                await bot.answer(cid, t["b_old"])  # a part is written: the plan stays as it began
+                return
             await bot.answer(cid)
             await bot.edit(
                 chat_id, message_id, plan_text(result, run.crm, lang), plan_buttons(run.id, result, lang)
@@ -309,6 +311,9 @@ class Updates:
                 chat_id, message_id, readback_text(done.readback or {}, run.crm, done.deal_url, lang)
             )
             return
-        text = t.get("n_" + notice, t["n_failed"]).format(crm=crm_name(run.crm, lang))
+        after = await vs.get_run(run.id, run.owner)
+        text = t.get("n_" + notice, t["n_failed"]).format(
+            crm=crm_name(run.crm, lang), done=len(after.steps), total=len(steps(result, lang=lang))
+        )
         buttons = plan_buttons(run.id, result, lang) if notice == "failed" else None
         await bot.edit(chat_id, message_id, plan_text(result, run.crm, lang) + "\n\n" + text, buttons)

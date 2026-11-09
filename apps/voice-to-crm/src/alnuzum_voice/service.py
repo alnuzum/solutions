@@ -240,8 +240,8 @@ class Voice:
         return result
 
     async def confirm(self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, lang: str) -> str:
-        """Write a confirmed plan. Returns the notice: written, quota, full, full_total, busy, failed, auth,
-        no_deal."""
+        """Write a confirmed plan; a retry after a failure goes on from the first step not done. Returns the
+        notice: written, quota, full, full_total, busy, failed, auth, no_deal."""
         result = Result.from_json(run.result or {})
         if not result.deal_id:
             return "no_deal"
@@ -260,9 +260,14 @@ class Voice:
             code = "quota" if isinstance(exc, QuotaExceeded) else "auth"
             await vs.finish_writing(run.id, ok=False, error=code)
             return code
+        done_before = frozenset(await vs.steps_done(run.id))  # read while "writing" is ours alone
+
+        async def mark(step: str) -> None:
+            await vs.step_done(run.id, step)
+
         try:
             async with kit.connectors.adapter(info, await st.secrets(info.id), st) as crm:
-                done = await write(crm, result, lang=lang)
+                done = await write(crm, result, lang=lang, done=done_before, mark=mark)
                 url = None if run.demo else crm.deal_link(kit.connectors.account_of(info), done.deal_id)
         except CrmError as exc:
             code = crm_error(exc)

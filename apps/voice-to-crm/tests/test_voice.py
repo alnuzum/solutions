@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 import wave
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from importlib import resources
 from types import SimpleNamespace
@@ -528,9 +528,7 @@ async def test_a_crm_that_fails_while_reading_or_writing_writes_nothing_and_says
         done = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
         assert done.headers["location"].endswith("?n=failed")
         again = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
-        assert not again.headers["location"].endswith(
-            "?n=written"
-        )  # a failed write is not retried by a click
+        assert again.headers["location"].endswith("?n=failed")  # the retry meets the same error
     assert [k for k, _ in h.crm.writes] == []
 
 
@@ -549,3 +547,146 @@ async def test_a_stage_the_crm_does_not_have_is_refused_by_name(make: Any) -> No
     await _pick_demo(h, 541)
     await h.update(message(541, 1, text="По сделке Ромашка переведи на этап сверка с бухгалтерией."))
     assert "такой стадии в этой CRM нет" in h.tg.texts()[-1]
+
+
+AV16 = "Автоматический выключатель IEK ВА47-29 1P C16 4,5 кА"
+NYM = "Кабель NYM 3x2,5 (Севкабель)"
+
+
+def _two_products_stage_task() -> dict[str, Any]:
+    return intent(
+        stage={"id": "1:20", "phrases": [1]},
+        products=[
+            {"name": AV16, "quantity": 20, "unit": "шт", "phrases": [1]},
+            {"name": NYM, "quantity": 50, "unit": "м", "phrases": [1]},
+        ],
+        task={
+            "kind": "call",
+            "due": (date.today() + timedelta(days=3)).isoformat(),
+            "time": None,
+            "phrases": [1],
+        },
+    )
+
+
+async def test_a_retry_after_a_partial_write_writes_each_step_once(make: Any, engine: Any) -> None:
+    from alnuzum_crm.errors import CrmRateLimited
+
+    h: Harness = await make(_two_products_stage_task())
+    await _pick_demo(h, 561)
+    await h.update(
+        message(561, 1, text="По Ромашке на переговоры, 20 автоматов C16 и 50 метров NYM, позвонить.")
+    )
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    lines, failed = h.crm.add_lines, {"n": 0}
+
+    async def second_line_fails_once(deal_id: str, got: Any) -> None:
+        if got[0].name == NYM and not failed["n"]:
+            failed["n"] = 1
+            raise CrmRateLimited("429", crm="bitrix24")
+        await lines(deal_id, got)
+
+    h.crm.add_lines = second_line_fails_once  # type: ignore[method-assign]
+    await h.update(callback(561, 2, button))
+    said = h.tg.texts()[-1]
+    assert "Записано шагов: 1 из 5, повтор допишет остальное" in said and "Ничего не потеряно" not in said
+    ((steps, status),) = await rows(engine, "SELECT steps, status FROM voice_runs")
+    assert steps == ["line:0"] and status == "failed"
+    await h.update(callback(561, 3, button))  # the retry
+    assert "Записано" in h.tg.texts()[-1]
+    kinds = [(k, v[1][0].name if k == "lines" else None) for k, v in h.crm.writes]
+    assert kinds == [("lines", AV16), ("lines", NYM), ("update", None), ("task", None), ("note", None)]
+    await h.update(callback(561, 4, button))  # pressed again: written, nothing more
+    assert len(h.crm.writes) == 5
+
+
+class FakeAmo:
+    """amoCRM's own add_lines as an httpx transport: a link of a product the deal has replaces its quantity,
+    so the adapter adds to what it read; a retry that linked a product again would count it twice."""
+
+    def __init__(self, names: dict[int, str]) -> None:
+        self.names = names
+        self.links: dict[int, float] = {}
+        self.link_calls: list[list[int]] = []
+        self.tasks: list[Any] = []
+        self.notes: list[Any] = []
+        self.patches: list[Any] = []
+        self.fail_link: int | None = None  # the first link of this product meets 429
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        import json
+
+        path, method = request.url.path, request.method
+        body = json.loads(request.content) if request.content else None
+        if path == "/api/v4/account":
+            return httpx.Response(200, json={"id": 1, "currency": "RUB"})
+        if path == "/api/v4/catalogs":
+            return httpx.Response(200, json={"_embedded": {"catalogs": [{"id": 7, "type": "products"}]}})
+        if path == "/api/v4/catalogs/7/custom_fields":
+            return httpx.Response(200, json={"_embedded": {"custom_fields": [{"id": 70, "code": "PRICE"}]}})
+        if path == "/api/v4/catalogs/7/elements":
+            ids = [int(x) for x in request.url.params.get_list("filter[id][]")]
+            return httpx.Response(
+                200, json={"_embedded": {"elements": [{"id": i, "name": self.names[i]} for i in ids]}}
+            )
+        if path == "/api/v4/leads/11" and method == "GET":
+            have = [{"id": i, "metadata": {"quantity": q}} for i, q in self.links.items()]
+            lead = {"id": 11, "name": "Демо · Ромашка", "price": 0, "pipeline_id": 1, "status_id": 10}
+            return httpx.Response(200, json=lead | {"_embedded": {"catalog_elements": have}})
+        if path == "/api/v4/leads/11/link":
+            self.link_calls.append([int(x["to_entity_id"]) for x in body])
+            if self.fail_link in self.link_calls[-1]:
+                self.fail_link = None
+                return httpx.Response(429, json={"title": "Too Many Requests"})
+            for x in body:
+                self.links[int(x["to_entity_id"])] = x["metadata"]["quantity"]  # replaces, as amoCRM does
+            return httpx.Response(200, json={"_embedded": {"links": body}})
+        if path == "/api/v4/leads/11" and method == "PATCH":
+            self.patches.append(body)
+            return httpx.Response(200, json={"id": 11})
+        if path == "/api/v4/tasks":
+            self.tasks.append(body)
+            return httpx.Response(200, json={"_embedded": {"tasks": [{"id": len(self.tasks)}]}})
+        if path == "/api/v4/leads/notes":
+            self.notes.append(body)
+            return httpx.Response(200, json={"_embedded": {"notes": [{"id": len(self.notes)}]}})
+        raise AssertionError(f"unexpected {method} {path}")
+
+
+async def test_a_retry_into_amocrm_does_not_add_the_products_twice(make: Any, engine: Any) -> None:
+    from dataclasses import replace
+
+    from alnuzum_crm.amocrm import AmoCRM
+    from alnuzum_crm.http import RetryPolicy
+    from alnuzum_crm.tokens import StaticToken
+
+    h: Harness = await make(_two_products_stage_task())
+    h.crm.products = [replace(p, id=str(500 + n)) for n, p in enumerate(h.crm.products, 1)]
+    names = {int(p.id): p.name for p in h.crm.products}
+    av16, nym = (next(int(p.id) for p in h.crm.products if p.name == n) for n in (AV16, NYM))
+    amo = FakeAmo(names)
+    amo.links[av16] = 5.0  # the deal already has five of them
+    amo.fail_link = nym
+    async with h.client() as c:
+        token = csrf_of((await c.get("/ru/voice")).text)
+        said = "По Ромашке на переговоры, 20 автоматов C16 и 50 метров NYM, позвонить."
+        sent = await c.post("/ru/voice", data={"csrf": token, "target": "demo:bitrix24", "text": said})
+        assert sent.status_code == 303
+        h.app.state.connectors.adapter = lambda info, secrets, store: AmoCRM(
+            "example.amocrm.ru",
+            StaticToken("T", crm="amocrm"),
+            rate=1000,
+            retry=RetryPolicy(max_retries=0),
+            transport=httpx.MockTransport(amo),
+        )
+        first = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
+        assert first.headers["location"].endswith("?n=failed")  # the second line met 429 after the first
+        shown = await c.get(first.headers["location"])
+        assert "Записано шагов: 1 из 5, повтор допишет остальное" in shown.text
+        again = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
+        assert again.headers["location"].endswith("?n=written")
+    assert amo.link_calls == [[av16], [nym], [nym]]  # the retry did not link the first product again
+    assert amo.links == {av16: 25.0, nym: 50.0}  # 5 + 20, not 5 + 20 + 20
+    assert (
+        len(amo.tasks) == 1 and len(amo.notes) == 1 and amo.patches == [{"pipeline_id": 1, "status_id": 20}]
+    )

@@ -22,7 +22,7 @@ from alnuzum_platform.web.routes import PageError, redirect
 from alnuzum_platform.web.security import RateLimiter
 from alnuzum_voice import audio
 from alnuzum_voice.bot import Updates
-from alnuzum_voice.engine import Change, Result, choose_product
+from alnuzum_voice.engine import Change, Result, choose_product, steps
 from alnuzum_voice.i18n import commands_word, texts
 from alnuzum_voice.service import Note, Voice, VoiceError
 from alnuzum_voice.store import RunNotFound, RunsExceeded
@@ -224,7 +224,10 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
         if run.status not in ("ready", "writing", "written", "failed", "cancelled") or not run.result:
             raise PageError(404, "e_404_t", "e_404", lang)
         result = Result.from_json(run.result)
-        return kit.page(request, "voice_run.html", lang, status, run=run, r=result, notice=notice)
+        total = len(steps(Result.from_json(run.result), lang=lang))
+        return kit.page(
+            request, "voice_run.html", lang, status, run=run, r=result, notice=notice, steps_total=total
+        )
 
     @router.get("/{lang}/voice/{run_id}")
     async def view(request: Request, lang: str, run_id: str) -> HTMLResponse:
@@ -249,9 +252,9 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
             return redirect(back)
         result = Result.from_json(run.result)
         apply_form(result, {k: v for k, v in form.items() if isinstance(v, str)})
-        await vs.save_result(run.id, run.owner, result.to_json())
+        saved = await vs.save_result(run.id, run.owner, result.to_json())  # not once a part is written
         if form.get("action") != "write":
-            return redirect(f"{back}?n=saved")
+            return redirect(f"{back}?n=saved" if saved else back)
         if not result.deal_id:
             return redirect(f"{back}?n=no_deal")
         fresh = await vs.get_run(run.id, run.owner)

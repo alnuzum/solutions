@@ -5,6 +5,7 @@ catalog products (matched by solution 1), a task of a known kind with a date, an
 delete, and no text of the speech or of the model reaches the CRM except the transcript quoted in the note.
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
@@ -360,35 +361,73 @@ class Written:
     readback: dict[str, Any]
 
 
-async def write(crm: CRM, result: Result, *, lang: str, now: datetime | None = None) -> Written:
-    """Products, then the deal's fields (a sum after the products: some CRMs count it from the lines), the
-    task, the note; then the deal is read back."""
-    if not result.deal_id:
-        raise CrmValidationError("no deal chosen", crm=crm.kind.value)
+@dataclass(frozen=True)
+class Step:
+    """One write into the CRM, named so a retry after a failure can skip it once it is done."""
+
+    name: str
+    method: str  # add_lines | update_deal | add_task | add_note
+    arg: Any
+
+
+def steps(result: Result, *, lang: str, now: datetime | None = None) -> list[Step]:
+    """Each product line on its own (some CRMs add a line to what the deal has), then the deal's fields (a
+    sum after the products: some CRMs count it from the lines), each task, the note."""
     check_stage(result)
     ok = result.writable()
-    lines = tuple(
-        DealLine(
-            str(c.name), Decimal(str(c.quantity)), Decimal(str(c.price)), product_id=c.product_id, sku=c.sku
+    out = [
+        Step(
+            f"line:{i}",
+            "add_lines",
+            (
+                DealLine(
+                    str(c.name),
+                    Decimal(str(c.quantity)),
+                    Decimal(str(c.price)),
+                    product_id=c.product_id,
+                    sku=c.sku,
+                ),
+            ),
         )
-        for c in ok
-        if c.kind == "product"
-    )
-    if lines:
-        await crm.add_lines(result.deal_id, lines)
+        for i, c in enumerate(c for c in ok if c.kind == "product")
+    ]
     update = DealUpdate(
         stage_id=next((c.stage_id for c in ok if c.kind == "stage"), None),
         amount=next((Decimal(str(c.value)) for c in ok if c.kind == "amount"), None),
         close_date=next((date.fromisoformat(str(c.value)) for c in ok if c.kind == "close_date"), None),
     )
     if not update.empty:
-        await crm.update_deal(result.deal_id, update)
-    for c in ok:
-        if c.kind == "task":
-            await crm.add_task(
-                result.deal_id, TaskIn(f"{TASKS[lang][str(c.task_kind)]} · Al-Nuzum", task_due(c))
-            )
-    await crm.add_note(result.deal_id, note_text(result, lang, now))
+        out.append(Step("deal", "update_deal", update))
+    out += [
+        Step(f"task:{i}", "add_task", TaskIn(f"{TASKS[lang][str(c.task_kind)]} · Al-Nuzum", task_due(c)))
+        for i, c in enumerate(c for c in ok if c.kind == "task")
+    ]
+    out.append(Step("note", "add_note", note_text(result, lang, now)))
+    return out
+
+
+async def _nothing(_name: str) -> None:
+    return None
+
+
+async def write(
+    crm: CRM,
+    result: Result,
+    *,
+    lang: str,
+    now: datetime | None = None,
+    done: frozenset[str] = frozenset(),
+    mark: Callable[[str], Awaitable[None]] = _nothing,
+) -> Written:
+    """The steps not ``done`` yet, in order, each ``mark``-ed as done before the next begins; then the deal
+    is read back."""
+    if not result.deal_id:
+        raise CrmValidationError("no deal chosen", crm=crm.kind.value)
+    for step in steps(result, lang=lang, now=now):
+        if step.name in done:
+            continue
+        await getattr(crm, step.method)(result.deal_id, step.arg)
+        await mark(step.name)
     deal = await crm.get_deal(result.deal_id)
     names = {s["id"]: s["name"] for s in result.stages}
     return Written(
