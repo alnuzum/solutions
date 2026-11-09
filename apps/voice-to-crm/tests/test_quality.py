@@ -175,3 +175,15 @@ async def test_live_speech_and_model_meet_the_bar_on_the_reference_set() -> None
         if not row["exact"] or row["extra"]:
             print("WRONG", json.dumps({k: v for k, v in row.items() if k != "heard"}, ensure_ascii=False))
     assert quality.passes(report), summary
+
+
+async def test_a_joined_or_misheard_name_still_finds_its_deal_and_only_a_demo_one() -> None:
+    from alnuzum_voice.engine import find_candidates, pick
+
+    crm = quality.ReferenceCRM(quality.samples())
+    for said in (["НаврузСтрой"], ["Дилшот Расулов"]):
+        found = await find_candidates(crm, said, demo=True)  # type: ignore[arg-type]
+        assert [c["id"] for c in found] == ["D2"] and pick(found, said) == "D2"
+    found = await find_candidates(crm, ["Ромашка"], demo=True)  # type: ignore[arg-type]
+    assert [c["id"] for c in found] == ["D1"]  # the deal outside the demo is not offered
+    assert await find_candidates(crm, ["Кто-то Неизвестный"], demo=True) == []  # type: ignore[arg-type]
