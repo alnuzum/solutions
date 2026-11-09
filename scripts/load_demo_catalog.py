@@ -42,7 +42,7 @@ def adapter(name: str) -> CRM:
 
         expired = TokenSet("", env["ZOHO_REFRESH_TOKEN"], datetime.now(UTC) - timedelta(seconds=1))
         return ZohoCRM(
-            env.get("ZOHO_API_DOMAIN", "https://www.zohoapis.com"), MemoryOAuthToken(expired, refresh)
+            env.get("ZOHO_API_DOMAIN", "https://developer.zohoapis.com"), MemoryOAuthToken(expired, refresh)
         )
     return Odoo(env["ODOO_URL"], env["ODOO_DB"], env["ODOO_LOGIN"], env["ODOO_PASSWORD"], trusted_url=True)
 
