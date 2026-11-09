@@ -9,6 +9,7 @@ import io
 import re
 import zipfile
 from dataclasses import dataclass, field
+from typing import Any
 
 MAX_BYTES = 8 * 1024 * 1024
 MAX_PAGES = 10
@@ -182,9 +183,27 @@ def _pdf(name: str, data: bytes) -> Source:
         raise IntakeError("e_damaged") from None
     lines = _clean(text.splitlines())
     if sum(len(ln) for ln in lines) < 40:
-        # a scan: the model reads the pages themselves
-        return Source("image", name, [], blob=data, media_type="application/pdf", pages=pages)
+        # a scan: the model reads the pages themselves. It gets a PDF written anew with exactly the pages
+        # counted here, so no other reader can find more pages in it than were bounded and booked
+        return Source("image", name, [], blob=_pages_only(reader), media_type="application/pdf", pages=pages)
     return Source("pdf", name, lines, pages=pages)
+
+
+def _pages_only(reader: Any) -> bytes:
+    from pypdf import PdfWriter
+    from pypdf.errors import PyPdfError
+
+    writer = PdfWriter()
+    out = io.BytesIO()
+    try:
+        for page in reader.pages:
+            writer.add_page(page)
+        writer.write(out)
+    except (PyPdfError, ValueError, KeyError, TypeError, RecursionError, OSError):
+        raise IntakeError("e_damaged") from None
+    if out.tell() > MAX_BYTES:
+        raise IntakeError("e_size")
+    return out.getvalue()
 
 
 def _image(name: str, data: bytes) -> Source:

@@ -339,8 +339,11 @@ class Orders:
             except CeilingReached:
                 raise ModelError("e_ceiling") from None
 
-            async def done(used: Usage, ok: bool) -> None:
-                await store.finish_call(call_id, used.input_tokens, used.output_tokens, used.usd, ok)
+            async def done(used: Usage | None, ok: bool) -> None:
+                if used is None:
+                    await store.finish_call(call_id, 0, 0, None, ok)
+                else:
+                    await store.finish_call(call_id, used.input_tokens, used.output_tokens, used.usd, ok)
 
             return done
 

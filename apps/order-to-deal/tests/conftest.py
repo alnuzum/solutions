@@ -89,6 +89,7 @@ class FakeMessages:
 
 def reader_with(*script: Any) -> tuple[ClaudeReader, FakeMessages]:
     reader = ClaudeReader(API_KEY)
+    reader.retry_pause = 0.0
     messages = FakeMessages(list(script))
     reader._client = SimpleNamespace(beta=SimpleNamespace(messages=messages))  # type: ignore[assignment]
     return reader, messages

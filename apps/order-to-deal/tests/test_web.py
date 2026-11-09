@@ -486,3 +486,19 @@ async def test_model_dollars_spent_today_stop_the_next_call(make: Any, engine: A
     assert resp.status_code == 503
     assert "Суточный лимит системы" in resp.text
     assert h.messages.requests == []
+
+
+async def test_a_call_without_an_answer_keeps_its_booking(make: Any, engine: AsyncEngine) -> None:
+    """A broken connection, a rate limit, a 5xx or a time-out may still have cost: the worst-case booking
+    stays, and the one retry is booked on its own."""
+    import anthropic
+
+    broken = anthropic.APIConnectionError(
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    )
+    h = await make(broken, broken, orders_model_usd_per_day=Decimal("1.5"))
+    resp = await Browser(h.app).order(text=SHORT)
+    assert resp.status_code == 503
+    booked = await rows(engine, "SELECT usd, ok FROM orders_model_calls ORDER BY created_at")
+    assert len(booked) == 2
+    assert all(usd > Decimal("0.2") and ok is False for usd, ok in booked), booked

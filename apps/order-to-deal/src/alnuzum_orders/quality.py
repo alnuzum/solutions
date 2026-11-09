@@ -133,8 +133,9 @@ async def evaluate(reader: Reader) -> dict[str, Any]:
     usage = Usage()
 
     async def gate(kind: str, worst: Any = None):  # type: ignore[no-untyped-def]
-        async def done(used: Usage, ok: bool) -> None:
-            usage.add(used)
+        async def done(used: Usage | None, ok: bool) -> None:
+            if used is not None:
+                usage.add(used)
 
         return done
 

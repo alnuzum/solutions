@@ -313,14 +313,14 @@ class OrderStore:
             return call.id
 
     async def finish_call(
-        self, call_id: uuid.UUID, input_tokens: int, output_tokens: int, usd: Decimal, ok: bool
+        self, call_id: uuid.UUID, input_tokens: int, output_tokens: int, usd: Decimal | None, ok: bool
     ) -> None:
+        """``usd`` None: no answer came, so the worst-case booking stays as the call's cost."""
+        values: dict[str, Any] = {"ok": ok}
+        if usd is not None:
+            values |= {"input_tokens": input_tokens, "output_tokens": output_tokens, "usd": usd}
         async with self._sessions.begin() as session:
-            await session.execute(
-                update(ModelCall)
-                .where(ModelCall.id == call_id)
-                .values(input_tokens=input_tokens, output_tokens=output_tokens, usd=usd, ok=ok)
-            )
+            await session.execute(update(ModelCall).where(ModelCall.id == call_id).values(**values))
 
 
 async def _lock(session: AsyncSession, cls: int, key: str) -> None:

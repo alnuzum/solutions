@@ -6,6 +6,7 @@ a JSON schema, and nothing the model says reaches a CRM except a number that poi
 candidates the catalog gave (checked here) and quantities (checked by the engine).
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -16,7 +17,7 @@ from typing import Any, Protocol
 
 import anthropic
 
-from alnuzum_orders.intake import Source
+from alnuzum_orders.intake import MAX_PAGES, Source
 from alnuzum_orders.text import plain
 
 log = logging.getLogger("alnuzum_orders.model")
@@ -27,11 +28,16 @@ MODEL = "claude-opus-5-5"
 PRICE = (Decimal(4), Decimal(20))
 EXTRACT_MAX_TOKENS = 12000
 CHOOSE_MAX_TOKENS = 6000
-# the most a call can read, for the reservation: a text is never more tokens than characters; a picture of
-# at most 1568 px a side is (w*h)/750 = 3 278 tokens; a PDF page goes as a picture and its text
+# the most a call can read, for the reservation: a text is never more tokens than its UTF-8 bytes; a
+# picture (re-encoded by intake to at most 1568 px a side) is (w*h)/750 = 3 278 tokens; a PDF page goes as a
+# picture and its text, and a PDF is booked at MAX_PAGES whatever its own count says
 IMAGE_TOKENS = 4000
 PDF_PAGE_TOKENS = 5000
 REQUEST_TOKENS = 600  # the framing of a request around its blocks
+MAX_INPUT_BYTES = 12 * 1024 * 1024  # what one request may carry at all, base64 included
+# a call that got no answer (rate limit, a broken connection, 5xx, a time-out) keeps its booking and is
+# tried once more under a booking of its own; the client itself never retries
+ATTEMPTS = 2
 MAX_ITEMS = 150
 
 
@@ -101,25 +107,36 @@ class Answer:
 
 
 # Called before every request with its kind and its worst cost in dollars (raises when a quota is spent),
-# and after it with what it cost.
-Gate = Callable[[str, Decimal], Awaitable[Callable[[Usage, bool], Awaitable[None]]]]
+# and after it with what it cost: ``None`` when no answer came, and then the booking stays.
+Gate = Callable[[str, Decimal], Awaitable[Callable[[Usage | None, bool], Awaitable[None]]]]
 
 
 def cost(input_tokens: int, output_tokens: int) -> Decimal:
     return (Decimal(input_tokens) * PRICE[0] + Decimal(output_tokens) * PRICE[1]) / Decimal(1_000_000)
 
 
-def worst_input(system: str, content: list[dict[str, Any]], schema: dict[str, Any], pages: int = 0) -> int:
+def worst_input(system: str, content: list[dict[str, Any]], schema: dict[str, Any]) -> int:
     """An upper bound of the input tokens of a request, counted before it is sent."""
-    tokens = REQUEST_TOKENS + len(system) + len(json.dumps(schema))
+    tokens = REQUEST_TOKENS + len(system.encode()) + len(json.dumps(schema).encode())
     for block in content:
         if block["type"] == "text":
-            tokens += len(block["text"])
+            tokens += len(block["text"].encode())
         elif block["type"] == "image":
             tokens += IMAGE_TOKENS
-        else:  # a PDF
-            tokens += PDF_PAGE_TOKENS * max(pages, 1)
+        else:  # a PDF: intake hands over only the pages it counted, at most MAX_PAGES
+            tokens += PDF_PAGE_TOKENS * MAX_PAGES
     return tokens
+
+
+def input_bytes(system: str, content: list[dict[str, Any]]) -> int:
+    size = len(system.encode())
+    for block in content:
+        size += len(block["text"].encode()) if block["type"] == "text" else len(block["source"]["data"])
+    return size
+
+
+class _NoAnswer(Exception):
+    pass
 
 
 class Reader(Protocol):
@@ -286,7 +303,9 @@ def parse_answers(data: dict[str, Any], questions: list[Question]) -> list[Answe
 class ClaudeReader:
     def __init__(self, api_key: str, *, model: str = MODEL, timeout: float = 90.0) -> None:
         self.model = model
-        self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout, max_retries=2)
+        # no retries inside the client: each attempt is booked against the ceiling on its own
+        self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout, max_retries=0)
+        self.retry_pause = 2.0
 
     def __repr__(self) -> str:  # the key never reaches a log
         return f"ClaudeReader(model={self.model!r})"
@@ -299,25 +318,38 @@ class ClaudeReader:
         content: list[dict[str, Any]],
         schema: dict[str, Any],
         limit: int,
-        pages: int = 0,
     ) -> tuple[dict[str, Any], Usage]:
-        # the reservation is the worst case: the whole prompt and every output token allowed
-        done = await gate(kind, cost(worst_input(system, content, schema, pages), limit))
-        usage = Usage(calls=1)
+        if input_bytes(system, content) > MAX_INPUT_BYTES:
+            raise ModelError("e_too_long")
+        # the booking is the worst case: the whole prompt and every output token allowed. No server-side
+        # fallback: a second model would be a second cost the booking does not hold, and a refused order
+        # is simply a refused run
+        worst = cost(worst_input(system, content, schema), limit)
+        request: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": limit,
+            "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": schema}},
+            "system": system,
+            "messages": [{"role": "user", "content": content}],
+        }
+        for attempt in range(ATTEMPTS):
+            try:
+                return await self._once(gate, kind, worst, request)
+            except _NoAnswer:
+                if attempt + 1 == ATTEMPTS:
+                    raise ModelError("e_model_busy") from None
+                await asyncio.sleep(self.retry_pause)
+        raise ModelError("e_model_busy")  # pragma: no cover - the loop returns or raises
+
+    async def _once(
+        self, gate: Gate, kind: str, worst: Decimal, request: dict[str, Any]
+    ) -> tuple[dict[str, Any], Usage]:
+        done = await gate(kind, worst)
+        usage: Usage | None = None
         ok = False
         try:
-            request: dict[str, Any] = {
-                "model": self.model,
-                "max_tokens": limit,
-                "betas": ["server-side-fallback-2026-07-01"],
-                "fallbacks": "default",
-                "output_config": {"effort": "low", "format": {"type": "json_schema", "schema": schema}},
-                "system": system,
-                "messages": [{"role": "user", "content": content}],
-            }
             response = await self._client.beta.messages.create(**request)
-            usage.input_tokens = response.usage.input_tokens or 0
-            usage.output_tokens = response.usage.output_tokens or 0
+            usage = Usage(1, response.usage.input_tokens or 0, response.usage.output_tokens or 0)
             if response.stop_reason in ("refusal", "max_tokens"):
                 raise ModelError("e_model_unreadable")
             text = next((b.text for b in response.content if b.type == "text"), "")
@@ -327,7 +359,8 @@ class ClaudeReader:
             ok = True
             return data, usage
         except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError):
-            raise ModelError("e_model_busy") from None
+            # no answer: whatever the request may have cost stays booked
+            raise _NoAnswer from None
         except anthropic.APIStatusError as exc:
             log.warning("model call refused: %s %s", exc.status_code, type(exc).__name__)
             raise ModelError("e_model_busy") from None
@@ -364,7 +397,7 @@ class ClaudeReader:
             numbered = "\n".join(f"{n}: {line}" for n, line in enumerate(source.lines, 1))
             content.append({"type": "text", "text": f"<document>\n{numbered}\n</document>"})
         data, usage = await self._ask(
-            gate, "extract", EXTRACT_SYSTEM, content, EXTRACT_SCHEMA, EXTRACT_MAX_TOKENS, source.pages
+            gate, "extract", EXTRACT_SYSTEM, content, EXTRACT_SCHEMA, EXTRACT_MAX_TOKENS
         )
         out = parse_extraction(data, len(source.lines))
         out.usage = usage

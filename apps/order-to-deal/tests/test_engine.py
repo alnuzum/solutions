@@ -122,10 +122,10 @@ async def test_unsure_lines_go_to_the_model_and_below_its_bar_to_a_person() -> N
 
 
 async def test_not_in_the_catalog_gets_analogues_and_a_failed_choice_leaves_lines_to_a_person() -> None:
-    reader, _ = reader_with(
-        extract_lines,
-        anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")),
+    broken = anthropic.APIConnectionError(
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")
     )
+    reader, _ = reader_with(extract_lines, broken, broken)
     src = intake.from_text(
         "m.txt",
         "Стабилизатор напряжения 5 кВт - 1 шт\nРозетка двойная Glossa - 2 шт\nЛампа светодиодная E27 - 3 шт",
@@ -161,10 +161,12 @@ async def test_model_failures_become_a_message_for_the_user(
     request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
     status = {"RateLimitError": 429, "InternalServerError": 500, "BadRequestError": 400}[error.__name__]
     exc = error("x", response=httpx.Response(status, request=request), body=None)
-    reader, _ = reader_with(exc)
+    # no answer (429, 5xx) is tried once more; a refused request (400) is not
+    reader, messages = reader_with(*([exc] * (1 if status == 400 else 2)))
     with pytest.raises(ModelError) as caught:
         await run(intake.from_text("m", "что-то"), CAT, reader, gate)
     assert caught.value.code == code
+    assert messages.script == []
 
 
 @pytest.mark.parametrize("answer", [("max_tokens", {"items": []}), ("refusal", {}), "not json", "[1, 2]"])
@@ -248,3 +250,57 @@ async def test_plan_merges_lines_prices_by_the_rules_and_leaves_a_task() -> None
     assert "the deal budget is the total after the rules" in at_catalog.note
     c = clean_customer(result.customer)
     assert (c.company, c.inn, c.phone, c.email) == ("ООО Ромашка", "7701234567", None, None)
+
+
+# --- I2: the booking is an upper bound of what the call can cost ---
+
+
+def booking_gate(seen: list[Any]) -> Any:
+    async def gate(kind: str, worst: Any = None):  # type: ignore[no-untyped-def]
+        seen.append(worst)
+
+        async def done(used: Any, ok: bool) -> None:
+            return None
+
+        return done
+
+    return gate
+
+
+async def test_a_pdf_is_booked_at_max_pages_and_handed_over_with_only_its_counted_pages() -> None:
+    import io
+
+    from pypdf import PdfReader, PdfWriter
+
+    from alnuzum_orders.model import EXTRACT_MAX_TOKENS, PDF_PAGE_TOKENS, cost
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    out = io.BytesIO()
+    writer.write(out)
+    src = intake.read("scan.pdf", out.getvalue())
+    assert src.kind == "image" and src.pages == 1
+    assert src.blob is not None and len(PdfReader(io.BytesIO(src.blob)).pages) == 1
+    seen: list[Any] = []
+    reader, _ = reader_with({"items": [], "customer": {}, "transcript": []})
+    await reader.extract(src, booking_gate(seen))
+    assert seen[0] >= cost(intake.MAX_PAGES * PDF_PAGE_TOKENS, EXTRACT_MAX_TOKENS)
+
+
+async def test_a_text_is_booked_by_its_bytes_and_an_oversized_request_is_never_sent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from alnuzum_orders import model
+    from alnuzum_orders.model import EXTRACT_MAX_TOKENS, cost
+
+    text = "Кабель силовой медный - 100 м\n" * 300
+    seen: list[Any] = []
+    reader, _ = reader_with({"items": [], "customer": {}, "transcript": []})
+    await reader.extract(intake.from_text("m", text), booking_gate(seen))
+    assert seen[0] >= cost(len(text.encode()), EXTRACT_MAX_TOKENS)
+    monkeypatch.setattr(model, "MAX_INPUT_BYTES", 1000)
+    reader, messages = reader_with({"items": []})
+    with pytest.raises(ModelError) as caught:
+        await reader.extract(intake.from_text("m", text), booking_gate(seen))
+    assert caught.value.code == "e_too_long"
+    assert messages.requests == [] and len(seen) == 1
