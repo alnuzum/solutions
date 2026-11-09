@@ -7,7 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from types import TracebackType
 from typing import ClassVar, Self
 
-from alnuzum_crm.errors import CrmUnsupported
+from alnuzum_crm.errors import CrmUnsupported, CrmValidationError
 from alnuzum_crm.types import (
     AccountInfo,
     CompanyIn,
@@ -15,13 +15,17 @@ from alnuzum_crm.types import (
     CreatedDeal,
     CrmKind,
     Deal,
+    DealHit,
     DealIn,
+    DealLine,
+    DealUpdate,
     FileIn,
     Leftovers,
     Page,
     Product,
     ProductIn,
     Ref,
+    Stage,
     TaskIn,
 )
 
@@ -34,7 +38,8 @@ class CRM(ABC):
     #: "inn" — companies can be found by INN; "fractional_amount" — deal amount keeps kopecks;
     #: "delete" — test records are deleted (otherwise closed and tagged ``e2e``);
     #: "line_prices" — a deal line keeps its own price (otherwise the catalog price, see ``DealIn.total``);
-    #: "stock" — products carry the quantity in stock.
+    #: "stock" — products carry the quantity in stock;
+    #: "close_date" — a deal keeps a planned closing date (``DealUpdate.close_date``).
     capabilities: ClassVar[frozenset[str]] = frozenset()
 
     async def __aenter__(self) -> Self:
@@ -127,6 +132,24 @@ class CRM(ABC):
         """Deals of a company or a contact, newest first, without lines."""
 
     @abstractmethod
+    async def find_deals(self, query: str, *, limit: int = 8) -> list[DealHit]:
+        """Deals whose title, company or contact holds ``query`` (ignoring case): title hits first."""
+
+    @abstractmethod
+    async def stages(self) -> list[Stage]:
+        """Every stage of every deal pipeline, in pipeline order."""
+
+    @abstractmethod
+    async def update_deal(self, deal_id: str, update: DealUpdate) -> None:
+        """Stage, amount and planned closing date; a field the CRM has no place for is refused
+        (``CrmUnsupported``) before anything is written."""
+
+    @abstractmethod
+    async def add_lines(self, deal_id: str, lines: tuple[DealLine, ...]) -> None:
+        """Catalog products added to a deal that already exists; the lines it has stay. Only lines with
+        a ``product_id`` (``CrmValidationError`` otherwise): nothing new reaches the catalog this way."""
+
+    @abstractmethod
     async def discard(self, leftovers: Leftovers) -> None:
         """Remove test records: delete where the CRM allows, otherwise close and tag ``e2e``."""
 
@@ -184,3 +207,36 @@ def dec(value: object) -> Decimal | None:
 
 def round_money(value: Decimal, places: str = "0.01") -> Decimal:
     return value.quantize(Decimal(places), rounding=ROUND_HALF_UP)
+
+
+def hits_in_order(groups: list[list[DealHit]], limit: int) -> list[DealHit]:
+    """Title hits first, then company, then contact; a deal once."""
+    seen: set[str] = set()
+    out: list[DealHit] = []
+    for group in groups:
+        for hit in group:
+            if hit.id not in seen:
+                seen.add(hit.id)
+                out.append(hit)
+    return out[:limit]
+
+
+def catalog_lines(lines: tuple[DealLine, ...], crm: str) -> None:
+    """Lines for ``add_lines``: each a catalog product with a positive quantity, or a refusal."""
+    for line in lines:
+        if not line.product_id or line.quantity <= 0:
+            raise CrmValidationError(
+                f"line {line.name!r}: only catalog products with a positive quantity are added", crm=crm
+            )
+        record_id(line.product_id, crm)
+
+
+def search_text(query: str) -> str:
+    """What goes to a CRM search: no control characters, at most 80 characters."""
+    cleaned = "".join(ch if ch.isprintable() else " " for ch in query)
+    return re.sub(r"\s+", " ", cleaned).strip()[:80]
+
+
+def positive(update: DealUpdate, crm: str) -> None:
+    if update.amount is not None and update.amount <= 0:
+        raise CrmValidationError("a deal amount is above zero", crm=crm)

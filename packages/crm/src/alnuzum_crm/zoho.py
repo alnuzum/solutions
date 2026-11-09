@@ -20,14 +20,18 @@ import httpx
 
 from alnuzum_crm.base import (
     CRM,
+    catalog_lines,
     dec,
     digits,
+    hits_in_order,
     norm_name,
+    positive,
     record_id,
     require_one,
     same_email,
     same_name,
     same_phone,
+    search_text,
 )
 from alnuzum_crm.errors import (
     CrmAuthError,
@@ -48,15 +52,18 @@ from alnuzum_crm.types import (
     CreatedDeal,
     CrmKind,
     Deal,
+    DealHit,
     DealIn,
     DealLine,
     DealStatus,
+    DealUpdate,
     FileIn,
     Leftovers,
     Page,
     Product,
     ProductIn,
     Ref,
+    Stage,
     TaskIn,
 )
 
@@ -86,10 +93,27 @@ def _split_name(name: str) -> tuple[str | None, str]:
     return (parts[0], parts[1]) if len(parts) == 2 else (None, parts[0])
 
 
+def _forecast(kind: str) -> DealStatus:
+    return (
+        DealStatus.WON
+        if kind == "Closed Won"
+        else DealStatus.LOST
+        if kind == "Closed Lost"
+        else DealStatus.OPEN
+    )
+
+
+DEAL_FIELDS = "id,Deal_Name,Stage,Amount,Account_Name,Contact_Name"
+
+
+def _lookup_name(value: Any) -> str | None:
+    return str(value["name"]) if isinstance(value, dict) and value.get("name") else None
+
+
 class ZohoCRM(CRM):
     kind: ClassVar[CrmKind] = CrmKind.ZOHO
     capabilities: ClassVar[frozenset[str]] = frozenset(
-        {"inn", "fractional_amount", "delete", "line_prices", "stock"}
+        {"inn", "fractional_amount", "delete", "line_prices", "stock", "close_date"}
     )
     #: our units to the values of the standard Usage_Unit list
     UNITS: ClassVar[dict[str, str]] = {"шт": "Pieces", "уп": "Pack", "кор": "Box", "м": "M"}
@@ -439,14 +463,7 @@ class ZohoCRM(CRM):
         return CreatedDeal(deal_id, tuple(created))
 
     def _deal(self, row: dict[str, Any], stages: dict[str, str], lines: tuple[DealLine, ...] = ()) -> Deal:
-        kind = stages.get(str(row.get("Stage", "")), "Open")
-        status = (
-            DealStatus.WON
-            if kind == "Closed Won"
-            else DealStatus.LOST
-            if kind == "Closed Lost"
-            else DealStatus.OPEN
-        )
+        status = _forecast(stages.get(str(row.get("Stage", "")), "Open"))
         return Deal(
             id=str(row["id"]),
             title=str(row.get("Deal_Name", "")),
@@ -456,6 +473,7 @@ class ZohoCRM(CRM):
             created_at=_dt(row.get("Created_Time")),
             closed_at=_dt(row.get("Closing_Date")) if status is not DealStatus.OPEN else None,
             lines=lines,
+            stage_id=str(row["Stage"]) if row.get("Stage") else None,
         )
 
     async def _quote_ids(self, deal_id: str) -> list[str]:
@@ -532,6 +550,93 @@ class ZohoCRM(CRM):
         if task.responsible_id:
             record["Owner"] = {"id": task.responsible_id}
         return await self._create("Tasks", record)
+
+    # --- the voice of a manager: find a deal, move it, add products ---
+
+    async def stages(self) -> list[Stage]:
+        return [Stage(name, name, _forecast(kind)) for name, kind in (await self._stage_types()).items()]
+
+    async def _related_deals(self, module: str, text: str, limit: int) -> list[dict[str, Any]]:
+        data = await self._request("GET", f"/{module}/search", params={"word": text, "per_page": 5})
+        rows: list[dict[str, Any]] = []
+        for owner in list((data or {}).get("data") or [])[:5]:
+            got = await self._request(
+                "GET",
+                f"/{module}/{self._id(str(owner['id']))}/Deals",
+                params={"fields": DEAL_FIELDS, "per_page": limit},
+            )
+            rows += list((got or {}).get("data") or [])
+        return rows
+
+    async def find_deals(self, query: str, *, limit: int = 8) -> list[DealHit]:
+        text = search_text(query)
+        if len(text) < 2:
+            return []
+        data = await self._request("GET", "/Deals/search", params={"word": text, "per_page": limit})
+        stages = await self._stage_types()
+
+        def hit(by: str, r: dict[str, Any]) -> DealHit:
+            return DealHit(
+                str(r["id"]),
+                str(r.get("Deal_Name") or ""),
+                _lookup_name(r.get("Account_Name")),
+                _lookup_name(r.get("Contact_Name")),
+                str(r["Stage"]) if r.get("Stage") else None,
+                dec(r.get("Amount")),
+                _forecast(stages.get(str(r.get("Stage", "")), "Open")),
+                by,
+            )
+
+        return hits_in_order(
+            [
+                [hit("title", r) for r in (data or {}).get("data") or []],
+                [hit("company", r) for r in await self._related_deals("Accounts", text, limit)],
+                [hit("contact", r) for r in await self._related_deals("Contacts", text, limit)],
+            ],
+            limit,
+        )
+
+    async def update_deal(self, deal_id: str, update: DealUpdate) -> None:
+        positive(update, self.kind.value)
+        record: dict[str, Any] = {}
+        if update.stage_id is not None:
+            if update.stage_id not in await self._stage_types():
+                raise CrmValidationError(f"no stage {update.stage_id!r} in Zoho", crm=self.kind.value)
+            record["Stage"] = update.stage_id
+        if update.amount is not None:
+            record["Amount"] = float(update.amount)
+        if update.close_date is not None:
+            record["Closing_Date"] = update.close_date.isoformat()
+        if record:
+            await self._request("PUT", f"/Deals/{self._id(deal_id)}", json={"data": [record]})
+
+    async def add_lines(self, deal_id: str, lines: tuple[DealLine, ...]) -> None:
+        """Lines of a Zoho deal live in its quotes: the added ones come as a quote of their own, so the
+        quotes the deal has stay as they are."""
+        catalog_lines(lines, self.kind.value)
+        data = await self._request(
+            "GET", f"/Deals/{self._id(deal_id)}", params={"fields": "Deal_Name,Account_Name,Contact_Name"}
+        )
+        if not data:
+            raise CrmNotFound(f"deal {deal_id} not found", crm=self.kind.value, status=204)
+        row = data["data"][0]
+        quote: dict[str, Any] = {
+            "Subject": f"+ {row.get('Deal_Name') or deal_id}"[:120],
+            "Deal_Name": {"id": self._id(deal_id)},
+            "Quoted_Items": [
+                {
+                    "Product_Name": {"id": self._id(line.product_id)},
+                    "Quantity": float(line.quantity),
+                    "List_Price": float(line.unit_price),
+                    "Description": line.name,
+                }
+                for line in lines
+            ],
+        }
+        for key in ("Account_Name", "Contact_Name"):
+            if isinstance(row.get(key), dict) and row[key].get("id"):
+                quote[key] = {"id": self._id(str(row[key]["id"]))}
+        await self._create("Quotes", quote)
 
     # --- cleanup ---
 

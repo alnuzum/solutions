@@ -1,7 +1,7 @@
 """Data passed to and returned by every CRM adapter."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
@@ -103,6 +103,8 @@ class Deal:
     created_at: datetime | None = None
     closed_at: datetime | None = None
     lines: tuple[DealLine, ...] = ()
+    #: the id of its stage, as ``CRM.stages`` names it
+    stage_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,3 +166,42 @@ class Leftovers:
     company_ids: tuple[str, ...] = ()
     product_ids: tuple[str, ...] = ()
     task_ids: tuple[str, ...] = field(default=())
+
+
+@dataclass(frozen=True, slots=True)
+class Stage:
+    """A stage of a deal pipeline; ``id`` is what ``DealUpdate.stage_id`` takes, ``pipeline`` names the
+    pipeline it belongs to where the CRM has several (a deal moves only within its own)."""
+
+    id: str
+    name: str
+    kind: DealStatus
+    pipeline: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DealHit:
+    """A deal found by ``CRM.find_deals``: enough for a person to tell it from the others."""
+
+    id: str
+    title: str
+    company: str | None
+    contact: str | None
+    stage_id: str | None
+    amount: Decimal | None
+    status: DealStatus
+    #: how it was found: "title", "company" or "contact"
+    by: str = "title"
+
+
+@dataclass(frozen=True, slots=True)
+class DealUpdate:
+    """Changes of a deal's own fields; None leaves a field as it is. There is no way to clear one."""
+
+    stage_id: str | None = None
+    amount: Decimal | None = None
+    close_date: date | None = None
+
+    @property
+    def empty(self) -> bool:
+        return self.stage_id is None and self.amount is None and self.close_date is None

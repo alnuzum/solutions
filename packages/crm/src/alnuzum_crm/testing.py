@@ -23,9 +23,11 @@ from alnuzum_crm.errors import CrmNotFound
 from alnuzum_crm.types import (
     CompanyIn,
     ContactIn,
+    DealHit,
     DealIn,
     DealLine,
     DealStatus,
+    DealUpdate,
     FileIn,
     Leftovers,
     Product,
@@ -198,6 +200,10 @@ def run_numbers(run_id: str) -> tuple[str, str]:
     return f"3{n % 10**8:08d}", f"{n % 10**7:07d}"
 
 
+async def _found(crm: CRM, text: str, deal_id: str) -> DealHit | None:
+    return next((h for h in await crm.find_deals(text) if h.id == deal_id), None)
+
+
 async def run_conformance(
     crm: CRM,
     run_id: str,
@@ -307,6 +313,45 @@ async def run_conformance(
         by_contact = [d.id for d in await crm.deal_history(contact_id=ct.id)]
         _check(created.id in by_company and created.id in by_contact, "deal is in the client's history")
         done.append("deal history read")
+
+        # the voice of a manager: find the deal by its title, company and contact, move it, add products
+        stages = await crm.stages()
+        _check(
+            any(x.kind is DealStatus.OPEN for x in stages) and any(x.kind is DealStatus.WON for x in stages),
+            f"stages read: {stages!r}",
+        )
+        done.append("stages read")
+        for text in (deal_in.title, name, f"E2E Person {run_id}"):
+            found_deal = await _poll(lambda text=text: _found(crm, text, created.id), sleep)  # type: ignore[misc]
+            _check(found_deal is not None, f"deal found by {text!r}")
+        done.append("deal found by title, company and contact")
+        current = next((x for x in stages if x.id == deal.stage_id), None)
+        _check(current is not None, f"the deal's stage {deal.stage_id!r} is among the stages")
+        target = next(
+            x
+            for x in stages
+            if x.kind is DealStatus.OPEN
+            and x.id != deal.stage_id
+            and current
+            and x.pipeline == current.pipeline
+        )
+        await crm.add_lines(
+            created.id, (DealLine(f"E2E product {run_id}", Decimal(4), Decimal(100), product_id=product_id),)
+        )
+        close = (
+            (now or datetime.now(UTC)).date() + timedelta(days=30)
+            if "close_date" in crm.capabilities
+            else None
+        )
+        await crm.update_deal(
+            created.id, DealUpdate(stage_id=target.id, amount=Decimal(4321), close_date=close)
+        )
+        after = await crm.get_deal(created.id)
+        _check(after.stage_id == target.id, f"stage {after.stage_id!r} after the move to {target.id!r}")
+        _check(after.amount == Decimal(4321), f"amount {after.amount} after the update")
+        added = sum((x.quantity for x in after.lines if x.product_id == product_id), Decimal(0))
+        _check(added == Decimal("6.5"), f"the product's quantity {added} after adding 4 to 2.5")
+        done.append("deal moved, amount set, products added")
 
         async def catalog_hit() -> Product | None:
             page = await crm.list_products(query=f"E2E product {run_id}")

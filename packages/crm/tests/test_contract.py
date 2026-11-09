@@ -53,6 +53,7 @@ async def test_replay_conformance(name: str) -> None:
         )
     assert "test records removed" in steps
     assert "deal read back with lines" in steps
+    assert "deal moved, amount set, products added" in steps
     assert replay.exhausted, f"{len(replay.calls) - replay.position} recorded calls were not made"
 
 

@@ -27,13 +27,17 @@ import httpx
 from alnuzum_crm.base import (
     CRM,
     E2E_TAG,
+    catalog_lines,
     dec,
     digits,
+    hits_in_order,
+    positive,
     record_id,
     require_one,
     same_email,
     same_name,
     same_phone,
+    search_text,
 )
 from alnuzum_crm.errors import (
     CrmAuthError,
@@ -53,14 +57,17 @@ from alnuzum_crm.types import (
     CreatedDeal,
     CrmKind,
     Deal,
+    DealHit,
     DealIn,
     DealLine,
     DealStatus,
+    DealUpdate,
     FileIn,
     Leftovers,
     Page,
     Product,
     ProductIn,
+    Stage,
     TaskIn,
 )
 
@@ -87,7 +94,9 @@ def _dt(value: Any) -> datetime | None:
 
 class Odoo(CRM):
     kind: ClassVar[CrmKind] = CrmKind.ODOO
-    capabilities: ClassVar[frozenset[str]] = frozenset({"inn", "fractional_amount", "delete", "line_prices"})
+    capabilities: ClassVar[frozenset[str]] = frozenset(
+        {"inn", "fractional_amount", "delete", "line_prices", "close_date"}
+    )
     #: our units to the external ids of Odoo's standard units of measure
     UNITS: ClassVar[dict[str, str]] = {
         "шт": "product_uom_unit",
@@ -447,6 +456,7 @@ class Odoo(CRM):
                 DealStatus.WON if won else DealStatus.OPEN if row.get("active", True) else DealStatus.LOST
             )
         currency = row.get("company_currency")
+        stage = row.get("stage_id")
         return Deal(
             id=str(row["id"]),
             title=str(row.get("name", "")),
@@ -456,6 +466,7 @@ class Odoo(CRM):
             created_at=_dt(row.get("create_date")),
             closed_at=_dt(row.get("date_closed")),
             lines=lines,
+            stage_id=str(stage[0]) if isinstance(stage, list) and stage else None,
         )
 
     async def _lead_fields(self) -> list[str]:
@@ -467,6 +478,7 @@ class Odoo(CRM):
             "create_date",
             "date_closed",
             "company_currency",
+            "stage_id",
         ]
         if await self._has_model_field("crm.lead", "won_status"):
             fields.append("won_status")
@@ -548,6 +560,116 @@ class Odoo(CRM):
             "user_id": int(task.responsible_id) if task.responsible_id else await self._uid_(),
         }
         return str(await self.kw("mail.activity", "create", [vals]))
+
+    # --- the voice of a manager: find a deal, move it, add products ---
+
+    async def stages(self) -> list[Stage]:
+        """Odoo has no lost stage: a lost opportunity is archived with a reason, which is not offered."""
+        rows = await self._read("crm.stage", [], ["id", "name", "is_won", "sequence"], order="sequence, id")
+        return [
+            Stage(
+                str(r["id"]), str(r.get("name") or ""), DealStatus.WON if r.get("is_won") else DealStatus.OPEN
+            )
+            for r in rows
+        ]
+
+    async def find_deals(self, query: str, *, limit: int = 8) -> list[DealHit]:
+        text = search_text(query)
+        if len(text) < 2:
+            return []
+        fields = [*await self._lead_fields(), "partner_id", "partner_name", "contact_name"]
+        base = [["type", "=", "opportunity"]]
+        groups: list[list[DealHit]] = []
+        # the company: named on the opportunity, the company of its contact, or the customer itself
+        company = [
+            "|",
+            ["partner_name", "ilike", text],
+            "|",
+            ["partner_id.parent_id.name", "ilike", text],
+            "&",
+            ["partner_id.is_company", "=", True],
+            ["partner_id.name", "ilike", text],
+        ]
+        contact: list[Any] = ["|", ["contact_name", "ilike", text], ["partner_id.name", "ilike", text]]
+        for by, domain in (("title", [["name", "ilike", text]]), ("company", company), ("contact", contact)):
+            rows = await self._read("crm.lead", base + domain, fields, limit=limit, order="id desc")
+            group = []
+            for r in rows:
+                deal = await self._deal(r)
+                partner = r.get("partner_id")
+                pname = str(partner[1]) if isinstance(partner, list) and len(partner) > 1 else None
+                co_name = r.get("partner_name") or (pname.split(",")[0] if pname else None)
+                ct_name = r.get("contact_name") or (
+                    pname.split(", ")[-1] if pname and ", " in pname else None
+                )
+                group.append(
+                    DealHit(
+                        deal.id,
+                        deal.title,
+                        str(co_name) if co_name else None,
+                        str(ct_name) if ct_name else None,
+                        deal.stage_id,
+                        deal.amount,
+                        deal.status,
+                        by,
+                    )
+                )
+            groups.append(group)
+        return hits_in_order(groups, limit)
+
+    async def update_deal(self, deal_id: str, update: DealUpdate) -> None:
+        crm = self.kind.value
+        positive(update, crm)
+        vals: dict[str, Any] = {}
+        if update.stage_id is not None:
+            vals["stage_id"] = int(record_id(update.stage_id, crm))
+        if update.amount is not None:
+            vals["expected_revenue"] = float(update.amount)
+        if update.close_date is not None:
+            vals["date_deadline"] = update.close_date.isoformat()
+        if vals:
+            await self.kw("crm.lead", "write", [[int(record_id(deal_id, crm))], vals])
+
+    async def add_lines(self, deal_id: str, lines: tuple[DealLine, ...]) -> None:
+        """Into the draft quotation of the opportunity, or a new one for its customer."""
+        crm = self.kind.value
+        catalog_lines(lines, crm)
+        lead = int(record_id(deal_id, crm))
+        if not await self._has_model_field("sale.order", "opportunity_id"):
+            raise CrmUnsupported("deal lines need the Sales and CRM link (module sale_crm)", crm=crm)
+        values = [
+            [
+                0,
+                0,
+                {
+                    "product_id": int(str(x.product_id)),
+                    "product_uom_qty": float(x.quantity),
+                    "price_unit": float(x.unit_price),
+                    "name": x.name,
+                },
+            ]
+            for x in lines
+        ]
+        drafts = await self._search(
+            "sale.order",
+            [["opportunity_id", "=", lead], ["state", "in", ["draft", "sent"]]],
+            limit=1,
+            order="id desc",
+        )
+        if drafts:
+            await self.kw("sale.order", "write", [drafts[:1], {"order_line": values}])
+            return
+        rows = await self._read("crm.lead", [["id", "=", lead]], ["partner_id"])
+        if not rows:
+            raise CrmNotFound(f"deal {deal_id} not found", crm=crm)
+        partner = rows[0].get("partner_id")
+        if not partner:
+            raise CrmValidationError("a quotation needs a customer: link one to the opportunity", crm=crm)
+        await self.kw(
+            "sale.order",
+            "create",
+            [{"partner_id": int(partner[0]), "opportunity_id": lead, "order_line": values}],
+        )
 
     # --- cleanup ---
 

@@ -1,7 +1,7 @@
 {
  "meta": {
   "crm": "odoo",
-  "run_id": "e9893e28"
+  "run_id": "acdf80f7"
  },
  "calls": [
   {
@@ -37,7 +37,7 @@
    "op": "object.execute_kw res.partner create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 4, \"result\": 6}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 4, \"result\": 13}",
    "binary": false
   },
   {
@@ -46,7 +46,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 5, \"result\": [{\"id\": 6, \"name\": \"E2E Co e9893e28\", \"vat\": \"318085672\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 5, \"result\": [{\"id\": 13, \"name\": \"E2E Co acdf80f7\", \"vat\": \"300328695\"}]}",
    "binary": false
   },
   {
@@ -55,7 +55,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 6, \"result\": [{\"id\": 6, \"name\": \"E2E Co e9893e28\", \"vat\": \"318085672\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 6, \"result\": [{\"id\": 13, \"name\": \"E2E Co acdf80f7\", \"vat\": \"300328695\"}]}",
    "binary": false
   },
   {
@@ -64,7 +64,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 7, \"result\": [{\"id\": 6, \"vat\": \"318085672\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 7, \"result\": [{\"id\": 13, \"vat\": \"300328695\"}]}",
    "binary": false
   },
   {
@@ -82,7 +82,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 9, \"result\": [{\"id\": 6, \"name\": \"E2E Co e9893e28\", \"vat\": \"318085672\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 9, \"result\": [{\"id\": 13, \"name\": \"E2E Co acdf80f7\", \"vat\": \"300328695\"}]}",
    "binary": false
   },
   {
@@ -109,7 +109,7 @@
    "op": "object.execute_kw res.partner create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 12, \"result\": 7}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 12, \"result\": 14}",
    "binary": false
   },
   {
@@ -118,7 +118,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 13, \"result\": [{\"id\": 7, \"email\": \"e2e-e9893e28@example.com\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 13, \"result\": [{\"id\": 14, \"email\": \"e2e-acdf80f7@example.com\"}]}",
    "binary": false
   },
   {
@@ -127,7 +127,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 14, \"result\": [{\"id\": 7, \"phone\": \"+998 00 808 56 72\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 14, \"result\": [{\"id\": 14, \"phone\": \"+998 00 032 86 95\"}]}",
    "binary": false
   },
   {
@@ -136,7 +136,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 15, \"result\": [{\"id\": 7, \"email\": \"e2e-e9893e28@example.com\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 15, \"result\": [{\"id\": 14, \"email\": \"e2e-acdf80f7@example.com\"}]}",
    "binary": false
   },
   {
@@ -145,7 +145,7 @@
    "op": "object.execute_kw res.partner create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 16, \"result\": 8}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 16, \"result\": 15}",
    "binary": false
   },
   {
@@ -154,7 +154,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 17, \"result\": [{\"id\": 8, \"email\": \"e2e-lone-e9893e28@example.com\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 17, \"result\": [{\"id\": 15, \"email\": \"e2e-lone-acdf80f7@example.com\"}]}",
    "binary": false
   },
   {
@@ -163,7 +163,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 18, \"result\": [{\"id\": 8, \"email\": \"e2e-lone-e9893e28@example.com\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 18, \"result\": [{\"id\": 15, \"email\": \"e2e-lone-acdf80f7@example.com\"}]}",
    "binary": false
   },
   {
@@ -172,7 +172,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 19, \"result\": [{\"id\": 8, \"parent_id\": false}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 19, \"result\": [{\"id\": 15, \"parent_id\": false}]}",
    "binary": false
   },
   {
@@ -190,7 +190,7 @@
    "op": "object.execute_kw res.partner search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 21, \"result\": [{\"id\": 8, \"parent_id\": [6, \"E2E Co e9893e28\"]}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 21, \"result\": [{\"id\": 15, \"parent_id\": [13, \"E2E Co acdf80f7\"]}]}",
    "binary": false
   },
   {
@@ -208,16 +208,7 @@
    "op": "object.execute_kw product.category search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 23, \"result\": []}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw product.category create",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 24, \"result\": 4}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 23, \"result\": [4]}",
    "binary": false
   },
   {
@@ -226,7 +217,7 @@
    "op": "object.execute_kw product.product create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 25, \"result\": 1}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 24, \"result\": 201}",
    "binary": false
   },
   {
@@ -235,7 +226,7 @@
    "op": "object.execute_kw ir.model.fields search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 26, \"result\": [7426]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 25, \"result\": [7426]}",
    "binary": false
   },
   {
@@ -244,7 +235,7 @@
    "op": "object.execute_kw crm.tag search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 27, \"result\": [1]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 26, \"result\": [1]}",
    "binary": false
   },
   {
@@ -253,7 +244,7 @@
    "op": "object.execute_kw crm.lead create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 28, \"result\": 2}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 27, \"result\": 7}",
    "binary": false
   },
   {
@@ -262,7 +253,7 @@
    "op": "object.execute_kw product.product create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 29, \"result\": 2}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 28, \"result\": 202}",
    "binary": false
   },
   {
@@ -271,7 +262,7 @@
    "op": "object.execute_kw sale.order create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 30, \"result\": 1}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 29, \"result\": 6}",
    "binary": false
   },
   {
@@ -280,7 +271,7 @@
    "op": "object.execute_kw ir.attachment create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 31, \"result\": 526}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 30, \"result\": 527}",
    "binary": false
   },
   {
@@ -289,7 +280,7 @@
    "op": "object.execute_kw crm.lead message_post",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 32, \"result\": [103]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 31, \"result\": [544]}",
    "binary": false
   },
   {
@@ -298,7 +289,7 @@
    "op": "object.execute_kw crm.lead message_post",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 33, \"result\": [104]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 32, \"result\": [545]}",
    "binary": false
   },
   {
@@ -307,7 +298,7 @@
    "op": "object.execute_kw ir.model search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 34, \"result\": [528]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 33, \"result\": [528]}",
    "binary": false
   },
   {
@@ -316,7 +307,7 @@
    "op": "object.execute_kw ir.model.data search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 35, \"result\": [{\"id\": 13240, \"res_id\": 4}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 34, \"result\": [{\"id\": 13240, \"res_id\": 4}]}",
    "binary": false
   },
   {
@@ -325,7 +316,7 @@
    "op": "object.execute_kw mail.activity create",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 36, \"result\": 1}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 35, \"result\": 2}",
    "binary": false
   },
   {
@@ -334,7 +325,7 @@
    "op": "object.execute_kw ir.model.fields search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 37, \"result\": [6665]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 36, \"result\": [6665]}",
    "binary": false
   },
   {
@@ -343,7 +334,7 @@
    "op": "object.execute_kw crm.lead search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 38, \"result\": [{\"id\": 2, \"name\": \"E2E deal e9893e28\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 00:38:44\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"won_status\": \"pending\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 37, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [1, \"New\"], \"won_status\": \"pending\"}]}",
    "binary": false
   },
   {
@@ -352,7 +343,7 @@
    "op": "object.execute_kw sale.order search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 39, \"result\": [1]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 38, \"result\": [6]}",
    "binary": false
   },
   {
@@ -361,7 +352,7 @@
    "op": "object.execute_kw sale.order.line search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 40, \"result\": [{\"id\": 1, \"name\": \"E2E product e9893e28\", \"product_id\": [1, \"[E2E-e9893e28] E2E product e9893e28\"], \"product_uom_qty\": 2.5, \"price_unit\": 100.0, \"display_type\": false}, {\"id\": 2, \"name\": \"E2E service e9893e28\", \"product_id\": [2, \"E2E service e9893e28\"], \"product_uom_qty\": 3.0, \"price_unit\": 10.25, \"display_type\": false}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 39, \"result\": [{\"id\": 41, \"name\": \"E2E product acdf80f7\", \"product_id\": [201, \"[E2E-acdf80f7] E2E product acdf80f7\"], \"product_uom_qty\": 2.5, \"price_unit\": 100.0, \"display_type\": false}, {\"id\": 42, \"name\": \"E2E service acdf80f7\", \"product_id\": [202, \"E2E service acdf80f7\"], \"product_uom_qty\": 3.0, \"price_unit\": 10.25, \"display_type\": false}]}",
    "binary": false
   },
   {
@@ -370,7 +361,7 @@
    "op": "object.execute_kw crm.lead search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 41, \"result\": [{\"id\": 2, \"name\": \"E2E deal e9893e28\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 00:38:44\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"won_status\": \"pending\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 40, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [1, \"New\"], \"won_status\": \"pending\"}]}",
    "binary": false
   },
   {
@@ -379,25 +370,34 @@
    "op": "object.execute_kw crm.lead search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 42, \"result\": [{\"id\": 2, \"name\": \"E2E deal e9893e28\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 00:38:44\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"won_status\": \"pending\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 41, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [1, \"New\"], \"won_status\": \"pending\"}]}",
    "binary": false
   },
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw ir.model.fields search",
+   "op": "object.execute_kw crm.stage search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 43, \"result\": []}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 42, \"result\": [{\"id\": 1, \"name\": \"New\", \"is_won\": false, \"sequence\": 1}, {\"id\": 2, \"name\": \"Qualified\", \"is_won\": false, \"sequence\": 2}, {\"id\": 3, \"name\": \"Proposition\", \"is_won\": false, \"sequence\": 3}, {\"id\": 4, \"name\": \"Won\", \"is_won\": true, \"sequence\": 70}]}",
    "binary": false
   },
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw product.product search_read",
+   "op": "object.execute_kw crm.lead search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 44, \"result\": [{\"id\": 1, \"name\": \"E2E product e9893e28\", \"default_code\": \"E2E-e9893e28\", \"list_price\": 100.0, \"currency_id\": [1, \"USD\"], \"uom_id\": [1, \"Units\"], \"categ_id\": [4, \"E2E\"], \"description_sale\": \"Категория: E2E\\nСинонимы: e2e e9893e28\"}]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 43, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [1, \"New\"], \"won_status\": \"pending\", \"partner_id\": [14, \"E2E Co acdf80f7, E2E Person acdf80f7\"], \"partner_name\": \"E2E Co acdf80f7\", \"contact_name\": \"E2E Person acdf80f7\"}]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 44, \"result\": []}",
    "binary": false
   },
   {
@@ -412,79 +412,79 @@
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 46, \"result\": []}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 47, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [1, \"New\"], \"won_status\": \"pending\", \"partner_id\": [14, \"E2E Co acdf80f7, E2E Person acdf80f7\"], \"partner_name\": \"E2E Co acdf80f7\", \"contact_name\": \"E2E Person acdf80f7\"}]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 48, \"result\": []}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 49, \"result\": []}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 50, \"result\": []}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 51, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 280.75, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [1, \"New\"], \"won_status\": \"pending\", \"partner_id\": [14, \"E2E Co acdf80f7, E2E Person acdf80f7\"], \"partner_name\": \"E2E Co acdf80f7\", \"contact_name\": \"E2E Person acdf80f7\"}]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
    "op": "object.execute_kw sale.order search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 46, \"result\": [1]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 52, \"result\": [6]}",
    "binary": false
   },
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw sale.order action_cancel",
+   "op": "object.execute_kw sale.order write",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 47, \"result\": true}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 53, \"result\": true}",
    "binary": false
   },
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw sale.order unlink",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 48, \"result\": true}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw crm.lead search",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 49, \"result\": [2]}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw crm.lead unlink",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 50, \"result\": true}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw res.partner search",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 51, \"result\": [8, 7]}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw res.partner unlink",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 52, \"result\": true}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw res.partner search",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 53, \"result\": [6]}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw res.partner unlink",
+   "op": "object.execute_kw crm.lead write",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
    "body": "{\"jsonrpc\": \"2.0\", \"id\": 54, \"result\": true}",
@@ -493,28 +493,82 @@
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw product.product search",
+   "op": "object.execute_kw crm.lead search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 55, \"result\": [1, 2]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 55, \"result\": [{\"id\": 7, \"name\": \"E2E deal acdf80f7\", \"expected_revenue\": 4321.0, \"probability\": 0.0, \"active\": true, \"create_date\": \"2026-11-09 03:55:35\", \"date_closed\": false, \"company_currency\": [1, \"USD\"], \"stage_id\": [2, \"Qualified\"], \"won_status\": \"pending\"}]}",
    "binary": false
   },
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw product.product unlink",
+   "op": "object.execute_kw sale.order search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 56, \"result\": true}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 56, \"result\": [6]}",
    "binary": false
   },
   {
    "method": "POST",
    "url": "https://odoo.example.com/jsonrpc",
-   "op": "object.execute_kw crm.tag search",
+   "op": "object.execute_kw sale.order.line search_read",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 57, \"result\": [1]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 57, \"result\": [{\"id\": 41, \"name\": \"E2E product acdf80f7\", \"product_id\": [201, \"[E2E-acdf80f7] E2E product acdf80f7\"], \"product_uom_qty\": 2.5, \"price_unit\": 100.0, \"display_type\": false}, {\"id\": 42, \"name\": \"E2E service acdf80f7\", \"product_id\": [202, \"E2E service acdf80f7\"], \"product_uom_qty\": 3.0, \"price_unit\": 10.25, \"display_type\": false}, {\"id\": 43, \"name\": \"E2E product acdf80f7\", \"product_id\": [201, \"[E2E-acdf80f7] E2E product acdf80f7\"], \"product_uom_qty\": 4.0, \"price_unit\": 100.0, \"display_type\": false}]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw ir.model.fields search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 58, \"result\": []}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw product.product search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 59, \"result\": [{\"id\": 201, \"name\": \"E2E product acdf80f7\", \"default_code\": \"E2E-acdf80f7\", \"list_price\": 100.0, \"currency_id\": [1, \"USD\"], \"uom_id\": [1, \"Units\"], \"categ_id\": [4, \"E2E\"], \"description_sale\": \"Категория: E2E\\nСинонимы: e2e acdf80f7\"}]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search_read",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 60, \"result\": []}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw sale.order search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 61, \"result\": [6]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw sale.order action_cancel",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 62, \"result\": true}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw sale.order unlink",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 63, \"result\": true}",
    "binary": false
   },
   {
@@ -523,7 +577,88 @@
    "op": "object.execute_kw crm.lead search",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"jsonrpc\": \"2.0\", \"id\": 58, \"result\": [1]}",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 64, \"result\": [7]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead unlink",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 65, \"result\": true}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw res.partner search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 66, \"result\": [15, 14]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw res.partner unlink",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 67, \"result\": true}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw res.partner search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 68, \"result\": [13]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw res.partner unlink",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 69, \"result\": true}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw product.product search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 70, \"result\": [201, 202]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw product.product unlink",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 71, \"result\": true}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.tag search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 72, \"result\": [1]}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://odoo.example.com/jsonrpc",
+   "op": "object.execute_kw crm.lead search",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"jsonrpc\": \"2.0\", \"id\": 73, \"result\": [1]}",
    "binary": false
   }
  ]
