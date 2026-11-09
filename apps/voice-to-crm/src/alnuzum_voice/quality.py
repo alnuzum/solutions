@@ -208,7 +208,7 @@ async def evaluate(scribe: Any, reader: Any, *, only: list[str] | None = None) -
     catalog = demo_catalog()
     usd, calls, seconds = Decimal(0), 0, 0
 
-    async def gate(kind: str, worst: Any = None):  # type: ignore[no-untyped-def]
+    async def gate(kind: str, worst: Any = None, seconds: int = 0):  # type: ignore[no-untyped-def]
         async def done(used: Any, ok: bool) -> None:
             nonlocal usd, calls
             if used is not None:

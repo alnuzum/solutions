@@ -37,7 +37,7 @@ class TruthScribe:
         self.calls = 0
 
     async def transcribe(self, wav: bytes, seconds: int, gate: Any) -> Transcript:
-        done = await gate("stt", Decimal("0.01"))
+        done = await gate("stt", Decimal("0.01"), seconds)  # as Scribe asks: the seconds are booked too
         text = self.texts[self.calls]
         self.calls += 1
         await done(Spent(Decimal("0.0005"), seconds=seconds), True)
