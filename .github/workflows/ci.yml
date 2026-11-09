@@ -83,7 +83,7 @@ jobs:
           exit 1
       - name: the image carries the solutions
         run: |
-          docker compose exec -T platform python -c "from alnuzum_platform.solutions import discover; s = [x.slug for x in discover()]; print(s); assert s == ['orders', 'voice'], s"
+          docker compose exec -T platform python -c "from alnuzum_platform.solutions import discover; s = [x.slug for x in discover()]; print(s); assert s == ['contracts', 'orders', 'voice'], s"
       - if: always()
         run: docker compose down -v
 
