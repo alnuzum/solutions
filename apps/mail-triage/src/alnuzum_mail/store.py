@@ -48,8 +48,8 @@ LOCK_SPEND = 0x4D41494C  # the money ceiling of the solution ("MAIL")
 ADDRESS_SHARE = Decimal("0.25")  # of the day's dollars one address may spend (never less than one booking)
 LOCK_RUNS, LOCK_DEMO = 0x4D52, 0x4D44  # runs of an owner, an address or a connection; demo writes
 MAX_CREATES = 3  # records one write of a new request may create: a company, a contact, a deal
-SMALL = frozenset({"amocrm", "kommo"})  # technical accounts of 100 contacts and companies in all
-CLIENTS = ("company", "contact")  # what a technical account counts to its 100; deals it does not
+SMALL = frozenset({"amocrm", "kommo"})  # technical accounts: 100 contacts and companies, 100 open deals
+CLIENTS = ("company", "contact")  # what a technical account counts to its 100 clients; deals apart
 
 
 class MailRun(Base):
@@ -141,6 +141,12 @@ class Limits:
     small_new_per_day: int = 6
     small_per_ip: int = 1
     small_room: int = 70
+    # and 100 open deals: new deals of the demo a day, by one address a day, and the account's own live count
+    # of open deals with what is being created never past ``small_deals_room`` of its 100 (the other
+    # solutions, the E2E suite and the ten minutes the count is kept take the rest)
+    small_deals_per_day: int = 10
+    small_deals_per_ip: int = 2
+    small_deals_room: int = 80
 
 
 @dataclass(frozen=True)
@@ -229,7 +235,7 @@ async def _room(
         )
     clients = [k for k in creates if k in CLIENTS]
     if not clients:
-        return True  # a deal: the technical account does not count deals
+        return True  # a deal alone: its room is ``_deal_room``'s
     if live is None:
         return False  # the account's count is unknown: nothing new is made in it
     mine = made.where(MailDemoRecord.ip_key == ip_key[:64], MailDemoRecord.created_at > _day())
@@ -244,6 +250,44 @@ async def _room(
     count, taken = live
     since = int(await session.scalar(kinds.where(MailDemoRecord.created_at > taken)) or 0)
     return count + since + held + len(clients) <= limits.small_room
+
+
+async def _deal_room(
+    session: AsyncSession,
+    crm: str,
+    ip_key: str,
+    limits: Limits,
+    *,
+    deals: tuple[int, datetime] | None,
+    run_id: uuid.UUID | None,
+) -> bool:
+    """Whether the demo may still create a deal in this amoCRM or Kommo: a technical account keeps 100 open
+    deals, and past them it answers "Payment Required" to every deal of every solution. Writes of this CRM
+    going on now may still create theirs: each is counted as one."""
+    if deals is None:
+        return False  # the account's count is unknown: no new deal is made in it
+    made = (
+        select(func.count())
+        .select_from(MailDemoRecord)
+        .where(MailDemoRecord.crm == crm, MailDemoRecord.kind == "deal")
+    )
+    mine = made.where(MailDemoRecord.ip_key == ip_key[:64], MailDemoRecord.created_at > _day())
+    if int(await session.scalar(mine) or 0) >= limits.small_deals_per_ip:
+        return False
+    going_q = (
+        select(func.count())
+        .select_from(MailRun)
+        .where(MailRun.demo, MailRun.crm == crm, MailRun.status == "writing")
+    )
+    if run_id is not None:
+        going_q = going_q.where(MailRun.id != run_id)
+    held = int(await session.scalar(going_q) or 0)
+    today = int(await session.scalar(made.where(MailDemoRecord.created_at > _day())) or 0)
+    if today + held + 1 > limits.small_deals_per_day:
+        return False
+    count, taken = deals
+    since = int(await session.scalar(made.where(MailDemoRecord.created_at > taken)) or 0)
+    return count + since + held + 1 <= limits.small_deals_room
 
 
 class MailStore:
@@ -392,12 +436,14 @@ class MailStore:
         creates: list[str],
         limits: Limits,
         live: tuple[int, datetime] | None = None,
+        deals: tuple[int, datetime] | None = None,
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner. Returns "ok", "busy", "quota"
         (the owner's or the address's demo writes of the day), "full" (this demo CRM's of the day), "full_new"
-        (the records the demo may still create in this test account) or "down" (it refuses records now).
-        ``creates``: the kinds of records the write makes; ``live``: amoCRM's and Kommo's count of companies
-        and contacts and when it was taken."""
+        (the records the demo may still create in this test account), "full_deals" (a new deal in amoCRM or
+        Kommo) or "down" (it refuses records now). ``creates``: the kinds of records the write makes;
+        ``live`` and ``deals``: amoCRM's and Kommo's count of companies and contacts and of open deals, each
+        with when it was taken."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
@@ -419,6 +465,12 @@ class MailStore:
                     return "quota"
                 if int(await session.scalar(count.where(MailRun.crm == crm)) or 0) >= limits.demo_per_crm:
                     return "full"
+                if (
+                    crm in SMALL
+                    and "deal" in creates
+                    and not await _deal_room(session, crm, ip_key, limits, deals=deals, run_id=run_id)
+                ):
+                    return "full_deals"
                 if creates and not await _room(
                     session, crm, ip_key, creates, limits, live=live, run_id=run_id
                 ):
@@ -437,6 +489,16 @@ class MailStore:
         (asked when the letter is read; the write asks again under its lock)."""
         async with self._sessions() as session:
             return await _room(session, crm, ip_key, list(CLIENTS), limits, live=live, run_id=None)
+
+    async def may_deal(
+        self, crm: str, ip_key: str, limits: Limits, *, deals: tuple[int, datetime] | None
+    ) -> bool:
+        """Whether a write from this address could make a new deal in this amoCRM or Kommo now (asked when
+        the letter is read; the write asks again under its lock)."""
+        if crm not in SMALL:
+            return True
+        async with self._sessions() as session:
+            return await _deal_room(session, crm, ip_key, limits, deals=deals, run_id=None)
 
     async def step_done(
         self,

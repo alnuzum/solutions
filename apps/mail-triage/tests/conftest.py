@@ -136,6 +136,7 @@ class FakeCRM:
         self.made = 0
         self.clients_count = 10  # amoCRM's and Kommo's companies and contacts
         self.counted = 0
+        self.deals_count: int | None = 10  # amoCRM's and Kommo's open deals; None: the count never answers
 
     async def __aenter__(self) -> "FakeCRM":
         return self
@@ -215,6 +216,11 @@ class FakeCRM:
         self.counted += 1
         return self.clients_count
 
+    async def open_deals(self) -> int:
+        if self.deals_count is None:
+            raise CrmRateLimited("busy", crm="kommo")
+        return self.deals_count
+
     async def users(self) -> list[User]:
         return [User("7", "Мария Петрова"), User("8", "Иван Сидоров")]
 
@@ -271,6 +277,8 @@ async def make(engine: AsyncEngine, migrated: str) -> AsyncIterator[Callable[...
                 demo_b24_webhook=DEMO_HOOK,
                 demo_amocrm_domain="acme.amocrm.ru",
                 demo_amocrm_token="demo-amo-token-0123456789",
+                demo_kommo_domain="acme.kommo.com",
+                demo_kommo_token="demo-kommo-token-0123456789",
             )
         )
         app = create_app(

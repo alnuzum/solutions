@@ -51,7 +51,7 @@ from alnuzum_platform.store import (
 
 log = logging.getLogger("alnuzum_mail")
 MAX_LOOKS = 5  # looks into the CRM a run may ask for after its reading (fresh look, deal search)
-COUNT_FOR = timedelta(minutes=10)  # amoCRM's and Kommo's count of companies and contacts is taken again
+COUNT_FOR = timedelta(minutes=10)  # amoCRM's and Kommo's counts of clients and open deals are taken again
 
 
 class MailSettings(BaseSettings):
@@ -71,6 +71,10 @@ class MailSettings(BaseSettings):
     # at most at this many with what is being created
     mail_demo_new_per_day_small: int = 6
     mail_demo_room_small: int = 70
+    # and 100 open deals: new deals a day, by one address a day, the account's live count kept at most here
+    mail_demo_deals_per_day_small: int = 10
+    mail_demo_deals_per_ip_small: int = 2
+    mail_demo_deals_room_small: int = 80
 
     def limits(self) -> Limits:
         return Limits(
@@ -78,6 +82,9 @@ class MailSettings(BaseSettings):
             new_total=self.mail_demo_new_total,
             small_new_per_day=self.mail_demo_new_per_day_small,
             small_room=self.mail_demo_room_small,
+            small_deals_per_day=self.mail_demo_deals_per_day_small,
+            small_deals_per_ip=self.mail_demo_deals_per_ip_small,
+            small_deals_room=self.mail_demo_deals_room_small,
         )
 
 
@@ -133,7 +140,7 @@ class Mail:
         self._reader = reader
         self.parsing = Parsing(self.settings.mail_parse_slots, self.settings.mail_parse_seconds)
         self._seal: Seal | None = None
-        self._counts: dict[str, tuple[int, datetime]] = {}  # amoCRM's and Kommo's companies and contacts
+        self._counts: dict[str, tuple[int, datetime]] = {}  # amoCRM's, Kommo's clients; <crm>:deals
 
     def reader(self) -> MailReader:
         if self._reader is None:
@@ -205,22 +212,26 @@ class Mail:
             raise ConnectionDisabled(str(info.id))
         return kit.connectors.adapter(info, await st.secrets(info.id), st)
 
-    async def live_count(self, app: FastAPI, kit: Kit, info: ConnectionInfo) -> tuple[int, datetime] | None:
-        """Companies and contacts of a demo amoCRM or Kommo and when they were counted, taken again every
-        ten minutes; None when the account does not answer (then nothing new is made in it)."""
-        crm = info.crm.value
-        have = self._counts.get(crm)
+    async def live_count(
+        self, app: FastAPI, kit: Kit, info: ConnectionInfo, *, deals: bool = False
+    ) -> tuple[int, datetime] | None:
+        """Companies and contacts (or, ``deals``, open deals) of a demo amoCRM or Kommo and when they were
+        counted, taken again every ten minutes; None when the account does not answer (then nothing new of
+        that kind is made in it)."""
+        key = info.crm.value + (":deals" if deals else "")
+        have = self._counts.get(key)
         if have and datetime.now(UTC) - have[1] < COUNT_FOR:
             return have
         try:
             taken = datetime.now(UTC)
             async with await self.adapter(app, kit, info) as adapter:
-                counting = cast(AmoCRM, adapter).clients()  # SMALL: the amoCRM family
+                amo = cast(AmoCRM, adapter)  # SMALL: the amoCRM family
+                counting = amo.open_deals() if deals else amo.clients()
                 count = await asyncio.wait_for(counting, self.settings.mail_crm_seconds)
         except (CrmError, ConnectionDisabled, ConnectionNotFound, TimeoutError):
             return None
-        self._counts[crm] = (count, taken)
-        return self._counts[crm]
+        self._counts[key] = (count, taken)
+        return self._counts[key]
 
     async def may_create(
         self, app: FastAPI, kit: Kit, ms: MailStore, info: ConnectionInfo, ip_key: str | None
@@ -230,6 +241,16 @@ class Mail:
             return True
         live = await self.live_count(app, kit, info)
         return await ms.may_create(info.crm.value, ip_key or "?", self.settings.limits(), live=live)
+
+    async def may_deal(
+        self, app: FastAPI, kit: Kit, ms: MailStore, info: ConnectionInfo, ip_key: str | None
+    ) -> bool:
+        """Whether the demo of amoCRM or Kommo may make a new deal for this address now: its technical account
+        keeps 100 open deals for all the solutions."""
+        if info.crm.value not in SMALL:
+            return True
+        deals = await self.live_count(app, kit, info, deals=True)
+        return await ms.may_deal(info.crm.value, ip_key or "?", self.settings.limits(), deals=deals)
 
     # --- reading ---
 
@@ -350,6 +371,7 @@ class Mail:
             binding = await self.bind(app, kit, info, letter, reading, demo=demo)
             if demo:
                 binding["allow_new"] = await self.may_create(app, kit, ms, info, ip_key)
+                binding["allow_deal"] = await self.may_deal(app, kit, ms, info, ip_key)
             result = {
                 "letter": letter.to_json(),
                 "reading": reading.to_json(),
@@ -380,9 +402,10 @@ class Mail:
         info = await self.connections(app).get(run.connection_id, DEMO_OWNER if run.demo else conn_owner)
         letter, reading = Letter.of(result["letter"]), Reading.of(result["reading"])
         if query is None:
-            allow = (result.get("binding") or {}).get("allow_new", True)
+            was = result.get("binding") or {}
             result["binding"] = await self.bind(app, kit, info, letter, reading, demo=run.demo)
-            result["binding"]["allow_new"] = allow
+            result["binding"]["allow_new"] = was.get("allow_new", True)
+            result["binding"]["allow_deal"] = was.get("allow_deal", True)
             await ms.save_result(run.id, run.owner, result)
             return "looked" if result["binding"]["checked"] else str(result["binding"]["error"])
         query = " ".join(query.split())[:80] or ("Демо" if run.demo else "")
@@ -411,7 +434,7 @@ class Mail:
 
     async def confirm(self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, ip_key: str) -> str:
         """Write by the plan of the run's choice; a retry goes on from the first step not done. Returns the
-        notice: written, quota, full, full_new, down, busy, failed, auth, not_demo."""
+        notice: written, quota, full, full_new, full_deals, down, busy, failed, auth, not_demo."""
         if not run.result:
             return "failed"
         ms, st, limits = self.store(app, kit), self.connections(app), self.settings.limits()
@@ -430,12 +453,16 @@ class Mail:
         )
         done_before = await ms.steps_done(run.id)
         creates = plan.creates(made_of(done_before))
-        live = None
-        if run.demo and run.crm in SMALL and any(k in CLIENTS for k in creates):
+        live = deals = None
+        if run.demo and run.crm in SMALL and creates:
             try:
-                live = await self.live_count(app, kit, await st.get(run.connection_id, DEMO_OWNER))
+                demo_info = await st.get(run.connection_id, DEMO_OWNER)
             except ConnectionNotFound:
-                live = None
+                demo_info = None
+            if demo_info is not None and any(k in CLIENTS for k in creates):
+                live = await self.live_count(app, kit, demo_info)
+            if demo_info is not None and "deal" in creates:
+                deals = await self.live_count(app, kit, demo_info, deals=True)
         state = await ms.start_writing(
             run.id,
             run.owner,
@@ -445,7 +472,12 @@ class Mail:
             creates=creates,
             limits=limits,
             live=live,
+            deals=deals,
         )
+        if state == "full_deals" and not done_before:
+            # the page says why a new letter goes nowhere now; a reply into a «Демо · …» deal still goes
+            result = dict(result) | {"binding": dict(result["binding"]) | {"allow_deal": False}}
+            await ms.save_result(run.id, run.owner, result)
         if state == "full_new" and run.crm in SMALL and not done_before:
             # the page stops offering what the demo cannot make; a deal without them still goes
             result = dict(result) | {"binding": dict(result["binding"]) | {"allow_new": False}}

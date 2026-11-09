@@ -67,15 +67,18 @@ Errors come as `CrmAuthError`, `CrmPermissionError`, `CrmNotFound`, `CrmValidati
 | unit and contract | `uv run pytest` | every push; contract tests replay the recorded traffic of the last live run (`packages/crm/tests/cassettes`) |
 | live E2E | `uv run pytest -m e2e --tb=short` | push to `main`, pull requests and nightly in GitHub Actions: real calls into test accounts of amoCRM, Kommo, Bitrix24, Zoho CRM and a fresh Odoo Community |
 
-The amoCRM and Kommo test accounts are technical accounts: 100 contacts and companies in all, and the
-API deletes none (405). Their live run works on a pool, «E2E Co pool», «E2E Person pool» and «E2E Lone
+The amoCRM and Kommo test accounts are technical accounts: 100 contacts and companies in all and 100 open
+deals, and the API deletes none (405). Their live run works on a pool, «E2E Co pool», «E2E Person pool» and «E2E Lone
 pool» with fixed INN, phone and e-mail: it finds them and creates them only when they are gone; its deal
 is closed and tagged `e2e`. First the run counts the contacts and companies (`amocrm: contacts and
 companies N/100` in the log) and stops at 90 with `account near the technical limit`. Clean up in the
 browser: in the contact and company lists of the CRM select the «E2E …» records except the three of the
 pool and delete them (the integration token gets 403 there); the CRM recounts its limit within about
 15 minutes. `E2E_CREATE=1` runs the creating path instead (three new records); `RECORD=1` rewrites
-`amocrm.json` and `kommo.json` with it and `amocrm-pool.json` and `kommo-pool.json` on the pool.
+`amocrm.json` and `kommo.json` with it and `amocrm-pool.json` and `kommo-pool.json` on the pool. Past 100 open deals the CRM answers «Payment Required» to
+every deal of every solution: the demo of the mail makes a new deal there only while the account's open deals
+(counted through the API every ten minutes) with what is being created stay within 80, at most 10 a day and 2 a
+day from one address.
 
 Live E2E reads credentials from the environment (`AMOCRM_DOMAIN`, `AMOCRM_TOKEN`, `KOMMO_DOMAIN`, `KOMMO_TOKEN`,
 `B24_WEBHOOK`, `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN`,

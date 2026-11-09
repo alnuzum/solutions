@@ -273,6 +273,81 @@ async def test_a_write_past_the_room_turns_the_page_to_no_new_company(make: Any,
     assert kinds(h) == ["deal", "note", "task"]
 
 
+KOMMO = "demo:kommo"
+DEAL_OFF = "Новая сделка в демо сейчас не создаётся"
+
+
+async def test_kommo_makes_no_new_deal_past_80_open_deals_of_the_account(make: Any, engine: Any) -> None:
+    """A technical account keeps 100 open deals for every solution and past them answers «Payment Required» to
+    all: a new letter makes a deal only while the account's live count of open deals with what is being
+    created stays within 80 of them; a reply into a «Демо · …» deal still goes."""
+    h: Harness = await make(answer(), answer("reply"))
+    h.crm.deals_count = 80
+    b = Browser(h.app)
+    run = run_id(await b.send(target=KOMMO))
+    assert DEAL_OFF in html.unescape((await b.http.get(f"/ru/mail/{run}")).text)
+    assert await b.write(run, cls="new", company="1") == "full_deals"
+    assert h.crm.writes == []
+    notice = html.unescape((await b.http.get(f"/ru/mail/{run}?n=full_deals")).text)
+    assert "Новая сделка в демо этой CRM сейчас не создаётся" in notice
+    run = run_id(await b.send(target=KOMMO, sample="reply"))
+    assert await b.write(run, cls="reply", deal="11") == "written"
+    assert kinds(h) == ["note", "task"]
+
+
+async def test_kommo_makes_a_new_deal_while_the_account_has_room(make: Any, engine: Any) -> None:
+    h: Harness = await make(answer())
+    h.crm.deals_count = 50
+    b = Browser(h.app)
+    run = run_id(await b.send(target=KOMMO))
+    assert DEAL_OFF not in html.unescape((await b.http.get(f"/ru/mail/{run}")).text)
+    assert await b.write(run, cls="new", company="1") == "written"
+    assert kinds(h) == ["link", "deal", "note", "task"]
+    # 79 and one more is 80: the last one; the count is kept ten minutes and what the demo made since is added
+    h2: Harness = await make(answer(), answer())
+    h2.crm.deals_count = 79
+    b2 = Browser(h2.app, "203.0.113.60")
+    run = run_id(await b2.send(target=AMO))
+    assert await b2.write(run, cls="new", company="1") == "written"
+    run = run_id(await b2.send(target=AMO))
+    assert DEAL_OFF in html.unescape((await b2.http.get(f"/ru/mail/{run}")).text)
+    assert await b2.write(run, cls="new", company="1") == "full_deals"
+
+
+async def test_kommo_whose_open_deals_are_not_counted_makes_no_new_deal(make: Any, engine: Any) -> None:
+    h: Harness = await make(answer())
+    h.crm.deals_count = None
+    b = Browser(h.app)
+    run = run_id(await b.send(target=KOMMO))
+    assert DEAL_OFF in html.unescape((await b.http.get(f"/ru/mail/{run}")).text)
+    assert await b.write(run, cls="new", company="1") == "full_deals"
+    assert h.crm.writes == []
+
+
+async def test_amocrm_new_deals_a_day_by_an_address_and_by_the_crm(make: Any, engine: Any) -> None:
+    """Two new deals a day from one address, ten a day into one amoCRM or Kommo from all of them."""
+    h: Harness = await make(*(answer() for _ in range(5)))
+    b = Browser(h.app)
+    for _ in range(2):
+        run = run_id(await b.send(target=AMO))
+        assert await b.write(run, cls="new", company="1") == "written"
+    run = run_id(await b.send(target=AMO))
+    assert DEAL_OFF in html.unescape((await b.http.get(f"/ru/mail/{run}")).text)
+    assert await b.write(run, cls="new", company="1") == "full_deals"
+    other = Browser(h.app, "203.0.113.61")
+    run = run_id(await other.send(target=AMO))
+    assert await other.write(run, cls="new", company="1") == "written"
+    await sql(
+        engine,
+        "INSERT INTO mail_demo_records (id, crm, kind, record_id, ip_key) SELECT gen_random_uuid(), "
+        "'amocrm', 'deal', 'd' || g, '198.51.100.' || g FROM generate_series(1, 7) g",
+    )
+    third = Browser(h.app, "203.0.113.62")
+    run = run_id(await third.send(target=AMO))
+    assert await third.write(run, cls="new", company="1") == "full_deals"  # 3 + 7 made today
+    assert [k for k in kinds(h) if k == "deal"] == ["deal"] * 3
+
+
 # --- what the person may choose ---
 
 
