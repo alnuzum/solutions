@@ -39,7 +39,12 @@ def _accepted(names: list[str]) -> dict[str, bool]:
 
 def test_every_name_the_deploy_sends_is_accepted_by_the_server() -> None:
     names = _sent_names()
-    assert "VOICE_USD_PER_DAY" in names
+    assert {
+        "VOICE_USD_PER_DAY",
+        "VOICE_STT_MINUTES_PER_DAY",
+        "ANTHROPIC_API_KEY",
+        "ELEVENLABS_API_KEY",
+    } <= set(names)
     assert all(_accepted(names).values()), [k for k, ok in _accepted(names).items() if not ok]
 
 
@@ -61,7 +66,32 @@ def test_a_setting_never_seen_before_needs_no_change_on_the_server() -> None:
         "COMPOSE_PROJECT_NAME",
         "DOCKER_HOST",
         "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "NO_PROXY",
         "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "SSLKEYLOGFILE",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "OPENSSL_CONF",
+        "HOME",
+        "PYTHONSTARTUP",
+        "PYTHONHOME",
+        "PYTHONSAFEPATH",
+        "LD_LIBRARY_PATH",
+        "GCONV_PATH",
+        "GLIBC_TUNABLES",
+        "MALLOC_ARENA_MAX",
+        "UV_INDEX_URL",
+        "PIP_INDEX_URL",
+        "VIRTUAL_ENV",
+        "BASH_ENV",
+        "ENV",
+        "HOSTALIASES",
+        "RES_OPTIONS",
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_LOG",
+        "ANTHROPIC_CUSTOM_HEADERS",
         "lower",
         "A",
     ],
