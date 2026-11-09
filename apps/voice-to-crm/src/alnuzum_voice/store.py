@@ -71,6 +71,7 @@ class VoiceSpend(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     owner: Mapped[str] = mapped_column(String(128))
+    ip_key: Mapped[str | None] = mapped_column(String(64))  # the page's address; none from the bot
     kind: Mapped[str] = mapped_column(String(16))
     usd: Mapped[Decimal] = mapped_column(Numeric(10, 5))
     units: Mapped[int] = mapped_column(Integer, default=0)
@@ -113,6 +114,10 @@ class CeilingReached(RuntimeError):
 
 class SpeechCeilingReached(CeilingReached):
     """The day's minutes of speech recognition are heard."""
+
+
+class OwnSpeechCeilingReached(SpeechCeilingReached):
+    """The day's minutes of speech of one chat, one session or one address are heard."""
 
 
 class RunsExceeded(RuntimeError):
@@ -388,27 +393,40 @@ class VoiceStore:
         worst: Decimal,
         seconds: int = 0,
         speech_seconds: int | None = None,
+        own_seconds: int | None = None,
+        ip_key: str | None = None,
     ) -> uuid.UUID:
         """Booked at its worst cost before the call, under the global lock: the day's dollars are the booked
         or the actual cost of every call of speech and of the model together. Speech (``kind`` "stt") also
-        books its ``seconds`` against the day's ``speech_seconds``: a speech service may count them against
-        credits it shares with something else."""
+        books its ``seconds`` against the day's ``own_seconds`` of the owner (a chat or a session) and of
+        the address, then against the day's ``speech_seconds`` of all: a speech service may count them
+        against credits it shares with something else, and one person must not hear them all."""
         async with self._sessions.begin() as session:
             await session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": LOCK_SPEND})
+            since = _day()
+            stt = (VoiceSpend.created_at > since, VoiceSpend.kind == "stt")
+            heard = select(func.coalesce(func.sum(VoiceSpend.units), 0))
+            if kind == "stt" and own_seconds is not None:
+                whose = [VoiceSpend.owner == owner] + ([VoiceSpend.ip_key == ip_key] if ip_key else [])
+                for who in whose:
+                    if int(await session.scalar(heard.where(*stt, who)) or 0) + seconds > own_seconds:
+                        raise OwnSpeechCeilingReached(f"{own_seconds} s of speech per day of one person")
             spent = await session.scalar(
-                select(func.coalesce(func.sum(VoiceSpend.usd), 0)).where(VoiceSpend.created_at > _day())
+                select(func.coalesce(func.sum(VoiceSpend.usd), 0)).where(VoiceSpend.created_at > since)
             )
             if Decimal(spent or 0) + worst > budget:
                 raise CeilingReached(f"${budget} per day")
-            if kind == "stt" and speech_seconds is not None:
-                heard = await session.scalar(
-                    select(func.coalesce(func.sum(VoiceSpend.units), 0)).where(
-                        VoiceSpend.created_at > _day(), VoiceSpend.kind == "stt"
-                    )
-                )
-                if int(heard or 0) + seconds > speech_seconds:
-                    raise SpeechCeilingReached(f"{speech_seconds} s of speech per day")
-            row = VoiceSpend(id=uuid.uuid4(), owner=owner, kind=kind, usd=worst, units=seconds)
+            total = int(await session.scalar(heard.where(*stt)) or 0) if kind == "stt" else 0
+            if speech_seconds is not None and kind == "stt" and total + seconds > speech_seconds:
+                raise SpeechCeilingReached(f"{speech_seconds} s of speech per day")
+            row = VoiceSpend(
+                id=uuid.uuid4(),
+                owner=owner,
+                ip_key=ip_key[:64] if ip_key else None,
+                kind=kind,
+                usd=worst,
+                units=seconds,
+            )
             session.add(row)
             return row.id
 

@@ -712,3 +712,37 @@ async def test_voice_writes_into_demo_kommo_leave_the_deals_of_solution_1_alone(
     assert [a for (a,) in journal] == ["voice_update", "voice_update"]
     assert "Демо Kommo на сегодня заполнено" in h.tg.texts()[-1]  # the third: voice's own ceiling a day
     assert await orders.demo_full(limits) == {}  # two voice writes, a total of two deals: still all there
+
+
+async def test_speech_minutes_are_bounded_per_chat_and_others_keep_theirs(make: Any, engine: Any) -> None:
+    h: Harness = await make(*([intent()] * 3))
+    two_minutes = _wav(119.9)
+    h.tg.files["two"] = two_minutes
+    voice = {"file_id": "two", "duration": 120, "file_size": len(two_minutes)}
+    await _pick_demo(h, 581)
+    await _pick_demo(h, 582, n=2)
+    for n in (1, 2, 3):
+        await h.update(message(581, n, voice=voice))
+    assert h.speech.calls == 2  # 2 + 2 minutes heard; the third two would pass 4
+    assert "Ваш лимит распознавания на сегодня исчерпан" in h.tg.texts()[-1]
+    await h.update(message(582, 4, voice=voice))
+    assert h.speech.calls == 3 and "лимит" not in h.tg.texts()[-1]  # another chat hears its own
+    heard = await rows(engine, "SELECT owner, units FROM voice_spend WHERE kind = 'stt' ORDER BY created_at")
+    assert [(o, u) for o, u in heard] == [(chat_owner(581), 120)] * 2 + [(chat_owner(582), 120)]
+
+
+async def test_speech_minutes_are_bounded_per_address_across_sessions(make: Any, engine: Any) -> None:
+    h: Harness = await make(*([intent()] * 2))
+    two_minutes = _wav(119.9)
+    for n in range(3):  # three sessions from one address (the test client's)
+        async with h.client() as c:
+            token = csrf_of((await c.get("/ru/voice")).text)
+            sent = await c.post(
+                "/ru/voice",
+                data={"csrf": token, "target": "demo:bitrix24"},
+                files={"audio": ("note.wav", two_minutes, "audio/wav")},
+            )
+            if n < 2:
+                assert sent.status_code == 303
+    assert sent.status_code == 422 and "Ваш лимит распознавания на сегодня исчерпан" in sent.text
+    assert h.speech.calls == 2

@@ -28,7 +28,14 @@ from alnuzum_platform.store import (
 from alnuzum_voice import audio as audio_mod
 from alnuzum_voice.engine import Result, analyze, write
 from alnuzum_voice.model import Scribe, SpeechError, SpeechGate, Spent, VoiceReader, stt_cost
-from alnuzum_voice.store import CeilingReached, Limits, RunInfo, SpeechCeilingReached, VoiceStore
+from alnuzum_voice.store import (
+    CeilingReached,
+    Limits,
+    OwnSpeechCeilingReached,
+    RunInfo,
+    SpeechCeilingReached,
+    VoiceStore,
+)
 from alnuzum_voice.telegram import Bot
 from alnuzum_voice.text import MAX_TEXT, clean, phrases
 
@@ -47,6 +54,8 @@ class VoiceSettings(BaseSettings):
     # minutes of speech heard per 24 hours: ElevenLabs counts them against the plan's monthly credits, the
     # same credits its speech synthesis spends (prod 20, stand 5)
     voice_stt_minutes_per_day: int = 20
+    # of them, minutes a Telegram chat, a session of the page or an address of the page hears per 24 hours
+    voice_stt_minutes_per_person: int = 4
     voice_runs_per_owner: int = 10  # notes per 24 hours from a session or a Telegram chat
     voice_runs_per_ip: int = 20  # from an address (the page)
     voice_demo_writes_per_owner: int = 5
@@ -149,16 +158,28 @@ class Voice:
             return {}
         return {c.crm.value: c.id for c in await st.list(DEMO_OWNER) if c.status == "active"}
 
-    def gate(self, app: FastAPI, owner: str) -> Gate:
+    def gate(self, app: FastAPI, owner: str, ip_key: str | None = None) -> Gate:
+        """``ip_key``: the page's address, bounded like the owner; the bot's chats have none."""
         vs, budget = self.store(app), self.settings.voice_usd_per_day
-
-        speech = self.settings.voice_stt_minutes_per_day * 60
+        speech, own = (
+            self.settings.voice_stt_minutes_per_day * 60,
+            self.settings.voice_stt_minutes_per_person * 60,
+        )
 
         async def gate(kind: str, worst: Decimal, seconds: int = 0):  # type: ignore[no-untyped-def]
             try:
                 spend_id = await vs.reserve_spend(
-                    owner, kind, budget=budget, worst=worst, seconds=seconds, speech_seconds=speech
+                    owner,
+                    kind,
+                    budget=budget,
+                    worst=worst,
+                    seconds=seconds,
+                    speech_seconds=speech,
+                    own_seconds=own,
+                    ip_key=ip_key,
                 )
+            except OwnSpeechCeilingReached:
+                raise ModelError("e_stt_mine") from None
             except SpeechCeilingReached:
                 raise ModelError("e_stt_ceiling") from None
             except CeilingReached:
@@ -195,10 +216,11 @@ class Voice:
         info: ConnectionInfo,
         demo: bool,
         note: Note,
+        ip_key: str | None = None,
     ) -> Result:
         """The run is already reserved (counted); here it is read and stored, or rejected with a code."""
         vs = self.store(app)
-        gate = self.gate(app, owner)
+        gate = self.gate(app, owner, ip_key)
         try:
             usage: dict[str, Any] = {"calls": 0, "usd": "0", "seconds": 0}
             if note.audio is not None:

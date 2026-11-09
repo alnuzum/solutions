@@ -186,7 +186,16 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
         except RunsExceeded:
             return await start(request, lang, status=429, error="e_runs")
         try:
-            await voice.read(request.app, kit, run_id=run_id, owner=owner, info=info, demo=demo, note=note)
+            await voice.read(
+                request.app,
+                kit,
+                run_id=run_id,
+                owner=owner,
+                info=info,
+                demo=demo,
+                note=note,
+                ip_key=ip_key(request),
+            )
         except VoiceError as exc:
             return await start(request, lang, status=422, error=exc.code)
         return redirect(f"/{lang}/voice/{run_id}")
