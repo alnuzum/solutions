@@ -7,6 +7,7 @@ from an enum and a date. The note is our template around the transcript itself.
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, time
 from decimal import Decimal, InvalidOperation
@@ -28,6 +29,10 @@ TASK_KINDS = ("call", "meeting", "offer", "invoice", "payment", "contract", "fol
 UNITS = ("шт", "м", "уп", "кор", "кг", "л", "бухта")
 REFUSALS = ("delete", "price", "other")
 MAX_PRODUCTS = 15
+
+
+# the gate of a speech call books its seconds as well as its dollars
+SpeechGate = Callable[[str, Decimal, int], Awaitable[Callable[[Any, bool], Awaitable[None]]]]
 
 
 def stt_cost(seconds: int) -> Decimal:
@@ -70,9 +75,9 @@ class Scribe:
     def __repr__(self) -> str:
         return "Scribe()"
 
-    async def transcribe(self, wav: bytes, seconds: int, gate: Gate) -> Transcript:
+    async def transcribe(self, wav: bytes, seconds: int, gate: SpeechGate) -> Transcript:
         worst = stt_cost(seconds)
-        done = await gate("stt", worst)
+        done = await gate("stt", worst, seconds)
         spent: Spent | None = None
         ok = False
         try:
@@ -100,7 +105,7 @@ class Scribe:
         except ValueError:
             raise SpeechError("e_stt_busy") from None
         finally:
-            await done(spent, ok)  # type: ignore[arg-type]
+            await done(spent, ok)
 
 
 # --- what the manager asked for ---

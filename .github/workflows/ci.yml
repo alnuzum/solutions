@@ -30,9 +30,9 @@ jobs:
       - name: ruff format
         run: uv run ruff format --check .
       - name: mypy --strict
-        run: uv run mypy packages apps/order-to-deal/src
+        run: uv run mypy packages apps/order-to-deal/src apps/voice-to-crm/src
       - name: bandit
-        run: uv run bandit -c pyproject.toml -r packages apps/order-to-deal/src scripts -q
+        run: uv run bandit -c pyproject.toml -r packages apps/order-to-deal/src apps/voice-to-crm/src scripts -q
       - name: pip-audit
         run: |
           uv export --frozen --no-emit-workspace --no-hashes --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
@@ -83,7 +83,7 @@ jobs:
           exit 1
       - name: the image carries the solutions
         run: |
-          docker compose exec -T platform python -c "from alnuzum_platform.solutions import discover; s = [x.slug for x in discover()]; print(s); assert s == ['orders'], s"
+          docker compose exec -T platform python -c "from alnuzum_platform.solutions import discover; s = [x.slug for x in discover()]; print(s); assert s == ['orders', 'voice'], s"
       - if: always()
         run: docker compose down -v
 
@@ -185,6 +185,7 @@ jobs:
           DEMO_ODOO_KEY: ${{ secrets.DEMO_ODOO_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           VOICE_USD_PER_DAY: ${{ vars.VOICE_USD_PER_DAY }}
+          VOICE_STT_MINUTES_PER_DAY: ${{ vars.VOICE_STT_MINUTES_PER_DAY }}
           VOICE_TG_TOKEN: ${{ secrets.VOICE_TG_TOKEN }}
           VOICE_TG_SECRET: ${{ secrets.VOICE_TG_SECRET }}
           VOICE_TG_BOT: ${{ vars.VOICE_TG_BOT }}
@@ -242,6 +243,7 @@ jobs:
           DEMO_ODOO_KEY: ${{ secrets.DEMO_ODOO_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           VOICE_USD_PER_DAY: ${{ vars.VOICE_USD_PER_DAY }}
+          VOICE_STT_MINUTES_PER_DAY: ${{ vars.VOICE_STT_MINUTES_PER_DAY }}
           VOICE_TG_TOKEN: ${{ secrets.VOICE_TG_TOKEN }}
           VOICE_TG_SECRET: ${{ secrets.VOICE_TG_SECRET }}
           VOICE_TG_BOT: ${{ vars.VOICE_TG_BOT }}

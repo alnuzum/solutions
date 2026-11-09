@@ -110,6 +110,10 @@ class CeilingReached(RuntimeError):
     """The solution's dollars for the day are spent."""
 
 
+class SpeechCeilingReached(CeilingReached):
+    """The day's minutes of speech recognition are heard."""
+
+
 class RunsExceeded(RuntimeError):
     pass
 
@@ -365,9 +369,20 @@ class VoiceStore:
 
     # --- money ---
 
-    async def reserve_spend(self, owner: str, kind: str, *, budget: Decimal, worst: Decimal) -> uuid.UUID:
+    async def reserve_spend(
+        self,
+        owner: str,
+        kind: str,
+        *,
+        budget: Decimal,
+        worst: Decimal,
+        seconds: int = 0,
+        speech_seconds: int | None = None,
+    ) -> uuid.UUID:
         """Booked at its worst cost before the call, under the global lock: the day's dollars are the booked
-        or the actual cost of every call of speech and of the model together."""
+        or the actual cost of every call of speech and of the model together. Speech (``kind`` "stt") also
+        books its ``seconds`` against the day's ``speech_seconds``: a speech service may count them against
+        credits it shares with something else."""
         async with self._sessions.begin() as session:
             await session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": LOCK_SPEND})
             spent = await session.scalar(
@@ -375,7 +390,15 @@ class VoiceStore:
             )
             if Decimal(spent or 0) + worst > budget:
                 raise CeilingReached(f"${budget} per day")
-            row = VoiceSpend(id=uuid.uuid4(), owner=owner, kind=kind, usd=worst)
+            if kind == "stt" and speech_seconds is not None:
+                heard = await session.scalar(
+                    select(func.coalesce(func.sum(VoiceSpend.units), 0)).where(
+                        VoiceSpend.created_at > _day(), VoiceSpend.kind == "stt"
+                    )
+                )
+                if int(heard or 0) + seconds > speech_seconds:
+                    raise SpeechCeilingReached(f"{speech_seconds} s of speech per day")
+            row = VoiceSpend(id=uuid.uuid4(), owner=owner, kind=kind, usd=worst, units=seconds)
             session.add(row)
             return row.id
 

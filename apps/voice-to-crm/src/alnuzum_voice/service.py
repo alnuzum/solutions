@@ -5,7 +5,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import anyio
 from fastapi import FastAPI
@@ -27,8 +27,8 @@ from alnuzum_platform.store import (
 )
 from alnuzum_voice import audio as audio_mod
 from alnuzum_voice.engine import Result, analyze, write
-from alnuzum_voice.model import Scribe, SpeechError, Spent, VoiceReader, stt_cost
-from alnuzum_voice.store import CeilingReached, Limits, RunInfo, VoiceStore
+from alnuzum_voice.model import Scribe, SpeechError, SpeechGate, Spent, VoiceReader, stt_cost
+from alnuzum_voice.store import CeilingReached, Limits, RunInfo, SpeechCeilingReached, VoiceStore
 from alnuzum_voice.telegram import Bot
 from alnuzum_voice.text import MAX_TEXT, clean, phrases
 
@@ -44,6 +44,9 @@ class VoiceSettings(BaseSettings):
     # the money ceiling of the whole solution per 24 hours, speech and model together (each call booked at its
     # worst cost until it has cost what it cost)
     voice_usd_per_day: Decimal = Decimal("1.0")
+    # minutes of speech heard per 24 hours: ElevenLabs counts them against the plan's monthly credits, the
+    # same credits its speech synthesis spends (prod 20, stand 5)
+    voice_stt_minutes_per_day: int = 20
     voice_runs_per_owner: int = 10  # notes per 24 hours from a session or a Telegram chat
     voice_runs_per_ip: int = 20  # from an address (the page)
     voice_demo_writes_per_owner: int = 5
@@ -148,9 +151,15 @@ class Voice:
     def gate(self, app: FastAPI, owner: str) -> Gate:
         vs, budget = self.store(app), self.settings.voice_usd_per_day
 
-        async def gate(kind: str, worst: Decimal):  # type: ignore[no-untyped-def]
+        speech = self.settings.voice_stt_minutes_per_day * 60
+
+        async def gate(kind: str, worst: Decimal, seconds: int = 0):  # type: ignore[no-untyped-def]
             try:
-                spend_id = await vs.reserve_spend(owner, kind, budget=budget, worst=worst)
+                spend_id = await vs.reserve_spend(
+                    owner, kind, budget=budget, worst=worst, seconds=seconds, speech_seconds=speech
+                )
+            except SpeechCeilingReached:
+                raise ModelError("e_stt_ceiling") from None
             except CeilingReached:
                 raise ModelError("e_ceiling") from None
 
@@ -193,7 +202,7 @@ class Voice:
             usage: dict[str, Any] = {"calls": 0, "usd": "0", "seconds": 0}
             if note.audio is not None:
                 sound = await anyio.to_thread.run_sync(audio_mod.normalize, note.audio)
-                heard = await self.scribe().transcribe(sound.wav, sound.seconds, gate)
+                heard = await self.scribe().transcribe(sound.wav, sound.seconds, cast(SpeechGate, gate))
                 text, language, source = heard.text, heard.language, "voice"
                 usage["seconds"] = sound.seconds
                 usage["usd"] = str(stt_cost(sound.seconds))

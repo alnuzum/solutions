@@ -22,6 +22,7 @@ import pytest
 from alnuzum_voice import audio
 from alnuzum_voice.store import chat_owner
 from alnuzum_voice.telegram import Bot
+from sqlalchemy import text
 
 from alnuzum_crm.types import CrmKind
 
@@ -157,6 +158,26 @@ async def test_speech_is_booked_before_it_is_heard_and_counts_in_the_ceiling(mak
     await h.update(message(801, 1, voice={"file_id": "f1", "duration": 7, "file_size": len(SAMPLE)}))
     assert "лимит" in h.tg.texts()[-1].lower()
     assert h.speech.calls == 0  # $0.0001 does not hold 8 seconds of speech at $0.22 an hour
+
+
+async def test_speech_has_its_own_minutes_a_day_and_says_so(make: Any, engine: Any) -> None:
+    h: Harness = await make(intent(stage={"id": "1:20", "phrases": [1]}), voice_stt_minutes_per_day=1)
+    await _pick_demo(h, 811)
+    h.tg.files["m1"] = SAMPLE
+    h.speech.fail = 503  # heard without an answer: its 8 seconds stay booked
+    await h.update(message(811, 1, voice={"file_id": "m1", "duration": 7, "file_size": len(SAMPLE)}))
+    assert h.speech.calls == 1
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("INSERT INTO voice_spend (id, owner, kind, usd, units) VALUES (:i, 'x', 'stt', 0, 45)"),
+            {"i": uuid.uuid4()},
+        )
+    h.speech.fail = None
+    await h.update(message(811, 2, voice={"file_id": "m1", "duration": 7, "file_size": len(SAMPLE)}))
+    assert h.speech.calls == 1  # 8 + 45 + 8 > 60: not sent to the service at all
+    assert "На сегодня лимит распознавания исчерпан" in h.tg.texts()[-1]
+    await h.update(message(811, 3, text="По сделке Ромашка переведи на переговоры."))
+    assert "Переговоры" in h.tg.texts()[-1]  # a typed command needs no speech
 
 
 async def test_the_model_does_not_run_past_the_dollars_left_after_speech(make: Any, engine: Any) -> None:
