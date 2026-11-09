@@ -203,7 +203,7 @@ class AmoCRM(CRM):
     async def account(self) -> AccountInfo:
         self._account = None  # a liveness probe: always ask the CRM
         info = await self._account_info()
-        return AccountInfo(str(info.get("id", "")), str(info.get("name", "")), f"https://{self.domain}")
+        return AccountInfo(str(info.get("id", "")), str(info.get("name") or ""), f"https://{self.domain}")
 
     def deal_link(self, account: AccountInfo, deal_id: str) -> str:
         return f"{account.web}/leads/detail/{record_id(deal_id, self.kind.value)}"
