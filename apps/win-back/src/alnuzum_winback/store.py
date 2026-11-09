@@ -78,7 +78,9 @@ class Limits:
     tasks_per_ip: int = 40
     demo_tasks_per_owner: int = 5
     demo_tasks_per_ip: int = 8
-    demo_tasks_per_crm: int = 40
+    # a task closes itself and takes nothing from the test account's limits: the ceiling of a demo CRM only
+    # stops a flood, and fifty addresses at 8 do not reach it
+    demo_tasks_per_crm: int = 400
 
 
 @dataclass(frozen=True)

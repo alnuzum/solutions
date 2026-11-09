@@ -21,7 +21,7 @@ from alnuzum_platform.web.security import RateLimiter
 from alnuzum_winback.i18n import texts
 from alnuzum_winback.rule import TZ, due
 from alnuzum_winback.service import MAX_TEXT, Winback, WinbackError, crm_error
-from alnuzum_winback.store import NotFound, ScanInfo, ScansExceeded
+from alnuzum_winback.store import NotFound, ScanInfo, ScansExceeded, WinbackStore
 
 log = logging.getLogger("alnuzum_winback.web")
 HERE = Path(__file__).parent
@@ -90,13 +90,22 @@ def reason_text(t: dict[str, Any], r: dict[str, Any], currency: str | None, lang
 def build(kit: Kit, winback: Winback) -> APIRouter:
     router = APIRouter()
 
+    def store_of(request: Request, lang: str) -> WinbackStore:
+        try:
+            return winback.store(request.app)
+        except WinbackError:  # no database or no keys: a page that says so, not a 500
+            raise PageError(503, "e_unreachable", "e_unreachable", lang) from None
+
     async def target(request: Request, lang: str, value: str) -> tuple[ConnectionInfo, bool]:
         st = kit.store_of(request)
         if value.startswith("demo:"):
             ids = await winback.demo_ids(request.app)
             if value[5:] not in ids:
                 raise PageError(404, "e_404_t", "e_demo_off", lang)
-            return await st.get(ids[value[5:]], "demo"), True
+            try:  # the demo connection may be gone since the list was read
+                return await st.get(ids[value[5:]], "demo"), True
+            except ConnectionNotFound:
+                raise PageError(404, "e_404_t", "e_demo_off", lang) from None
         if value.startswith("conn:"):
             info = await kit.own_connection(request, lang, _uuid(value[5:], lang))
             if info.status != "active":
@@ -127,7 +136,7 @@ def build(kit: Kit, winback: Winback) -> APIRouter:
         form = await request.form(max_files=0, max_fields=4, max_part_size=1024)
         sid = kit.need_csrf(request, form, lang)
         info, demo = await target(request, lang, str(form.get("target") or ""))
-        ws = winback.store(request.app)
+        ws = store_of(request, lang)
         try:
             scan_id = await ws.reserve_scan(
                 owner=kit.owner(sid),
@@ -149,9 +158,7 @@ def build(kit: Kit, winback: Winback) -> APIRouter:
     async def own_scan(request: Request, lang: str, scan_id: str) -> ScanInfo:
         sid = kit.need_session(request, lang)
         try:
-            return await winback.store(request.app).get_scan(
-                _uuid(scan_id, lang), kit.owner(sid), winback.now()
-            )
+            return await store_of(request, lang).get_scan(_uuid(scan_id, lang), kit.owner(sid), winback.now())
         except NotFound:
             raise PageError(404, "e_404_t", "e_404", lang) from None
 
@@ -191,6 +198,8 @@ def build(kit: Kit, winback: Winback) -> APIRouter:
             error = f"e_crm_{crm_error(exc)}"
         except (ConnectionDisabled, ConnectionNotFound):
             error = "e_reconnect"
+        except WinbackError as exc:
+            error = exc.code
         cur = (shown or {}).get("currency") or scan.result.get("currency")
         orders = [
             o
@@ -203,7 +212,7 @@ def build(kit: Kit, winback: Winback) -> APIRouter:
         ]
         reasons = [r | {"text": reason_text(t, r, cur, lang)} for r in (shown or {}).get("reasons", [])]
         why = reasons[0]["text"] if reasons else ""
-        mine = await winback.store(request.app).last_task(scan.id, scan.owner, row["key"])
+        mine = await store_of(request, lang).last_task(scan.id, scan.owner, row["key"])
         return kit.page(
             request,
             "winback_client.html",
@@ -247,15 +256,18 @@ def build(kit: Kit, winback: Winback) -> APIRouter:
         text = " ".join(_CONTROL.sub(" ", str(form.get("text") or "")).split())[:MAX_TEXT]
         if not text:
             return redirect(f"{back}?n=text")
-        notice = await winback.set_task(
-            request.app,
-            scan,
-            k,
-            text,
-            conn_owner=kit.owner(sid),
-            ip_key=ip_key(request),
-            quota=kit.quota,
-        )
+        try:
+            notice = await winback.set_task(
+                request.app,
+                scan,
+                k,
+                text,
+                conn_owner=kit.owner(sid),
+                ip_key=ip_key(request),
+                quota=kit.quota,
+            )
+        except WinbackError:
+            raise PageError(503, "e_unreachable", "e_unreachable", lang) from None
         return redirect(f"{back}?n={notice}")
 
     return router

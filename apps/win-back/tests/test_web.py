@@ -105,7 +105,7 @@ async def test_a_task_goes_on_the_company_and_a_second_one_is_not_set(make: Any,
     scan2 = await other.scan_id()
     page = await other.http.get(f"/ru/winback/{scan2}/{n}")
     assert "уже стоит открытая задача" in page.text and "Позвонить Ромашке" not in page.text
-    assert "закроется сама через 10 минут" in page.text
+    assert "Через 10 минут здесь можно будет поставить свою" in page.text
     assert [r.status for r in await rows(engine, "SELECT status FROM winback_tasks")] == ["written"]
     writes = await rows(engine, "SELECT action, ok FROM crm_writes")
     assert [(w.action, w.ok) for w in writes] == [("winback_task", True)]
@@ -349,3 +349,68 @@ async def test_zoho_reads_the_products_of_the_newest_purchases_only(make: Any) -
     page = (await b.http.get(f"/ru/winback/{scan}/1")).text
     assert h.own.calls.count("purchases:500:False") == 1 and h.own.calls.count("purchases:500:True") == 1
     assert "в последнем его нет" in page and "Розетка" in page
+
+
+async def test_rare_branches_give_a_page_and_not_a_500(make: Any, monkeypatch: Any) -> None:
+    from alnuzum_platform.store import ConnectionNotFound
+    from alnuzum_winback.service import WinbackError
+
+    h = await make()
+    b = Browser(h.app)
+    scan = await b.scan_id()
+    # the demo connection is gone between the list of demos and the scan
+    real_get = h.app.state.store.get
+
+    async def gone(conn_id: Any, owner: str) -> Any:
+        if owner == "demo":
+            raise ConnectionNotFound(str(conn_id))
+        return await real_get(conn_id, owner)
+
+    monkeypatch.setattr(h.app.state.store, "get", gone)
+    resp = await b.scan()
+    assert resp.status_code == 404 and "На главную" in resp.text
+    monkeypatch.setattr(h.app.state.store, "get", real_get)
+
+    # the solution's store cannot be built (no keys): the list, the screen and the task say so
+    def broken(app: Any) -> Any:
+        raise WinbackError("e_unreachable")
+
+    page = await b.http.get(f"/ru/winback/{scan}")
+    n = number_of(page.text, "Ромашка")
+    token = csrf_of((await b.http.get("/ru/winback")).text)
+    monkeypatch.setattr(h.winback, "store", broken)
+    for resp in (
+        await b.http.get(f"/ru/winback/{scan}"),
+        await b.http.get(f"/ru/winback/{scan}/{n}"),
+        await b.http.post(
+            f"/ru/winback/{scan}/{n}",
+            data={"csrf": token, "action": "task", "text": "x"},
+            headers={"origin": ORIGIN},
+        ),
+    ):
+        assert resp.status_code == 503 and "Попробуйте позже" in resp.text
+
+
+async def test_five_addresses_do_not_fill_the_demo_of_a_crm(make: Any) -> None:
+    h = await make()
+    limits = h.winback.settings.limits()
+    assert limits.demo_tasks_per_ip == 8 and limits.demo_tasks_per_crm >= 50 * limits.demo_tasks_per_ip
+
+
+async def test_a_failed_top_up_is_tried_again_by_the_next_sweep(make: Any, monkeypatch: Any) -> None:
+    from alnuzum_crm.errors import CrmUnavailable
+    from alnuzum_winback import demo as plan
+
+    tries: list[str] = []
+
+    async def seed(crm: Any, kind: str, day: Any) -> int:
+        tries.append(kind)
+        if len(tries) == 1:
+            raise CrmUnavailable("down", crm=kind)
+        return 2
+
+    monkeypatch.setattr(plan, "seed", seed)
+    h = await make(winback_seed=True)
+    assert await h.winback.seed(h.app) == {}
+    assert await h.winback.seed(h.app) == {"bitrix24": 2}
+    assert await h.winback.seed(h.app) == {} and tries == ["bitrix24", "bitrix24"]

@@ -102,6 +102,7 @@ class Winback:
         self._seal: Seal | None = None
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._seeded_on: str | None = None
+        self._seeded: dict[str, str] = {}  # a CRM topped up today is not asked again
 
     # --- plumbing ---
 
@@ -373,15 +374,20 @@ class Winback:
         day = today(self.now())
         if not self.seeds(app) or self._seeded_on == day.isoformat():
             return {}
-        st, made = self.connections(app), {}
+        st, made, failed = self.connections(app), {}, False
         for kind, conn_id in sorted((await self.demo_ids(app)).items()):
+            if self._seeded.get(kind) == day.isoformat():
+                continue
             try:
                 info = await st.get(conn_id, DEMO_OWNER)
                 async with await self.adapter(app, info) as crm:
                     made[kind] = await plan.seed(crm, kind, day)
+                self._seeded[kind] = day.isoformat()
             except (CrmError, ConnectionDisabled, ConnectionNotFound, plan.CountsMoved) as exc:
+                failed = True  # the next sweep (half an hour) tries this CRM again
                 log.warning("win-back demo of %s not topped up: %s", kind, type(exc).__name__)
-        self._seeded_on = day.isoformat()
+        if not failed:
+            self._seeded_on = day.isoformat()
         if any(made.values()):
             self._cache.clear()
         return made
