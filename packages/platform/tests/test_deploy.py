@@ -47,6 +47,7 @@ def test_every_name_the_deploy_sends_is_accepted_by_the_server() -> None:
         "VOICE_USD_PER_DAY",
         "VOICE_STT_MINUTES_PER_DAY",
         "ANTHROPIC_API_KEY",
+        "ANTHROPIC_OAUTH_TOKEN",
         "ELEVENLABS_API_KEY",
     } <= set(names)
     assert all(_accepted(names).values()), [k for k, ok in _accepted(names).items() if not ok]

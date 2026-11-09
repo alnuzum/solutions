@@ -141,7 +141,7 @@ def test_bar_of_the_gate() -> None:
 
 def test_main_writes_what_the_page_shows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(quality, "Scribe", lambda key: TruthScribe())
-    monkeypatch.setattr(quality, "VoiceReader", lambda key: TruthReader())
+    monkeypatch.setattr(quality.VoiceReader, "from_env", lambda: TruthReader())
     monkeypatch.setattr(quality, "RESULT", tmp_path / "quality.json")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "x")
@@ -167,7 +167,7 @@ async def test_the_page_quotes_the_set_as_synthesised(make: Any) -> None:
 @pytest.mark.quality
 async def test_live_speech_and_model_meet_the_bar_on_the_reference_set() -> None:
     report = await quality.evaluate(
-        quality.Scribe(os.environ["ELEVENLABS_API_KEY"]), quality.VoiceReader(os.environ["ANTHROPIC_API_KEY"])
+        quality.Scribe(os.environ["ELEVENLABS_API_KEY"]), quality.VoiceReader.from_env()
     )
     summary = {k: v for k, v in report.items() if k != "details"}
     print(json.dumps(summary, ensure_ascii=False))

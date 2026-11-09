@@ -40,6 +40,7 @@ class ContractSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
     anthropic_api_key: SecretStr = SecretStr("")
+    anthropic_oauth_token: SecretStr = SecretStr("")  # first; the key takes what it refuses
     contracts_model: str = "claude-opus-5-5"
     # the money ceiling of the solution per 24 hours (prod 1.5, stand 0.5): each call booked at its worst
     # cost until it has cost what it cost
@@ -109,9 +110,10 @@ class Contracts:
     def reader(self) -> ContractReader:
         if self._reader is None:
             key = self.settings.anthropic_api_key.get_secret_value()
-            if not key:
+            token = self.settings.anthropic_oauth_token.get_secret_value()
+            if not key and not token:
                 raise ContractError("e_model_off")
-            self._reader = ContractReader(key, model=self.settings.contracts_model)
+            self._reader = ContractReader(key, oauth_token=token, model=self.settings.contracts_model)
         return self._reader
 
     def store(self, app: FastAPI, kit: Kit) -> ContractStore:

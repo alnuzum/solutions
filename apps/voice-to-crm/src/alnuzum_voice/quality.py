@@ -1,6 +1,6 @@
 """The reference set of the voice solution: 22 spoken commands (12 Russian, 10 Uzbek) about five demo deals.
 
-    ELEVENLABS_API_KEY=… ANTHROPIC_API_KEY=… uv run python -m alnuzum_voice.quality [--write]
+    ELEVENLABS_API_KEY=… ANTHROPIC_OAUTH_TOKEN=… (or ANTHROPIC_API_KEY=…) uv run python -m alnuzum_voice.quality [--write]
 
 The audio is synthesised (ElevenLabs, five voices, clean speech): the numbers say how the chain reads a
 clear command, not how it hears a street. Each command goes the way a voice note goes: decoded, heard by
@@ -290,7 +290,7 @@ def main() -> None:
     parser.add_argument("--only", nargs="*", help="command ids, for a look at a few")
     args = parser.parse_args()
     scribe = Scribe(os.environ["ELEVENLABS_API_KEY"])
-    reader = VoiceReader(os.environ["ANTHROPIC_API_KEY"])
+    reader = VoiceReader.from_env()
     report = asyncio.run(evaluate(scribe, reader, only=args.only))
     print(json.dumps({k: v for k, v in report.items() if k != "details"}, ensure_ascii=False, indent=1))
     for row in report["details"]:
