@@ -311,25 +311,36 @@ class Plan:
 
 
 _EMAIL = re.compile(r"^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,180}\.[A-Za-z]{2,24}$")
+_PHONE = re.compile(r"^\+?[0-9 ()-]{7,20}$")
+# a company is letters, digits and the marks of legal names; no addresses, links or markup
+_COMPANY = re.compile(r"^[\w \"'«»“”„().,&№+-]{2,120}$")
+# a person: at most five words of letters, with dots, hyphens and apostrophes
+_PERSON = re.compile(r"^[^\W\d_][^\W\d_.'’-]*(?:[ .'’-]+[^\W\d_][^\W\d_.'’-]*){0,4}\.?$")
 
 
 def clean_customer(raw: dict[str, str | None]) -> Customer:
-    """Requisites as they may reach a CRM: checked by format, printable, short."""
+    """Requisites as they may reach a CRM: each checked by its format (no control characters, bounded),
+    or dropped. These are the only words of a document that reach a CRM, and only as the client's
+    company and contact, never in the deal, the note or the task."""
 
-    def text(v: str | None, n: int) -> str | None:
-        v = " ".join((v or "").split())
-        v = "".join(ch for ch in v if ch.isprintable())[:n]
-        return v or None
+    def field(v: str | None, pattern: re.Pattern[str], n: int) -> str | None:
+        v = v or ""
+        if any(not ch.isprintable() and ch not in " \t\n" for ch in v):
+            return None
+        v = " ".join(v.split())
+        if not v or len(v) > n or not pattern.match(v) or not any(ch.isalpha() for ch in v):
+            return None
+        return v
 
     inn = re.sub(r"\D", "", raw.get("inn") or "")
-    phone = raw.get("phone") or ""
+    phone = " ".join((raw.get("phone") or "").split())
     phone_digits = re.sub(r"\D", "", phone)
     email = (raw.get("email") or "").strip()
     return Customer(
-        company=text(raw.get("company"), 120),
+        company=field(raw.get("company"), _COMPANY, 120),
         inn=inn if 9 <= len(inn) <= 14 else None,
-        person=text(raw.get("person"), 80),
-        phone=text(phone, 30) if 7 <= len(phone_digits) <= 15 else None,
+        person=field(raw.get("person"), _PERSON, 80),
+        phone=phone if _PHONE.match(phone) and 7 <= len(phone_digits) <= 15 else None,
         email=email if _EMAIL.match(email) else None,
     )
 
@@ -347,8 +358,11 @@ def plan(result: Result, rules: Rules, *, line_prices: bool, lang: str, now: dat
     currency = result.catalog.get("currency") or ""
     merged: dict[str, tuple[Cand, Decimal, Decimal]] = {}
     note = []
-    stamp = (now or datetime.now(UTC)).strftime("%Y-%m-%d %H:%M UTC")
-    note.append(f"Al-Nuzum · {'заявка' if ru else 'order'} «{result.source.get('name', '')[:60]}» · {stamp}")
+    when = now or datetime.now(UTC)
+    stamp, day = when.strftime("%Y-%m-%d %H:%M UTC"), when.strftime("%Y-%m-%d")
+    # every text below is ours: catalog names and articles, numbers, prices; nothing of the document
+    # (its lines, its file name) and nothing the model wrote
+    note.append(f"Al-Nuzum · {'заявка' if ru else 'order'} · {stamp}")
     for line in result.lines:
         pl = by_key.get(line.key)
         c = line.chosen
@@ -390,16 +404,16 @@ def plan(result: Result, rules: Rules, *, line_prices: bool, lang: str, now: dat
             why = {"not_found": "нет в каталоге" if ru else "not in the catalog"}.get(
                 line.status, "спорная" if ru else "unsure"
             )
-            note.append(f"- {line.key}. «{' '.join(line.text.split())[:120]}» — {why}")
-    customer = clean_customer(result.customer)
-    who = customer.company or customer.person or result.source.get("name", "")[:60]
-    title = f"{'Заявка' if ru else 'Order'}: {who} · {(now or datetime.now(UTC)).strftime('%Y-%m-%d')}"
+            where = ", ".join(str(int(n)) for n in line.src[:5])
+            at = (f" (строки документа {where})" if ru else f" (document lines {where})") if where else ""
+            note.append(f"- {line.key}.{at} — {why}")
+    title = f"Заявка · {len(merged)} поз. · {day}" if ru else f"Order · {len(merged)} line(s) · {day}"
     task = None
     if left:
         task = (
-            f"Проверить {len(left)} поз. заявки «{result.source.get('name', '')[:60]}»"
+            f"Проверить {len(left)} поз. заявки от {day}"
             if ru
-            else f"Check {len(left)} line(s) of the order «{result.source.get('name', '')[:60]}»"
+            else f"Check {len(left)} line(s) of the order of {day}"
         )
     deal_lines = tuple(
         DealLine(c.name, qty, unit_price, product_id=c.id, sku=c.sku)

@@ -241,9 +241,10 @@ async def test_plan_merges_lines_prices_by_the_rules_and_leaves_a_task() -> None
         ("7", D(10), D("99.00")),
     ]
     assert with_prices.total is None
-    assert with_prices.title.startswith("Заявка: ООО Ромашка ·")
+    assert with_prices.title.startswith("Заявка · 2 поз. · ")  # our template: no requisite, no file name
     assert "Скидка от суммы 10 %" in with_prices.note and "нет в каталоге" in with_prices.note
-    assert with_prices.task == "Проверить 1 поз. заявки «z-17.txt»" and with_prices.left == 1
+    assert with_prices.task.startswith("Проверить 1 поз. заявки от ") and with_prices.left == 1
+    assert "z-17" not in with_prices.note + with_prices.task
     at_catalog = plan(result, rules, line_prices=False, lang="en")
     assert [x.unit_price for x in at_catalog.lines] == [D(120), D(110)]
     assert at_catalog.total == p.total
