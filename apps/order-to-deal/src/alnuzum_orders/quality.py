@@ -1,6 +1,6 @@
 """The reference set: six orders in four formats, 67 lines with the right catalog article each.
 
-    ANTHROPIC_API_KEY=… uv run python -m alnuzum_orders.quality [--write]
+    ANTHROPIC_OAUTH_TOKEN=… (or ANTHROPIC_API_KEY=…) uv run python -m alnuzum_orders.quality [--write]
 
 Metrics:
 - accuracy: the system's best guess (its choice, or its first candidate when it chose nothing) is the
@@ -14,7 +14,6 @@ The catalog is the demo catalog as a CRM gives it back (description conventions,
 import argparse
 import asyncio
 import json
-import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -171,7 +170,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write", action="store_true", help="keep the result for the solution page")
     args = parser.parse_args()
-    report = asyncio.run(evaluate(ClaudeReader(os.environ["ANTHROPIC_API_KEY"])))
+    report = asyncio.run(evaluate(ClaudeReader.from_env()))
     print(json.dumps({k: v for k, v in report.items() if k != "details"}, ensure_ascii=False, indent=1))
     for row in report["details"]:
         if not row.get("ok", True):

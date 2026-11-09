@@ -46,6 +46,7 @@ class VoiceSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
     anthropic_api_key: SecretStr = SecretStr("")
+    anthropic_oauth_token: SecretStr = SecretStr("")  # first; the key takes what it refuses
     elevenlabs_api_key: SecretStr = SecretStr("")
     voice_model: str = "claude-opus-5-5"
     # the money ceiling of the whole solution per 24 hours, speech and model together (each call booked at its
@@ -116,9 +117,10 @@ class Voice:
     def reader(self) -> VoiceReader:
         if self._reader is None:
             key = self.settings.anthropic_api_key.get_secret_value()
-            if not key:
+            token = self.settings.anthropic_oauth_token.get_secret_value()
+            if not key and not token:
                 raise VoiceError("e_model_off")
-            self._reader = VoiceReader(key, model=self.settings.voice_model)
+            self._reader = VoiceReader(key, oauth_token=token, model=self.settings.voice_model)
         return self._reader
 
     def scribe(self) -> Scribe:

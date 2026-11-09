@@ -10,10 +10,13 @@ import asyncio
 import base64
 import json
 import logging
+import os
+import re
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Protocol, Self
 
 import anthropic
 
@@ -21,6 +24,14 @@ from alnuzum_orders.intake import Source
 from alnuzum_orders.text import plain
 
 log = logging.getLogger("alnuzum_orders.model")
+# The spend journal by channel, a line a call. The app configures no logging (uvicorn prints only its own
+# lines, an INFO of ours would go nowhere), so this logger has a handler of its own, on stderr like uvicorn's
+spend_log = logging.getLogger("alnuzum_orders.spend")
+if not spend_log.handlers:
+    _stderr = logging.StreamHandler()
+    _stderr.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+    spend_log.addHandler(_stderr)
+    spend_log.setLevel(logging.INFO)
 
 MODEL = "claude-opus-5-5"
 # dollars per million tokens of claude-opus-5-5: input, output (the claude-api skill's price list, cached
@@ -38,6 +49,16 @@ MAX_INPUT_BYTES = 12 * 1024 * 1024  # what one request may carry at all, base64 
 # tried once more under a booking of its own; the client itself never retries
 ATTEMPTS = 2
 MAX_ITEMS = 150
+# The subscription channel: a Claude Max token (``claude setup-token``) instead of the key, as the agent of
+# Togable calls the model. The channel answers only a request whose first system block is this line (without
+# it Opus answers 429); the request's own system prompt goes second
+OAUTH_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
+OAUTH_BETA = "oauth-2025-04-20"
+# a refusal of the token itself (the plan spent, the token revoked, the channel busy): the same request goes
+# by the key, and for BENCH_SECONDS after it every request goes by the key at once
+OAUTH_REFUSALS = frozenset({401, 403, 429, 529})
+OUT_OF_USAGE = re.compile(r"out of (?:\w+ )?usage", re.IGNORECASE)
+BENCH_SECONDS = 15 * 60
 
 
 class ModelError(RuntimeError):
@@ -116,7 +137,9 @@ def cost(input_tokens: int, output_tokens: int) -> Decimal:
 
 def worst_input(system: str, content: list[dict[str, Any]], schema: dict[str, Any]) -> int:
     """An upper bound of the input tokens of a request, counted before it is sent."""
-    tokens = REQUEST_TOKENS + len(system.encode()) + len(json.dumps(schema).encode())
+    tokens = (
+        REQUEST_TOKENS + len(OAUTH_SYSTEM.encode()) + len(system.encode()) + len(json.dumps(schema).encode())
+    )
     for block in content:
         if block["type"] == "text":
             tokens += len(block["text"].encode())
@@ -136,6 +159,30 @@ def input_bytes(system: str, content: list[dict[str, Any]]) -> int:
 
 class _NoAnswer(Exception):
     pass
+
+
+class Bench:
+    """Until when the token sits out after a refusal the key then answered. One for the process: the three
+    solutions share the token, and a plan spent for one is spent for all."""
+
+    def __init__(self) -> None:
+        self.until = 0.0
+
+    def out(self, now: float) -> bool:
+        return now < self.until
+
+    def sit(self, now: float) -> None:
+        self.until = now + BENCH_SECONDS
+
+
+BENCH = Bench()
+
+
+def token_refused(exc: anthropic.APIStatusError) -> bool:
+    """A refusal of the token (its status, or «out of usage» in the body), not of the request."""
+    if exc.status_code in OAUTH_REFUSALS:
+        return True
+    return bool(OUT_OF_USAGE.search(f"{exc.message} {exc.body}"))
 
 
 class Reader(Protocol):
@@ -300,14 +347,82 @@ def parse_answers(data: dict[str, Any], questions: list[Question]) -> list[Answe
 
 
 class ClaudeReader:
-    def __init__(self, api_key: str, *, model: str = MODEL, timeout: float = 90.0) -> None:
-        self.model = model
-        # no retries inside the client: each attempt is booked against the ceiling on its own
-        self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout, max_retries=0)
-        self.retry_pause = 2.0
+    """Asks by the subscription token when there is one, by the key when the token refuses or is absent."""
 
-    def __repr__(self) -> str:  # the key never reaches a log
-        return f"ClaudeReader(model={self.model!r})"
+    def __init__(
+        self,
+        api_key: str = "",
+        *,
+        oauth_token: str = "",
+        model: str = MODEL,
+        timeout: float = 90.0,
+        bench: Bench | None = None,
+        http_client: Any = None,  # an httpx2.AsyncClient of a test; None: the SDK's own
+    ) -> None:
+        if not api_key and not oauth_token:
+            raise ValueError("the model needs ANTHROPIC_OAUTH_TOKEN or ANTHROPIC_API_KEY")
+        self.model = model
+        self.bench = BENCH if bench is None else bench
+        self.clock = time.monotonic
+        # no retries inside the clients: each attempt is booked against the ceiling on its own. Each client gets
+        # its credential explicitly, so the SDK takes none from the environment: the token's request carries
+        # no key. ``_client`` is the key's
+        self._oauth = (
+            anthropic.AsyncAnthropic(
+                auth_token=oauth_token,
+                default_headers={"anthropic-beta": OAUTH_BETA},
+                timeout=timeout,
+                max_retries=0,
+                http_client=http_client,
+            )
+            if oauth_token
+            else None
+        )
+        self._client = (
+            anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout, max_retries=0, http_client=http_client)
+            if api_key
+            else None
+        )
+        self.retry_pause = 2.0
+        # a request line of the HTTP client says nothing a log needs (as the Telegram bot of solution 2)
+        for name in ("httpx", "httpx2"):
+            quiet = logging.getLogger(name)
+            quiet.setLevel(max(quiet.getEffectiveLevel(), logging.WARNING))
+
+    @classmethod
+    def from_env(cls, **kw: Any) -> Self:
+        """The reader of a script or a reference run: the token and the key from the environment."""
+        return cls(
+            os.environ.get("ANTHROPIC_API_KEY", ""),
+            oauth_token=os.environ.get("ANTHROPIC_OAUTH_TOKEN", ""),
+            **kw,
+        )
+
+    def __repr__(self) -> str:  # neither the token nor the key ever reaches a log
+        return f"{type(self).__name__}(model={self.model!r})"
+
+    async def _send(self, request: dict[str, Any]) -> tuple[Any, str]:
+        """The answer and the channel that gave it: ``oauth`` first, ``key`` after a refusal of the token or
+        while the token sits out. A refusal with no key behind it is the caller's to handle, as before."""
+        refusal: anthropic.APIStatusError | None = None
+        if self._oauth is not None and (self._client is None or not self.bench.out(self.clock())):
+            system = [{"type": "text", "text": OAUTH_SYSTEM}, {"type": "text", "text": request["system"]}]
+            try:
+                return await self._oauth.beta.messages.create(**(request | {"system": system})), "oauth"
+            except anthropic.APIStatusError as exc:
+                if self._client is None or not token_refused(exc):
+                    raise
+                refusal = exc
+        if self._client is None:  # pragma: no cover - the constructor wants a token or a key
+            raise ModelError("e_model_off")
+        response = await self._client.beta.messages.create(**request)
+        if refusal is not None:
+            # the key took it: the token sits out (refused by the key too, it is tried first next time)
+            self.bench.sit(self.clock())
+            log.warning(
+                "model token refused: %s, by the key for %d min", refusal.status_code, BENCH_SECONDS // 60
+            )
+        return response, "key"
 
     async def _ask(
         self,
@@ -347,8 +462,17 @@ class ClaudeReader:
         usage: Usage | None = None
         ok = False
         try:
-            response = await self._client.beta.messages.create(**request)
+            response, channel = await self._send(request)
             usage = Usage(1, response.usage.input_tokens or 0, response.usage.output_tokens or 0)
+            # the ceilings count tokens whichever channel answered
+            spend_log.info(
+                "model %s by %s: %d in, %d out, $%s",
+                kind,
+                channel,
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.usd.quantize(Decimal("0.0001")),
+            )
             if response.stop_reason in ("refusal", "max_tokens"):
                 raise ModelError("e_model_unreadable")
             text = next((b.text for b in response.content if b.type == "text"), "")

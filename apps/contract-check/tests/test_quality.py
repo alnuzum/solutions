@@ -51,8 +51,8 @@ def test_the_bar() -> None:
 
 @pytest.mark.quality
 async def test_the_live_model_on_the_reference_set() -> None:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        pytest.fail("ANTHROPIC_API_KEY is needed")
+    if not os.environ.get("ANTHROPIC_OAUTH_TOKEN") and not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.fail("ANTHROPIC_OAUTH_TOKEN or ANTHROPIC_API_KEY is needed")
     result = await quality.run(write=False)
     print({k: v for k, v in result.items() if k != "rows"})
     for row in result["rows"]:

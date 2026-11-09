@@ -64,6 +64,8 @@ class OrderSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
     anthropic_api_key: SecretStr = SecretStr("")
+    # the subscription token goes first, the key takes what the token refuses (alnuzum_orders.model)
+    anthropic_oauth_token: SecretStr = SecretStr("")
     orders_model: str = "claude-opus-5-5"
     # the money ceiling of the whole solution per 24 hours: dollars (each call booked at its worst cost
     # until it has cost what it cost), and model calls as a second bound
@@ -254,9 +256,10 @@ class Orders:
         if self._reader is not None:
             return self._reader
         key = self.settings.anthropic_api_key.get_secret_value()
-        if not key:
+        token = self.settings.anthropic_oauth_token.get_secret_value()
+        if not key and not token:
             return None
-        self._reader = ClaudeReader(key, model=self.settings.orders_model)
+        self._reader = ClaudeReader(key, oauth_token=token, model=self.settings.orders_model)
         return self._reader
 
     @staticmethod

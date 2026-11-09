@@ -12,7 +12,6 @@ reading, so they are counted apart); cosmetic changes (wording, requisites) rate
 import argparse
 import asyncio
 import json
-import os
 from datetime import UTC, datetime
 from decimal import Decimal
 from importlib import resources
@@ -185,7 +184,7 @@ def check(result: dict[str, Any]) -> list[str]:
 
 
 async def run(write: bool) -> dict[str, Any]:
-    reader = ContractReader(os.environ["ANTHROPIC_API_KEY"])
+    reader = ContractReader.from_env()
     gate = Budget(Decimal("3"))
     result = await measure(reader, gate)
     result["usd"] = str(gate.spent.usd.quantize(Decimal("0.0001")))

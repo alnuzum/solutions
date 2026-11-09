@@ -39,7 +39,9 @@ services:
       ZOHO_CLIENT_ID: ${ZOHO_CLIENT_ID:-}
       ZOHO_CLIENT_SECRET: ${ZOHO_CLIENT_SECRET:-}
       QUOTA_WRITES_PER_DAY: ${QUOTA_WRITES_PER_DAY:-20}
-      # the order-to-deal solution: the model's key and its money ceiling, the demo CRM accounts
+      # the model: the subscription token first, the key for what it refuses (all three solutions); the
+      # order-to-deal solution's money ceiling, the demo CRM accounts
+      ANTHROPIC_OAUTH_TOKEN: ${ANTHROPIC_OAUTH_TOKEN:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ORDERS_MODEL_USD_PER_DAY: ${ORDERS_MODEL_USD_PER_DAY:-1.5}
       ORDERS_MODEL_CALLS_PER_DAY: ${ORDERS_MODEL_CALLS_PER_DAY:-100}

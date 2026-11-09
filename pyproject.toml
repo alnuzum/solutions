@@ -84,7 +84,7 @@ testpaths = ["packages/crm/tests", "packages/platform/tests", "packages/files/te
 addopts = "--import-mode=importlib -m 'not e2e and not quality'"
 markers = [
     "e2e: live calls into real CRM accounts (needs secrets)",
-    "quality: a reference set against the live model (needs ANTHROPIC_API_KEY; voice also ELEVENLABS_API_KEY)",
+    "quality: a reference set against the live model (needs ANTHROPIC_OAUTH_TOKEN or ANTHROPIC_API_KEY; voice also ELEVENLABS_API_KEY)",
 ]
 
 [tool.coverage.run]
