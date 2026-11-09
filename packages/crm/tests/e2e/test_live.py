@@ -12,7 +12,14 @@ from alnuzum_crm.bitrix24 import Bitrix24, parse_webhook
 from alnuzum_crm.netguard import GuardedTransport
 from alnuzum_crm.oauth import zoho_refresh
 from alnuzum_crm.odoo import Odoo
-from alnuzum_crm.testing import Scrubber, describe_jsonrpc, run_conformance
+from alnuzum_crm.testing import (
+    TECH_LIMIT,
+    Scrubber,
+    check_room,
+    clients_in_account,
+    describe_jsonrpc,
+    run_conformance,
+)
 from alnuzum_crm.tokens import MemoryOAuthToken, StaticToken, TokenSet
 from alnuzum_crm.zoho import ZohoCRM
 
@@ -39,22 +46,34 @@ FULL_RUN = [
     "missing deal is CrmNotFound",
     "test records removed",
 ]
+#: the amoCRM family on its pool: the company was found, not created
+POOL_RUN = ["company found in the pool", *FULL_RUN[1:]]
 
 
 @pytest.mark.parametrize(("cls", "prefix"), [(AmoCRM, "AMOCRM"), (Kommo, "KOMMO")])
 async def test_amocrm_family(
-    cls: type[AmoCRM], prefix: str, run_id: str, recording: Callable[..., Recording]
+    cls: type[AmoCRM],
+    prefix: str,
+    run_id: str,
+    recording: Callable[..., Recording],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """On the pool (a technical account keeps 100 contacts and companies); E2E_CREATE=1 creates its
+    own company and contacts as the other CRMs do, three records that stay in the account."""
     env = need(f"{prefix}_DOMAIN", f"{prefix}_TOKEN")
-    rec = recording(cls.kind.value)
-    crm = cls(
-        env[f"{prefix}_DOMAIN"],
-        StaticToken(env[f"{prefix}_TOKEN"], crm=cls.kind.value),
-        transport=rec.recorder,
-    )
+    token = StaticToken(env[f"{prefix}_TOKEN"], crm=cls.kind.value)
+    # counted outside the recording: the contract tests replay the scenario alone
+    async with cls(env[f"{prefix}_DOMAIN"], token) as probe:
+        count = await clients_in_account(probe)
+    with capsys.disabled():
+        print(f"\n{cls.kind.value}: contacts and companies {count}/{TECH_LIMIT}")
+    check_room(count)
+    pool = os.environ.get("E2E_CREATE") != "1"
+    rec = recording(f"{cls.kind.value}-pool" if pool else cls.kind.value)
+    crm = cls(env[f"{prefix}_DOMAIN"], token, transport=rec.recorder)
     async with crm:
-        steps = await run_conformance(crm, run_id)
-    assert steps == FULL_RUN
+        steps = await run_conformance(crm, run_id, pool=pool)
+    assert steps in ((FULL_RUN, POOL_RUN) if pool else (FULL_RUN,))
     sub = crm.domain.split(".")[0]
     placeholder = "example.amocrm.ru" if cls is AmoCRM else "example.kommo.com"
     rec.save(

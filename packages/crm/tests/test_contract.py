@@ -15,7 +15,15 @@ from alnuzum_crm.amocrm import AmoCRM, Kommo
 from alnuzum_crm.base import CRM
 from alnuzum_crm.bitrix24 import Bitrix24
 from alnuzum_crm.odoo import Odoo
-from alnuzum_crm.testing import Replayer, describe_jsonrpc, run_conformance
+from alnuzum_crm.testing import (
+    TECH_GUARD,
+    ConformanceError,
+    Replayer,
+    check_room,
+    clients_in_account,
+    describe_jsonrpc,
+    run_conformance,
+)
 from alnuzum_crm.tokens import StaticToken
 from alnuzum_crm.zoho import ZohoCRM
 
@@ -57,5 +65,71 @@ async def test_replay_conformance(name: str) -> None:
     assert replay.exhausted, f"{len(replay.calls) - replay.position} recorded calls were not made"
 
 
+#: the CRMs whose live E2E runs on a pool of records kept between runs (technical accounts)
+POOLED = ("amocrm", "kommo")
+
+
+@pytest.mark.parametrize("name", POOLED)
+async def test_replay_on_the_pool(name: str) -> None:
+    """A run on the pool finds the company and contacts, frees them and creates none."""
+    replay = Replayer(CASSETTES / f"{name}-pool.json")
+    async with BUILD[name](replay) as crm:
+        steps = await run_conformance(
+            crm, replay.meta["run_id"], sleep=_no_sleep, now=datetime(2026, 11, 9, tzinfo=UTC), pool=True
+        )
+    assert steps[0] == "company found in the pool"
+    assert "found contact linked to the company" in steps
+    assert "test records removed" in steps
+    assert replay.exhausted, f"{len(replay.calls) - replay.position} recorded calls were not made"
+    creates = [
+        c["url"]
+        for c in replay.calls
+        if c["method"] == "POST" and c["url"].endswith(("/api/v4/companies", "/api/v4/contacts"))
+    ]
+    assert creates == []
+    unlinked = [c["url"].rsplit("/", 3)[-3] for c in replay.calls if c["url"].endswith("/unlink")]
+    assert sorted(unlinked) == ["companies", "contacts", "contacts"], unlinked
+
+
+async def test_the_pool_is_for_the_amocrm_family() -> None:
+    replay = Replayer(CASSETTES / "bitrix24.json")
+    async with BUILD["bitrix24"](replay) as crm:
+        with pytest.raises(ConformanceError, match="amoCRM family"):
+            await run_conformance(crm, replay.meta["run_id"], sleep=_no_sleep, pool=True)
+    assert replay.position == 0
+
+
+async def test_contacts_and_companies_are_counted_page_by_page() -> None:
+    seen: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.url.path} {request.url.params['page']}")
+        if request.url.path.endswith("/companies"):
+            return httpx.Response(204)
+        if request.url.params["page"] == "1":
+            page = {
+                "_embedded": {"contacts": [{"id": i} for i in range(250)]},
+                "_links": {"next": {"href": "page 2"}},
+            }
+        else:
+            page = {"_embedded": {"contacts": [{"id": 1}, {"id": 2}]}, "_links": {}}
+        return httpx.Response(200, json=page)
+
+    async with BUILD["amocrm"](httpx.MockTransport(answer)) as crm:
+        assert isinstance(crm, AmoCRM)
+        assert await clients_in_account(crm) == 252
+    assert seen == ["/api/v4/contacts 1", "/api/v4/contacts 2", "/api/v4/companies 1"]
+
+
+def test_the_run_stops_near_the_technical_limit() -> None:
+    check_room(TECH_GUARD - 1)
+    with pytest.raises(ConformanceError) as stop:
+        check_room(TECH_GUARD)
+    assert str(stop.value) == (
+        "account near the technical limit: 90/100, clean up in the browser (see README.md, Tests)"
+    )
+
+
 def test_every_adapter_has_a_recording() -> None:
-    assert sorted(p.stem for p in CASSETTES.glob("*.json")) == sorted(BUILD)
+    want = [*BUILD, *(f"{name}-pool" for name in POOLED)]
+    assert sorted(p.stem for p in CASSETTES.glob("*.json")) == sorted(want)

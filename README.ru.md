@@ -67,6 +67,16 @@ async with Bitrix24(webhook_url) as crm:
 | юнит и контрактные | `uv run pytest` | на каждый push; контрактные проигрывают записанный трафик последнего живого прогона (`packages/crm/tests/cassettes`) |
 | живые E2E | `uv run pytest -m e2e --tb=short` | push в `main`, pull request и каждую ночь в GitHub Actions: настоящие вызовы в тестовые аккаунты amoCRM, Kommo, Битрикс24, Zoho CRM и в свежий Odoo Community |
 
+Тестовые аккаунты amoCRM и Kommo технические: 100 контактов и компаний вместе, а API записи не удаляет
+(405). Поэтому их живой прогон работает на пуле: «E2E Co pool», «E2E Person pool» и «E2E Lone pool» с
+постоянными ИНН, телефоном и почтой. Прогон их находит и создаёт, только если их нет; его сделка
+закрывается и получает тег `e2e`. Сначала прогон считает контакты и компании (в логе `amocrm: contacts
+and companies N/100`) и на 90 останавливается с `account near the technical limit`. Убирать в браузере:
+в списках контактов и компаний CRM выбрать записи «E2E …», кроме трёх записей пула, и удалить (токену
+интеграции там отвечают 403); лимит CRM пересчитывает минут за 15. `E2E_CREATE=1` вместо пула идёт путём
+создания (три новые записи); `RECORD=1` с ним перезаписывает `amocrm.json` и `kommo.json`, на пуле
+`amocrm-pool.json` и `kommo-pool.json`.
+
 Живые E2E берут доступы из окружения (`AMOCRM_DOMAIN`, `AMOCRM_TOKEN`, `KOMMO_DOMAIN`, `KOMMO_TOKEN`,
 `B24_WEBHOOK`, `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN`,
 `ODOO_PASSWORD`); CRM без них пропускается. Odoo локально:

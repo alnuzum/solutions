@@ -2,7 +2,8 @@
 
 Credentials come from the environment (GitHub Actions secrets in CI); a CRM without them is
 skipped locally and fails in CI (E2E_REQUIRE_ALL=1). RECORD=1 rewrites the recordings that the
-contract tests replay, with secrets and hosts replaced by placeholders.
+contract tests replay, with secrets and hosts replaced by placeholders: amoCRM and Kommo on their pool
+write ``{crm}-pool.json``, with E2E_CREATE=1 the creating run ``{crm}.json``.
 """
 
 import os
