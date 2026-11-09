@@ -132,7 +132,7 @@ async def evaluate(reader: Reader) -> dict[str, Any]:
     catalog = demo_catalog()
     usage = Usage()
 
-    async def gate(kind: str):  # type: ignore[no-untyped-def]
+    async def gate(kind: str, worst: Any = None):  # type: ignore[no-untyped-def]
         async def done(used: Usage, ok: bool) -> None:
             usage.add(used)
 

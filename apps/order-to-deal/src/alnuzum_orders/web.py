@@ -66,7 +66,9 @@ class OrderSettings(BaseSettings):
 
     anthropic_api_key: SecretStr = SecretStr("")
     orders_model: str = "claude-opus-5-5"
-    # model calls of the whole solution per 24 hours; the money ceiling
+    # the money ceiling of the whole solution per 24 hours: dollars (each call booked at its worst cost
+    # until it has cost what it cost), and model calls as a second bound
+    orders_model_usd_per_day: Decimal = Decimal("1.5")
     orders_model_calls_per_day: int = 200
     orders_runs_per_session: int = 10
     orders_runs_per_ip: int = 20
@@ -329,10 +331,11 @@ class Orders:
 
     def gate(self, request: Request, owner: str) -> Gate:
         store, ceiling, key = self.store(request), self.settings.orders_model_calls_per_day, ip_key(request)
+        budget = self.settings.orders_model_usd_per_day
 
-        async def gate(kind: str):  # type: ignore[no-untyped-def]
+        async def gate(kind: str, worst: Decimal):  # type: ignore[no-untyped-def]
             try:
-                call_id = await store.reserve_call(owner, key, kind, ceiling)
+                call_id = await store.reserve_call(owner, key, kind, ceiling, budget=budget, worst=worst)
             except CeilingReached:
                 raise ModelError("e_ceiling") from None
 

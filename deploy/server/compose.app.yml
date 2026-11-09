@@ -38,6 +38,7 @@ services:
       QUOTA_WRITES_PER_DAY: ${QUOTA_WRITES_PER_DAY:-20}
       # the order-to-deal solution: the model's key and its money ceiling, the demo CRM accounts
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ORDERS_MODEL_USD_PER_DAY: ${ORDERS_MODEL_USD_PER_DAY:-1.5}
       ORDERS_MODEL_CALLS_PER_DAY: ${ORDERS_MODEL_CALLS_PER_DAY:-100}
       ORDERS_RUNS_PER_SESSION: ${ORDERS_RUNS_PER_SESSION:-10}
       ORDERS_RUNS_PER_IP: ${ORDERS_RUNS_PER_IP:-20}

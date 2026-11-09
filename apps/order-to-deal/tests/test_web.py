@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alnuzum_crm.errors import CrmAuthError, CrmUnavailable
@@ -441,3 +442,47 @@ async def test_a_file_read_too_long_is_refused_and_counted(
     assert h.orders.parsing.busy == 0
     got = sorted(e for (e,) in await rows(engine, "SELECT error FROM orders_runs"))
     assert got == ["e_busy", "e_slow"]
+
+
+# --- I2: the ceiling is dollars, each call booked at its worst cost ---
+
+
+SHORT = "Кабель NYM 3x2,5 (Севкабель) - 100 м"
+# within the form's 64 KB a field and the reader's 40 000 characters
+LONG = "\n".join(f"Cable NYM 3x2.5 line {n:03}: " + "x" * 100 for n in range(300))
+
+
+async def test_model_dollars_are_booked_at_the_worst_cost_before_the_call(
+    make: Any, engine: AsyncEngine
+) -> None:
+    from alnuzum_orders.model import EXTRACT_MAX_TOKENS, cost
+
+    h = await make(extract_lines, extract_lines, orders_model_usd_per_day=Decimal("0.30"))
+    assert cost(0, EXTRACT_MAX_TOKENS) < Decimal("0.30") < cost(len(LONG), EXTRACT_MAX_TOKENS)
+    b = Browser(h.app)
+    # a short order fits, twice: the booking is replaced by what the call cost
+    run_id(await b.order(text=SHORT))
+    run_id(await b.order(text=SHORT))
+    (spent,) = await rows(engine, "SELECT sum(usd) FROM orders_model_calls")
+    assert spent[0] == cost(1000, 200) * 2
+    # the longest document could cost more than the day allows: refused before the model is asked
+    refused = await b.order(text=LONG)
+    assert refused.status_code == 503
+    assert "Суточный лимит системы на все заявки исчерпан" in refused.text
+    assert len(h.messages.requests) == 2
+
+
+async def test_model_dollars_spent_today_stop_the_next_call(make: Any, engine: AsyncEngine) -> None:
+    h = await make(extract_lines, orders_model_usd_per_day=Decimal("0.5"), orders_model_calls_per_day=100)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO orders_model_calls (id, created_at, owner, ip_key, kind, input_tokens,"
+                " output_tokens, usd, ok) VALUES (:id, now(), 'x', 'x', 'extract', 0, 0, 0.45, true)"
+            ),
+            {"id": uuid.uuid4()},
+        )
+    resp = await Browser(h.app).order(text=SHORT)
+    assert resp.status_code == 503
+    assert "Суточный лимит системы" in resp.text
+    assert h.messages.requests == []

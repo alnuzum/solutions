@@ -22,8 +22,16 @@ from alnuzum_orders.text import plain
 log = logging.getLogger("alnuzum_orders.model")
 
 MODEL = "claude-opus-5-5"
-# dollars per million tokens of this model: input, output
+# dollars per million tokens of claude-opus-5-5: input, output (the claude-api skill's price list, cached
+# 2026-10-06)
 PRICE = (Decimal(4), Decimal(20))
+EXTRACT_MAX_TOKENS = 12000
+CHOOSE_MAX_TOKENS = 6000
+# the most a call can read, for the reservation: a text is never more tokens than characters; a picture of
+# at most 1568 px a side is (w*h)/750 = 3 278 tokens; a PDF page goes as a picture and its text
+IMAGE_TOKENS = 4000
+PDF_PAGE_TOKENS = 5000
+REQUEST_TOKENS = 600  # the framing of a request around its blocks
 MAX_ITEMS = 150
 
 
@@ -43,9 +51,7 @@ class Usage:
 
     @property
     def usd(self) -> Decimal:
-        return (Decimal(self.input_tokens) * PRICE[0] + Decimal(self.output_tokens) * PRICE[1]) / Decimal(
-            1_000_000
-        )
+        return cost(self.input_tokens, self.output_tokens)
 
     def add(self, other: "Usage") -> None:
         self.calls += other.calls
@@ -94,8 +100,26 @@ class Answer:
     confidence: float
 
 
-# Called before every request (raises when a quota is spent) and after it with what it cost.
-Gate = Callable[[str], Awaitable[Callable[[Usage, bool], Awaitable[None]]]]
+# Called before every request with its kind and its worst cost in dollars (raises when a quota is spent),
+# and after it with what it cost.
+Gate = Callable[[str, Decimal], Awaitable[Callable[[Usage, bool], Awaitable[None]]]]
+
+
+def cost(input_tokens: int, output_tokens: int) -> Decimal:
+    return (Decimal(input_tokens) * PRICE[0] + Decimal(output_tokens) * PRICE[1]) / Decimal(1_000_000)
+
+
+def worst_input(system: str, content: list[dict[str, Any]], schema: dict[str, Any], pages: int = 0) -> int:
+    """An upper bound of the input tokens of a request, counted before it is sent."""
+    tokens = REQUEST_TOKENS + len(system) + len(json.dumps(schema))
+    for block in content:
+        if block["type"] == "text":
+            tokens += len(block["text"])
+        elif block["type"] == "image":
+            tokens += IMAGE_TOKENS
+        else:  # a PDF
+            tokens += PDF_PAGE_TOKENS * max(pages, 1)
+    return tokens
 
 
 class Reader(Protocol):
@@ -275,8 +299,10 @@ class ClaudeReader:
         content: list[dict[str, Any]],
         schema: dict[str, Any],
         limit: int,
+        pages: int = 0,
     ) -> tuple[dict[str, Any], Usage]:
-        done = await gate(kind)
+        # the reservation is the worst case: the whole prompt and every output token allowed
+        done = await gate(kind, cost(worst_input(system, content, schema, pages), limit))
         usage = Usage(calls=1)
         ok = False
         try:
@@ -337,7 +363,9 @@ class ClaudeReader:
         else:
             numbered = "\n".join(f"{n}: {line}" for n, line in enumerate(source.lines, 1))
             content.append({"type": "text", "text": f"<document>\n{numbered}\n</document>"})
-        data, usage = await self._ask(gate, "extract", EXTRACT_SYSTEM, content, EXTRACT_SCHEMA, 12000)
+        data, usage = await self._ask(
+            gate, "extract", EXTRACT_SYSTEM, content, EXTRACT_SCHEMA, EXTRACT_MAX_TOKENS, source.pages
+        )
         out = parse_extraction(data, len(source.lines))
         out.usage = usage
         return out
@@ -350,5 +378,7 @@ class ClaudeReader:
             options = "\n".join(f"  {i}. {c}" for i, c in enumerate(q.candidates, 1))
             blocks.append(f"Line {q.key}: <order_line>{q.text}</order_line>\n{options}")
         content = [{"type": "text", "text": "\n\n".join(blocks)}]
-        data, usage = await self._ask(gate, "choose", CHOOSE_SYSTEM, content, CHOOSE_SCHEMA, 6000)
+        data, usage = await self._ask(
+            gate, "choose", CHOOSE_SYSTEM, content, CHOOSE_SCHEMA, CHOOSE_MAX_TOKENS
+        )
         return parse_answers(data, questions), usage

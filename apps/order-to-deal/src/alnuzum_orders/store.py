@@ -89,7 +89,7 @@ class ModelCall(Base):
 
 
 class CeilingReached(RuntimeError):
-    """The solution's model calls for the day are spent."""
+    """The solution's model calls or dollars for the day are spent."""
 
 
 class RunNotFound(LookupError):
@@ -290,17 +290,25 @@ class OrderStore:
 
     # --- the model-call ceiling ---
 
-    async def reserve_call(self, owner: str, ip_key: str, kind: str, ceiling: int) -> uuid.UUID:
+    async def reserve_call(
+        self, owner: str, ip_key: str, kind: str, ceiling: int, *, budget: Decimal, worst: Decimal
+    ) -> uuid.UUID:
+        """A call is booked at its worst cost before it is sent (under the global lock), and the day's
+        dollars are the booked or the actual cost of every call: two parallel calls cannot both pass
+        the last dollars. ``finish_call`` replaces the booking with what the call really cost."""
         async with self._sessions.begin() as session:
             await session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": LOCK_KEY})
-            used = await session.scalar(
-                select(func.count())
-                .select_from(ModelCall)
-                .where(ModelCall.created_at > datetime.now(UTC) - timedelta(days=1))
-            )
+            day = ModelCall.created_at > datetime.now(UTC) - timedelta(days=1)
+            used, spent = (
+                await session.execute(
+                    select(func.count(), func.coalesce(func.sum(ModelCall.usd), 0)).where(day)
+                )
+            ).one()
             if (used or 0) >= ceiling:
                 raise CeilingReached(f"{ceiling} model calls per day")
-            call = ModelCall(id=uuid.uuid4(), owner=owner, ip_key=ip_key, kind=kind)
+            if Decimal(spent) + worst > budget:
+                raise CeilingReached(f"${budget} of model calls per day")
+            call = ModelCall(id=uuid.uuid4(), owner=owner, ip_key=ip_key, kind=kind, usd=worst)
             session.add(call)
             return call.id
 
