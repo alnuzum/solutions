@@ -14,6 +14,7 @@ What differs from other CRMs, checked live:
 import asyncio
 import re
 from collections.abc import Iterable
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, ClassVar
@@ -23,10 +24,13 @@ import httpx
 from alnuzum_crm.base import (
     CRM,
     E2E_TAG,
+    at_most_one,
+    aware,
     catalog_lines,
     dec,
     digits,
     hits_in_order,
+    in_period,
     lookup_keys,
     norm_name,
     positive,
@@ -52,6 +56,7 @@ from alnuzum_crm.oauth import normalize_amo_domain
 from alnuzum_crm.tokens import TokenSource
 from alnuzum_crm.types import (
     AccountInfo,
+    ClientTask,
     CompanyHit,
     CompanyIn,
     ContactIn,
@@ -68,6 +73,7 @@ from alnuzum_crm.types import (
     Page,
     Product,
     ProductIn,
+    Purchase,
     Stage,
     TaskIn,
     User,
@@ -859,6 +865,168 @@ class AmoCRM(CRM):
             if abs((dec((lead or {}).get("price")) or Decimal(0)) - budget) < 1 or loop.time() >= deadline:
                 return
             await asyncio.sleep(RECOUNT_PAUSE)
+
+    # --- win-back: purchases and tasks on a client ---
+
+    def _owner(self, company_id: str | None, contact_id: str | None) -> tuple[str, int]:
+        """The entity of a task or a history (``companies`` or ``contacts``) and its id."""
+        crm = self.kind.value
+        require_one(company_id, contact_id, crm)
+        if company_id:
+            return "companies", int(record_id(company_id, crm))
+        return "contacts", int(record_id(contact_id, crm))
+
+    async def _main_pipeline(self) -> int:
+        pipes = await self._embedded("GET", "/api/v4/leads/pipelines", "pipelines")
+        if not pipes:
+            raise CrmUnsupported("the account has no pipeline of deals", crm=self.kind.value)
+        return int(next((p for p in pipes if p.get("is_main")), pipes[0])["id"])
+
+    async def purchases(
+        self,
+        *,
+        company_id: str | None = None,
+        contact_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        lines: bool = True,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """Won deals are status 142 in every pipeline; the list carries the linked products with their
+        quantity, the catalog gives their names and prices (checked live 10.11)."""
+        at_most_one(company_id, contact_id, self.kind.value)
+        with_ = "catalog_elements,contacts" if lines else "contacts"
+        rows: list[dict[str, Any]] = []
+        next_cursor: str | None = None
+        if company_id or contact_id:
+            entity, owner_id = self._owner(company_id, contact_id)
+            owner = await self._request("GET", f"/api/v4/{entity}/{owner_id}", params={"with": "leads"})
+            if not owner:
+                raise CrmNotFound("client not found", crm=self.kind.value, status=204)
+            ids = [int(x["id"]) for x in owner.get("_embedded", {}).get("leads", [])]
+            for i in range(0, len(ids), 50):
+                chunk = {"filter[id][]": ids[i : i + 50], "limit": 250, "with": with_}
+                rows += await self._embedded("GET", "/api/v4/leads", "leads", params=chunk)
+        else:
+            pipes = await self._embedded("GET", "/api/v4/leads/pipelines", "pipelines")
+            page = int(cursor or 1)
+            params: dict[str, Any] = {"page": page, "limit": max(1, min(limit, 250)), "with": with_}
+            for n, pipe in enumerate(pipes):
+                params[f"filter[statuses][{n}][pipeline_id]"] = int(pipe["id"])
+                params[f"filter[statuses][{n}][status_id]"] = WON
+            if since:
+                params["filter[closed_at][from]"] = int(aware(since).timestamp())
+            if until:
+                params["filter[closed_at][to]"] = int(aware(until).timestamp())
+            data = await self._request("GET", "/api/v4/leads", params=params) if pipes else None
+            rows = (data or {}).get("_embedded", {}).get("leads", [])
+            if (data or {}).get("_links", {}).get("next"):
+                next_cursor = str(page + 1)
+        rows = [
+            r
+            for r in rows
+            if int(r.get("status_id") or 0) == WON and in_period(_ts(r.get("closed_at")), since, until)
+        ]
+        found = await self._purchases(rows, lines)
+        if company_id or contact_id:
+            found = sorted(found, key=lambda p: (p.closed_at, p.deal_id), reverse=True)[:limit]
+        return Page(tuple(found), next_cursor)
+
+    async def _purchases(self, rows: list[dict[str, Any]], lines: bool) -> list[Purchase]:
+        cat = await self._catalog() if lines and rows else None
+        links = {
+            int(r["id"]): [
+                x
+                for x in r.get("_embedded", {}).get("catalog_elements", [])
+                if int((x.get("metadata") or {}).get("catalog_id") or cat or 0) == cat
+            ]
+            for r in rows
+        }
+        elements = await self._elements(int(x["id"]) for v in links.values() for x in v) if cat else {}
+        currency = await self._currency()
+        out: list[Purchase] = []
+        for r in rows:
+            got: list[DealLine] = []
+            for link in links[int(r["id"])] if cat else []:
+                element = elements.get(int(link["id"]))
+                if element is None:
+                    continue
+                prices = _field_values(element, code="PRICE")
+                skus = _field_values(element, code="SKU")
+                got.append(
+                    DealLine(
+                        name=str(element.get("name", "")),
+                        quantity=Decimal(str((link.get("metadata") or {}).get("quantity", 0))),
+                        unit_price=dec(prices[0]) or Decimal(0) if prices else Decimal(0),
+                        product_id=str(link["id"]),
+                        sku=skus[0] if skus else None,
+                    )
+                )
+            emb = r.get("_embedded", {})
+            contacts = emb.get("contacts", [])
+            main = next((c for c in contacts if c.get("is_main")), contacts[0] if contacts else None)
+            company = next(iter(emb.get("companies", [])), None)
+            out.append(
+                Purchase(
+                    deal_id=str(r["id"]),
+                    title=str(r.get("name", "")),
+                    closed_at=_ts(r.get("closed_at")) or datetime.min.replace(tzinfo=UTC),
+                    amount=dec(r.get("price")),
+                    currency=currency,
+                    company_id=str(company["id"]) if company else None,
+                    contact_id=str(main["id"]) if main else None,
+                    lines=tuple(got),
+                )
+            )
+        return out
+
+    async def create_won_deal(self, deal: DealIn, closed_at: datetime) -> CreatedDeal:
+        """Created straight in status 142 of the main pipeline, so it never counts among the 100 open deals
+        of a technical account; the closing date is written after (both checked live 10.11)."""
+        made = await self.create_deal(replace(deal, stage_id=f"{await self._main_pipeline()}:{WON}"))
+        stamp = int(aware(closed_at).timestamp())
+        await self._request(
+            "PATCH", f"/api/v4/leads/{int(record_id(made.id, self.kind.value))}", json={"closed_at": stamp}
+        )
+        return made
+
+    async def add_client_task(
+        self, task: TaskIn, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> str:
+        entity, owner_id = self._owner(company_id, contact_id)
+        item: dict[str, Any] = {
+            "text": task.text,
+            "complete_till": int(task.due.timestamp()),
+            "entity_id": owner_id,
+            "entity_type": entity,
+            "task_type_id": 1,
+        }
+        if task.responsible_id:
+            item["responsible_user_id"] = int(record_id(task.responsible_id, self.kind.value))
+        return await self._first_id("POST", "/api/v4/tasks", "tasks", [item])
+
+    async def client_tasks(
+        self, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> list[ClientTask]:
+        entity, owner_id = self._owner(company_id, contact_id)
+        params = {
+            "filter[entity_type]": entity,
+            "filter[entity_id][]": owner_id,
+            "filter[is_completed]": 0,
+            "limit": 250,
+        }
+        tasks = await self._embedded("GET", "/api/v4/tasks", "tasks", params=params)
+        return [
+            ClientTask(str(t["id"]), str(t.get("text") or ""), _ts(t.get("complete_till")))
+            for t in tasks
+            if not t.get("is_completed")
+        ]
+
+    async def discard_task(self, task_id: str) -> None:
+        """The API deletes no task (403, checked live 10.11): it is completed."""
+        body = {"is_completed": True, "result": {"text": E2E_TAG}}
+        await self._request("PATCH", f"/api/v4/tasks/{int(record_id(task_id, self.kind.value))}", json=body)
 
     # --- cleanup ---
 

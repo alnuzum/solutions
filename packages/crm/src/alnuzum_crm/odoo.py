@@ -17,6 +17,7 @@ moves to the JSON-2 API.
 import base64
 import contextlib
 import itertools
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, ClassVar
@@ -27,6 +28,8 @@ import httpx
 from alnuzum_crm.base import (
     CRM,
     E2E_TAG,
+    at_most_one,
+    aware,
     catalog_lines,
     dec,
     digits,
@@ -53,6 +56,7 @@ from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.netguard import guarded_transport, split_https_url
 from alnuzum_crm.types import (
     AccountInfo,
+    ClientTask,
     CompanyHit,
     CompanyIn,
     ContactIn,
@@ -69,6 +73,7 @@ from alnuzum_crm.types import (
     Page,
     Product,
     ProductIn,
+    Purchase,
     Stage,
     TaskIn,
     User,
@@ -87,6 +92,11 @@ _ids = itertools.count(1)
 def like_literal(value: str) -> str:
     """A value for ``=ilike`` that matches only itself: % _ and backslash are escaped."""
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _odoo_time(moment: datetime) -> str:
+    """A moment as Odoo keeps it: UTC without a zone."""
+    return aware(moment).astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _dt(value: Any) -> datetime | None:
@@ -731,6 +741,172 @@ class Odoo(CRM):
         )
 
     # --- cleanup ---
+
+    # --- win-back: purchases and tasks on a client ---
+
+    async def purchases(
+        self,
+        *,
+        company_id: str | None = None,
+        contact_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        lines: bool = True,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """Won opportunities by ``won_status`` (Odoo 17+; before it a probability of 100) and ``date_closed``,
+        newest first; products are the lines of their quotations, as ``get_deal`` reads them (checked live
+        10.11). The client is the partner's commercial entity: a company, or a person without one."""
+        crm = self.kind.value
+        at_most_one(company_id, contact_id, crm)
+        domain: list[Any] = (
+            [["won_status", "=", "won"]]
+            if await self._has_model_field("crm.lead", "won_status")
+            else [["probability", ">=", 100], ["active", "=", True]]
+        )
+        if since:
+            domain.append(["date_closed", ">=", _odoo_time(since)])
+        if until:
+            domain.append(["date_closed", "<", _odoo_time(until)])
+        owner = company_id or contact_id
+        if owner:
+            domain.append(["partner_id", "child_of", int(record_id(owner, crm))])
+        offset = 0 if owner else int(cursor or 0)
+        size = max(1, limit)
+        rows = await self._read(
+            "crm.lead",
+            domain,
+            [*await self._lead_fields(), "partner_id"],
+            order="date_closed desc, id desc",
+            limit=size,
+            offset=offset,
+        )
+        next_cursor = str(offset + len(rows)) if not owner and len(rows) == size else None
+        partner_ids = sorted(
+            {
+                int(r["partner_id"][0])
+                for r in rows
+                if isinstance(r.get("partner_id"), list) and r["partner_id"]
+            }
+        )
+        partners = (
+            {
+                int(p["id"]): p
+                for p in await self._read(
+                    "res.partner",
+                    [["id", "in", partner_ids]],
+                    ["is_company", "commercial_partner_id"],
+                    context={"active_test": False},
+                )
+            }
+            if partner_ids
+            else {}
+        )
+        products = await self._order_lines([int(r["id"]) for r in rows]) if lines else {}
+        out: list[Purchase] = []
+        for r in rows:
+            deal = await self._deal(r)
+            pid = (
+                int(r["partner_id"][0]) if isinstance(r.get("partner_id"), list) and r["partner_id"] else None
+            )
+            partner = partners.get(pid or 0, {})
+            commercial = partner.get("commercial_partner_id")
+            head = int(commercial[0]) if isinstance(commercial, list) and commercial else pid
+            is_company = bool(partner.get("is_company"))
+            company = pid if is_company else head if head != pid else None
+            out.append(
+                Purchase(
+                    deal_id=deal.id,
+                    title=deal.title,
+                    closed_at=deal.closed_at or datetime.min.replace(tzinfo=UTC),
+                    amount=deal.amount,
+                    currency=deal.currency,
+                    company_id=str(company) if company else None,
+                    contact_id=str(pid) if pid and not is_company else None,
+                    lines=tuple(products.get(int(r["id"]), [])),
+                )
+            )
+        return Page(tuple(out), next_cursor)
+
+    async def _order_lines(self, lead_ids: list[int]) -> dict[int, list[DealLine]]:
+        """The lines of the quotations of each opportunity, cancelled ones and section rows left out."""
+        if not lead_ids or not await self._has_model_field("sale.order", "opportunity_id"):
+            return {}
+        orders = await self._read(
+            "sale.order", [["opportunity_id", "in", lead_ids], ["state", "!=", "cancel"]], ["opportunity_id"]
+        )
+        lead_of = {int(o["id"]): int(o["opportunity_id"][0]) for o in orders if o.get("opportunity_id")}
+        if not lead_of:
+            return {}
+        fields = ["order_id", "name", "product_id", "product_uom_qty", "price_unit", "display_type"]
+        rows = await self._read("sale.order.line", [["order_id", "in", sorted(lead_of)]], fields, order="id")
+        out: dict[int, list[DealLine]] = {}
+        for r in rows:
+            order = r.get("order_id")
+            if r.get("display_type") or not isinstance(order, list) or int(order[0]) not in lead_of:
+                continue
+            out.setdefault(lead_of[int(order[0])], []).append(
+                DealLine(
+                    name=str(r.get("name", "")),
+                    quantity=Decimal(str(r.get("product_uom_qty", 0))),
+                    unit_price=Decimal(str(r.get("price_unit", 0))),
+                    product_id=str(r["product_id"][0]) if r.get("product_id") else None,
+                )
+            )
+        return out
+
+    async def create_won_deal(self, deal: DealIn, closed_at: datetime) -> CreatedDeal:
+        """Created in the won stage; ``update_deal(close_date)`` writes the planned date, so the closing
+        moment is written to ``date_closed`` itself (checked live 10.11)."""
+        won = next((s for s in await self.stages() if s.kind is DealStatus.WON), None)
+        if won is None:
+            raise CrmUnsupported("no won stage of opportunities", crm=self.kind.value)
+        made = await self.create_deal(replace(deal, stage_id=won.id))
+        await self.kw(
+            "crm.lead",
+            "write",
+            [[int(record_id(made.id, self.kind.value))], {"date_closed": _odoo_time(closed_at)}],
+        )
+        return made
+
+    async def add_client_task(
+        self, task: TaskIn, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> str:
+        """A "To-Do" activity on the partner itself (a company or a person)."""
+        require_one(company_id, contact_id, self.kind.value)
+        model_ids = await self._search("ir.model", [["model", "=", "res.partner"]], limit=1)
+        vals = {
+            "res_model_id": model_ids[0],
+            "res_id": int(record_id(company_id or contact_id, self.kind.value)),
+            "activity_type_id": await self._xmlid("mail", "mail_activity_data_todo"),
+            "summary": task.text[:250],
+            "note": task.text,
+            "date_deadline": task.due.date().isoformat(),
+            "user_id": int(record_id(task.responsible_id, self.kind.value))
+            if task.responsible_id
+            else await self._uid_(),
+        }
+        return str(await self.kw("mail.activity", "create", [vals]))
+
+    async def client_tasks(
+        self, *, company_id: str | None = None, contact_id: str | None = None
+    ) -> list[ClientTask]:
+        require_one(company_id, contact_id, self.kind.value)
+        owner = int(record_id(company_id or contact_id, self.kind.value))
+        rows = await self._read(
+            "mail.activity",
+            [["res_model", "=", "res.partner"], ["res_id", "=", owner]],
+            ["summary", "date_deadline"],
+        )
+        return [
+            ClientTask(str(r["id"]), str(r.get("summary") or ""), _dt(r.get("date_deadline"))) for r in rows
+        ]
+
+    async def discard_task(self, task_id: str) -> None:
+        found = await self._search("mail.activity", [["id", "=", int(record_id(task_id, self.kind.value))]])
+        if found:
+            await self.kw("mail.activity", "unlink", [found])
 
     async def discard(self, leftovers: Leftovers) -> None:
         leads = [int(i) for i in leftovers.deal_ids]

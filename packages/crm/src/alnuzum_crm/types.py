@@ -132,6 +132,30 @@ class Deal:
 
 
 @dataclass(frozen=True, slots=True)
+class Purchase:
+    """A won deal read as a purchase: when it closed, what it brought, whose it is and the catalog products in
+    it (``lines`` stays empty when they were not asked for)."""
+
+    deal_id: str
+    title: str
+    closed_at: datetime
+    amount: Decimal | None
+    currency: str | None
+    company_id: str | None = None
+    contact_id: str | None = None
+    lines: tuple[DealLine, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ClientTask:
+    """An open task on a company or a contact; ``due`` is midnight UTC where the CRM keeps only a date."""
+
+    id: str
+    text: str
+    due: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class FileIn:
     name: str
     content: bytes
