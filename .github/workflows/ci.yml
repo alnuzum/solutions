@@ -164,6 +164,21 @@ jobs:
           ZOHO_CLIENT_ID: ${{ vars.ZOHO_CLIENT_ID }}
           ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
           QUOTA_WRITES_PER_DAY: ${{ vars.QUOTA_WRITES_PER_DAY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ORDERS_MODEL_CALLS_PER_DAY: ${{ vars.ORDERS_MODEL_CALLS_PER_DAY }}
+          ORDERS_RUNS_PER_SESSION: ${{ vars.ORDERS_RUNS_PER_SESSION }}
+          ORDERS_RUNS_PER_IP: ${{ vars.ORDERS_RUNS_PER_IP }}
+          ORDERS_DEMO_WRITES_PER_SESSION: ${{ vars.ORDERS_DEMO_WRITES_PER_SESSION }}
+          DEMO_AMOCRM_DOMAIN: ${{ secrets.DEMO_AMOCRM_DOMAIN }}
+          DEMO_AMOCRM_TOKEN: ${{ secrets.DEMO_AMOCRM_TOKEN }}
+          DEMO_KOMMO_DOMAIN: ${{ secrets.DEMO_KOMMO_DOMAIN }}
+          DEMO_KOMMO_TOKEN: ${{ secrets.DEMO_KOMMO_TOKEN }}
+          DEMO_B24_WEBHOOK: ${{ secrets.DEMO_B24_WEBHOOK }}
+          DEMO_ZOHO_REFRESH_TOKEN: ${{ secrets.DEMO_ZOHO_REFRESH_TOKEN }}
+          DEMO_ODOO_URL: ${{ vars.DEMO_ODOO_URL }}
+          DEMO_ODOO_DB: ${{ vars.DEMO_ODOO_DB }}
+          DEMO_ODOO_LOGIN: ${{ vars.DEMO_ODOO_LOGIN }}
+          DEMO_ODOO_KEY: ${{ secrets.DEMO_ODOO_KEY }}
         run: deploy/ci-deploy.sh stand "$DEPLOY_SHA"
       - name: /health answers with this commit
         run: |
@@ -200,6 +215,21 @@ jobs:
           ZOHO_CLIENT_ID: ${{ vars.ZOHO_CLIENT_ID }}
           ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
           QUOTA_WRITES_PER_DAY: ${{ vars.QUOTA_WRITES_PER_DAY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ORDERS_MODEL_CALLS_PER_DAY: ${{ vars.ORDERS_MODEL_CALLS_PER_DAY }}
+          ORDERS_RUNS_PER_SESSION: ${{ vars.ORDERS_RUNS_PER_SESSION }}
+          ORDERS_RUNS_PER_IP: ${{ vars.ORDERS_RUNS_PER_IP }}
+          ORDERS_DEMO_WRITES_PER_SESSION: ${{ vars.ORDERS_DEMO_WRITES_PER_SESSION }}
+          DEMO_AMOCRM_DOMAIN: ${{ secrets.DEMO_AMOCRM_DOMAIN }}
+          DEMO_AMOCRM_TOKEN: ${{ secrets.DEMO_AMOCRM_TOKEN }}
+          DEMO_KOMMO_DOMAIN: ${{ secrets.DEMO_KOMMO_DOMAIN }}
+          DEMO_KOMMO_TOKEN: ${{ secrets.DEMO_KOMMO_TOKEN }}
+          DEMO_B24_WEBHOOK: ${{ secrets.DEMO_B24_WEBHOOK }}
+          DEMO_ZOHO_REFRESH_TOKEN: ${{ secrets.DEMO_ZOHO_REFRESH_TOKEN }}
+          DEMO_ODOO_URL: ${{ vars.DEMO_ODOO_URL }}
+          DEMO_ODOO_DB: ${{ vars.DEMO_ODOO_DB }}
+          DEMO_ODOO_LOGIN: ${{ vars.DEMO_ODOO_LOGIN }}
+          DEMO_ODOO_KEY: ${{ secrets.DEMO_ODOO_KEY }}
         run: deploy/ci-deploy.sh prod "$GITHUB_SHA"
       - name: /health answers with this commit
         run: |

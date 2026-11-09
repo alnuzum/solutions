@@ -169,8 +169,11 @@ def _image(name: str, data: bytes) -> Source:
         with Image.open(io.BytesIO(data)) as img:
             if img.width * img.height > MAX_PIXELS:
                 raise IntakeError("e_image_size")
+            # shrink first, in place: a 40 Mp picture is never copied whole (the container has 512 MB);
+            # a JPEG is even decoded at a reduced scale
+            img.draft("RGB", (MAX_SIDE, MAX_SIDE))
+            img.thumbnail((MAX_SIDE, MAX_SIDE))
             turned = ImageOps.exif_transpose(img).convert("RGB")
-            turned.thumbnail((MAX_SIDE, MAX_SIDE))
             out = io.BytesIO()
             turned.save(out, "JPEG", quality=88)
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, ValueError) as exc:
