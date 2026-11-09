@@ -5,12 +5,13 @@ What differs from other CRMs, checked live:
 - deal lines are catalog elements linked with a quantity; the price lives on the element, so a
   line without a product becomes a new element with its price, and the deal budget is the sum
   (an integer: amoCRM keeps no kopecks);
-- deals, contacts and catalog elements cannot be deleted through the API (405): test records
-  are closed (status 143) and tagged ``e2e``;
+- deals, contacts and companies cannot be deleted through the API (405): test records are closed
+  (status 143) and tagged ``e2e``; catalog elements answer 405 in API v4, API v2 deletes them;
 - a missing record answers 204, not 404;
 - 7 requests a second per account.
 """
 
+import asyncio
 import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -77,6 +78,9 @@ INN_NAMES = frozenset({"инн", "inn", "tin", "stir", "инн/tin", "tax id"})
 
 
 ACCOUNT_LIMIT = "account_limit"
+#: a link of products with a price field recounts the deal's budget in the background: Kommo once wrote the
+#: recount over a sum set right after the link; seconds to wait for it to land, and the pause between reads
+RECOUNT_WAIT, RECOUNT_PAUSE = 10.0, 0.5
 
 
 _LOCKED = re.compile(r"(?:Код ошибки|Error code) 205\.")
@@ -600,7 +604,9 @@ class AmoCRM(CRM):
             await self._request("POST", f"/api/v4/leads/{deal_id}/link", json=links)
             if deal.total is not None:
                 # linking products with a price field recounts the budget at catalog prices: the
-                # total after the company's rules goes back on top
+                # total after the company's rules goes back on top, once the recount has landed
+                if price_field:
+                    await self._recounted(int(deal_id), sum((x.total for x in deal.lines), Decimal(0)))
                 await self._request("PATCH", f"/api/v4/leads/{deal_id}", json={"price": lead["price"]})
         return CreatedDeal(deal_id, tuple(created))
 
@@ -816,7 +822,8 @@ class AmoCRM(CRM):
         crm = self.kind.value
         catalog_lines(lines, crm)
         cat, price_field = await self._catalog(), await self._price_field_id()
-        have = {line.product_id: line.quantity for line in (await self.get_deal(deal_id)).lines}
+        deal = await self.get_deal(deal_id)
+        have = {line.product_id: line.quantity for line in deal.lines}
         # a link of a product the deal already has replaces its quantity (checked live): add to it
         quantities: dict[str, Decimal] = {}
         for line in lines:
@@ -828,7 +835,30 @@ class AmoCRM(CRM):
             if price_field:
                 meta["price_id"] = price_field
             links.append({"to_entity_id": int(pid), "to_entity_type": "catalog_elements", "metadata": meta})
-        await self._request("POST", f"/api/v4/leads/{int(record_id(deal_id, crm))}/link", json=links)
+        lead_id = int(record_id(deal_id, crm))
+        await self._request("POST", f"/api/v4/leads/{lead_id}/link", json=links)
+        if price_field:
+            # a sum set after the products (the voice of a manager) must not meet the recount later
+            prices = {x.product_id: x.unit_price for x in deal.lines}
+            new = [int(p) for p in quantities if p not in prices]
+            for i, element in (await self._elements(new)).items() if new else ():
+                values = _field_values(element, code="PRICE")
+                prices[str(i)] = dec(values[0]) or Decimal(0) if values else Decimal(0)
+            linked = have | quantities
+            await self._recounted(
+                lead_id, sum((q * prices.get(p, Decimal(0)) for p, q in linked.items()), Decimal(0))
+            )
+
+    async def _recounted(self, lead_id: int, budget: Decimal) -> None:
+        """Wait (at most ``RECOUNT_WAIT``) until the deal's budget is the recount at catalog prices, which
+        amoCRM keeps in whole units; a write of the budget before it would be overwritten."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + RECOUNT_WAIT
+        while True:
+            lead = await self._request("GET", f"/api/v4/leads/{lead_id}")
+            if abs((dec((lead or {}).get("price")) or Decimal(0)) - budget) < 1 or loop.time() >= deadline:
+                return
+            await asyncio.sleep(RECOUNT_PAUSE)
 
     # --- cleanup ---
 
@@ -848,6 +878,11 @@ class AmoCRM(CRM):
         if leftovers.company_ids:
             body = [{"id": int(i), "tags_to_add": tag} for i in leftovers.company_ids]
             await self._request("PATCH", "/api/v4/companies", json=body)
+        if leftovers.product_ids:
+            # API v4 answers 405 to a delete of a catalog element, API v2 still deletes it (checked live):
+            # the catalog keeps no product of a test run
+            body_v2 = {"delete": [int(i) for i in leftovers.product_ids]}
+            await self._request("POST", "/api/v2/catalog_elements", json=body_v2)
 
 
 class Kommo(AmoCRM):

@@ -326,14 +326,14 @@ async def test_amo_line_at_catalog_price_in_account_currency_passes() -> None:
 async def test_amo_budget_is_the_given_total_while_lines_keep_catalog_prices() -> None:
     """Discounts amoCRM cannot keep on a line live in the budget: lines at the catalog price, the
     budget is the total after the company's rules."""
-    crm, router = amo(amo_catalog())
+    crm, router = amo(amo_catalog() | {"GET /api/v4/leads/1": {"id": 1, "price": 300}})
     line = DealLine("Widget", Decimal(3), Decimal(100), product_id="42")
     async with crm:
         await crm.create_deal(DealIn("d", (line,), total=Decimal("271.50")))
     assert json.loads(router.sent("POST", "/api/v4/leads")[0].content)[0]["price"] == 272
-    # the link recounts the budget at catalog prices, so the total is put back after it
+    # the link recounts the budget at catalog prices (300), so the total is put back once the recount is read
     assert json.loads(router.sent("PATCH", "/api/v4/leads/1")[0].content) == {"price": 272}
-    assert router.requests[-1].method == "PATCH"
+    assert [r.method for r in router.requests[-3:]] == ["POST", "GET", "PATCH"]
 
 
 async def test_odoo_currency_is_applied_or_refused() -> None:

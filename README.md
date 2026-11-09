@@ -70,7 +70,9 @@ Errors come as `CrmAuthError`, `CrmPermissionError`, `CrmNotFound`, `CrmValidati
 The amoCRM and Kommo test accounts are technical accounts: 100 contacts and companies in all and 100 open
 deals, and the API deletes none (405). Their live run works on a pool, «E2E Co pool», «E2E Person pool» and «E2E Lone
 pool» with fixed INN, phone and e-mail: it finds them and creates them only when they are gone; its deal
-is closed and tagged `e2e`. First the run counts the contacts and companies (`amocrm: contacts and
+is closed and tagged `e2e`, its products are deleted from the catalog (API v4 answers 405 there, API v2 deletes),
+and its search waits up to five minutes for a new product: Kommo's catalog index lags by minutes while the account
+is busy with background work. First the run counts the contacts and companies (`amocrm: contacts and
 companies N/100` in the log) and stops at 90 with `account near the technical limit`. Clean up in the
 browser: in the contact and company lists of the CRM select the «E2E …» records except the three of the
 pool and delete them (the integration token gets 403 there); the CRM recounts its limit within about

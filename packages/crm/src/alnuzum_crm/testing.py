@@ -180,7 +180,7 @@ class Collected:
 async def _poll[T](
     probe: Callable[[], Awaitable[T | None]], sleep: Sleep, *, tries: int = 30, pause: float = 3.0
 ) -> T | None:
-    """Search indexes of some CRMs (Zoho) lag behind writes by seconds."""
+    """Search indexes of some CRMs (Zoho, the catalog of Kommo) lag behind writes by seconds to minutes."""
     for attempt in range(tries):
         found = await probe()
         if found is not None:
@@ -188,6 +188,11 @@ async def _poll[T](
         if attempt + 1 < tries:
             await sleep(pause)
     return None
+
+
+#: Tries of 3 s for a new product in the catalog search: Kommo's index took 8 to 41 s on a quiet evening and
+#: more than 110 s in three runs of CI on 09.11, while the account was busy with its own background work
+CATALOG_TRIES = 100
 
 
 # no operator in Uzbekistan has the code 00: a test phone can never be somebody's number
@@ -420,7 +425,7 @@ async def run_conformance(
             page = await crm.list_products(query=f"E2E product {run_id}")
             return next((p for p in page.items if p.id == product_id), None)
 
-        hit = await _poll(catalog_hit, sleep)
+        hit = await _poll(catalog_hit, sleep, tries=CATALOG_TRIES)
         _check(hit is not None, "product found in the catalog")
         _check(hit is not None and hit.price in (None, Decimal(100)), f"catalog price {hit and hit.price}")
         _check(hit is not None and hit.description == about, f"description {hit and hit.description!r}")
