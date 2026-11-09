@@ -2,15 +2,17 @@
 on 09.11) and how its answer is read."""
 
 import json
+import re
 from typing import Any
+from urllib.parse import parse_qsl
 
 import httpx
 import pytest
 
 from alnuzum_crm.amocrm import AmoCRM
 from alnuzum_crm.base import core_name, host, lookup_keys, mail_domain, same_company_name
-from alnuzum_crm.bitrix24 import Bitrix24
-from alnuzum_crm.errors import CrmValidationError
+from alnuzum_crm.bitrix24 import Bitrix24, php_query
+from alnuzum_crm.errors import CrmRateLimited, CrmValidationError
 from alnuzum_crm.odoo import Odoo
 from alnuzum_crm.tokens import StaticToken
 from alnuzum_crm.types import CompanyHit, DealIn, User
@@ -149,13 +151,46 @@ async def test_amocrm_users_are_the_active_ones_and_a_deal_starts_where_routed()
 # --- Bitrix24 ---
 
 
-def _b24(results: dict[str, Any], calls: list[tuple[str, Any]]) -> Bitrix24:
+def _nested(query: str) -> dict[str, Any]:
+    """A command of ``batch`` read back as PHP reads it: ``a[b][0]=x`` → ``{"a": {"b": ["x"]}}``."""
+    out: dict[str, Any] = {}
+    for key, value in parse_qsl(query, keep_blank_values=True):
+        path = re.findall(r"[^\[\]]+", key)
+        node = out
+        for part in path[:-1]:
+            node = node.setdefault(part, {})
+        node[path[-1]] = value
+
+    def lists(node: Any) -> Any:
+        if isinstance(node, dict):
+            if node and all(k.isdigit() for k in node):
+                return [lists(node[k]) for k in sorted(node, key=int)]
+            return {k: lists(v) for k, v in node.items()}
+        return node
+
+    return dict(lists(out))
+
+
+def _b24(results: dict[str, Any], calls: list[tuple[str, Any]], posts: list[str] | None = None) -> Bitrix24:
+    """``calls``: every method asked, batched or not; ``posts``: the requests that went to the portal."""
+
+    def answer(method: str, params: dict[str, Any]) -> Any:
+        calls.append((method, params))
+        got = results[method]
+        return got(params) if callable(got) else got
+
     def handler(request: httpx.Request) -> httpx.Response:
         method = request.url.path.rsplit("/", 1)[-1].removesuffix(".json")
         params = json.loads(request.content or b"{}")
-        calls.append((method, params))
-        answer = results[method]
-        return httpx.Response(200, json={"result": answer(params) if callable(answer) else answer})
+        if posts is not None:
+            posts.append(method)
+        if method == "batch":
+            done = {}
+            for key, cmd in params["cmd"].items():
+                name, _, query = cmd.partition("?")
+                done[key] = answer(name, _nested(query))
+            return httpx.Response(200, json={"result": {"result": done, "result_error": []}})
+        return httpx.Response(200, json={"result": answer(method, params)})
 
     return Bitrix24(
         "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/", rate=1000, transport=httpx.MockTransport(handler)
@@ -177,7 +212,9 @@ async def test_bitrix24_finds_by_requisites_site_mail_phone_and_title_then_reads
                     "PHONE": [{"VALUE": "+998 71 200 11 01"}],
                 }
             ]
-        return [{"ID": "63"}] if "WEB" in flt or "%TITLE" in flt else []
+        if "WEB" in flt:  # the portal may ignore the filter: only the site asked for counts
+            return [{"ID": "63", "WEB": [{"VALUE": "https://romashka-demo.uz"}]}, {"ID": "70", "WEB": []}]
+        return [{"ID": "63"}] if "%TITLE" in flt else []
 
     def requisites(params: dict[str, Any]) -> list[dict[str, Any]]:
         return [{"ENTITY_ID": "63", "RQ_INN": "305123456"}]
@@ -189,7 +226,8 @@ async def test_bitrix24_finds_by_requisites_site_mail_phone_and_title_then_reads
         "user.get": [{"ID": "1", "NAME": "Анна", "LAST_NAME": "Ли"}],
         "crm.deal.add": 501,
     }
-    async with _b24(results, calls) as crm:
+    posts: list[str] = []
+    async with _b24(results, calls, posts) as crm:
         hits = await crm.find_companies(
             inn="305123456",
             domain="romashka-demo.uz",
@@ -197,6 +235,7 @@ async def test_bitrix24_finds_by_requisites_site_mail_phone_and_title_then_reads
             phone="+998 71 200 11 01",
             name="«Ромашка»",
         )
+        assert posts == ["batch", "batch"]  # five searches in one request, the reading in another
         assert await crm.users() == [User("1", "Анна Ли")]
         await crm.create_deal(DealIn("Письмо", currency="UZS", stage_id="C3:NEW", responsible_id="1"))
         with pytest.raises(CrmValidationError):
@@ -230,9 +269,32 @@ async def test_bitrix24_asks_nothing_more_when_nothing_is_found() -> None:
         "crm.company.list": [],
         "crm.duplicate.findbycomm": [],
     }
-    async with _b24(results, calls) as crm:
+    posts: list[str] = []
+    async with _b24(results, calls, posts) as crm:
         assert await crm.find_companies(inn="305123456", name="Нет такой") == []
     assert [m for m, _ in calls] == ["crm.requisite.list", "crm.company.list"]
+    assert posts == ["batch"]
+
+
+async def test_bitrix24_a_failed_command_of_a_batch_raises_as_alone() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        error = {"error": "QUERY_LIMIT_EXCEEDED", "error_description": "Too many requests"}
+        return httpx.Response(200, json={"result": {"result": [], "result_error": {"inn": error}}})
+
+    crm = Bitrix24(
+        "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/", rate=1000, transport=httpx.MockTransport(handler)
+    )
+    async with crm:
+        with pytest.raises(CrmRateLimited):
+            await crm.find_companies(inn="305123456")
+
+
+def test_a_batch_command_is_a_php_query() -> None:
+    query = php_query({"filter": {"%TITLE": "Ромашка", "WEB": ["https://x.uz", "x.uz"]}, "select": ["ID"]})
+    assert _nested(query) == {
+        "filter": {"%TITLE": "Ромашка", "WEB": ["https://x.uz", "x.uz"]},
+        "select": ["ID"],
+    }
 
 
 # --- Zoho ---

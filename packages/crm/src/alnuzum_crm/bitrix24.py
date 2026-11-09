@@ -20,7 +20,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 
@@ -138,6 +138,33 @@ def _semantic(value: Any) -> DealStatus:
 DEAL_FIELDS = ["ID", "TITLE", "STAGE_ID", "STAGE_SEMANTIC_ID", "OPPORTUNITY", "COMPANY_ID", "CONTACT_ID"]
 
 
+def php_query(params: dict[str, Any]) -> str:
+    """The parameters of a REST method as a command of ``batch``: PHP's ``http_build_query``
+    (``filter[WEB][0]=…&select[0]=ID``)."""
+    pairs: list[tuple[str, str]] = []
+
+    def walk(prefix: str, value: Any) -> None:
+        if isinstance(value, dict):
+            for k, v in value.items():
+                walk(f"{prefix}[{k}]" if prefix else str(k), v)
+        elif isinstance(value, list | tuple):
+            for i, v in enumerate(value):
+                walk(f"{prefix}[{i}]", v)
+        elif isinstance(value, bool):
+            pairs.append((prefix, "Y" if value else "N"))
+        elif value is not None:
+            pairs.append((prefix, str(value)))
+
+    walk("", params)
+    return urlencode(pairs)
+
+
+def _rows(found: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    """The rows one command of a batch gave (an empty answer comes as ``[]`` or not at all)."""
+    got = found.get(key)
+    return [r for r in got if isinstance(r, dict)] if isinstance(got, list) else []
+
+
 NO_BBCODE = str.maketrans({"[": "［", "]": "］"})  # fullwidth brackets read the same, parse as text
 
 
@@ -240,6 +267,28 @@ class Bitrix24(CRM):
     async def _result(self, method: str, params: dict[str, Any] | None = None) -> Any:
         return (await self.call(method, params)).get("result")
 
+    async def _batch(self, cmds: dict[str, tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+        """Up to 50 methods in one call (one request of the portal's two a second): the result of each by
+        its key; one that failed raises as it would alone."""
+        if not cmds:
+            return {}
+        for method, _ in cmds.values():
+            if not re.fullmatch(r"[a-z0-9_.]+", method):
+                raise ValueError("not a REST method name")
+        data = await self.call(
+            "batch", {"halt": 0, "cmd": {k: f"{m}?{php_query(p)}" for k, (m, p) in cmds.items()}}
+        )
+        result = data.get("result")
+        result = result if isinstance(result, dict) else {}
+        errors = result.get("result_error")
+        for key, (method, _) in cmds.items():
+            error = errors.get(key) if isinstance(errors, dict) else None
+            if error:
+                body = error if isinstance(error, dict) else {"error": str(error)}
+                self._parse(method, httpx.Response(400, json=body))
+        found = result.get("result")
+        return found if isinstance(found, dict) else {}
+
     async def _list(self, method: str, params: dict[str, Any], limit: int) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         start: Any = 0
@@ -327,52 +376,70 @@ class Bitrix24(CRM):
         # live 09.11: the INN lives in requisites; the site matches only as written in full («https://x»), so
         # every way of writing it is asked at once; mail and phone through the duplicate finder; «%WEB»,
         # «%EMAIL» and «%PHONE» filters are ignored by the portal and give every company, never used here
+        # the portal answers two requests a second: every search goes in one batch, the reading in a second
         keys = lookup_keys(inn=inn, domain=domain, email=email, phone=phone, name=name)
-        ids: list[int] = []
+        cmds: dict[str, tuple[str, dict[str, Any]]] = {}
         if keys.get("inn"):
-            reqs = await self._result(
+            cmds["inn"] = (
                 "crm.requisite.list",
                 {"filter": {"RQ_INN": keys["inn"], "ENTITY_TYPE_ID": 4}, "select": ["ENTITY_ID"]},
             )
-            ids += [int(r["ENTITY_ID"]) for r in reqs or []]
         if keys.get("domain"):
             sites = [
                 f"{scheme}{www}{keys['domain']}"
                 for scheme in ("https://", "http://", "")
                 for www in ("", "www.")
             ]
-            rows = await self._result("crm.company.list", {"filter": {"WEB": sites}, "select": ["ID"]})
-            ids += [int(r["ID"]) for r in rows or []]
+            cmds["domain"] = ("crm.company.list", {"filter": {"WEB": sites}, "select": ["ID", "WEB"]})
         for kind, value in (("EMAIL", keys.get("email")), ("PHONE", keys.get("phone"))):
             if value:
-                found = await self._result(
-                    "crm.duplicate.findbycomm", {"entity_type": "COMPANY", "type": kind, "values": [value]}
+                cmds[kind.lower()] = (
+                    "crm.duplicate.findbycomm",
+                    {"entity_type": "COMPANY", "type": kind, "values": [value]},
                 )
-                if isinstance(found, dict):
-                    ids += [int(x) for x in found.get("COMPANY", [])]
         if keys.get("name"):
-            rows = await self._result(
+            cmds["name"] = (
                 "crm.company.list",
                 {"filter": {"%TITLE": keys["name"]}, "select": ["ID"], "order": {"ID": "ASC"}},
             )
-            ids += [int(r["ID"]) for r in rows or []]
+        found = await self._batch(cmds)
+        ids = [int(r["ENTITY_ID"]) for r in _rows(found, "inn")]
+        # the site again by its host: a portal that ignored the filter would give its first 50 companies
+        ids += [
+            int(r["ID"])
+            for r in _rows(found, "domain")
+            if any(host(str(w.get("VALUE") or "")) == keys.get("domain") for w in r.get("WEB") or [])
+        ]
+        for kind in ("email", "phone"):
+            dup = found.get(kind)
+            if isinstance(dup, dict):
+                ids += [int(x) for x in dup.get("COMPANY", [])]
+        ids += [int(r["ID"]) for r in _rows(found, "name")]
         wanted = list(dict.fromkeys(ids))[:limit]
         if not wanted:
             return []
-        rows = await self._result(
-            "crm.company.list",
-            {"filter": {"ID": wanted}, "select": ["ID", "TITLE", "WEB", "EMAIL", "PHONE"]},
+        read = await self._batch(
+            {
+                "rows": (
+                    "crm.company.list",
+                    {"filter": {"ID": wanted}, "select": ["ID", "TITLE", "WEB", "EMAIL", "PHONE"]},
+                ),
+                "reqs": (
+                    "crm.requisite.list",
+                    {"filter": {"ENTITY_TYPE_ID": 4, "ENTITY_ID": wanted}, "select": ["ENTITY_ID", "RQ_INN"]},
+                ),
+            }
         )
-        reqs = await self._result(
-            "crm.requisite.list",
-            {"filter": {"ENTITY_TYPE_ID": 4, "ENTITY_ID": wanted}, "select": ["ENTITY_ID", "RQ_INN"]},
-        )
-        inns = {str(r["ENTITY_ID"]): digits(r.get("RQ_INN")) for r in reqs or [] if digits(r.get("RQ_INN"))}
+        inns = {
+            str(r["ENTITY_ID"]): digits(r.get("RQ_INN"))
+            for r in _rows(read, "reqs")
+            if digits(r.get("RQ_INN"))
+        }
 
         def values(row: dict[str, Any], key: str) -> tuple[str, ...]:
             return tuple(str(v.get("VALUE") or "") for v in row.get(key) or [] if v.get("VALUE"))
 
-        by_id = {str(r["ID"]): r for r in rows or []}
+        by_id = {str(r["ID"]): r for r in _rows(read, "rows")}
         return [
             CompanyHit(
                 cid,
