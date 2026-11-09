@@ -94,6 +94,23 @@ async def test_amo_status_mapping(status: int, error: type[e.CrmError]) -> None:
     assert err.value.crm == "amocrm"
 
 
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "Код ошибки 205. В случае повторного возникновения ошибки, обращайтесь в нашу техническую поддержку",
+        "Error code 205. If error appears again, you can write to our support team",
+        "Payment Required",
+    ],
+)
+async def test_amo_account_over_its_limit_is_a_permission_error(detail: str) -> None:
+    body = {"title": "Bad Request", "status": 400, "detail": detail}
+    async with amo(Script(httpx.Response(400, json=body))) as crm:
+        with pytest.raises(e.CrmPermissionError) as err:
+            await crm.create_company(CompanyIn("Acme"))
+    assert err.value.code == "account_limit"
+    assert err.value.status == 400
+
+
 async def test_amo_error_text_without_json_and_missing_records() -> None:
     async with amo(
         Script(httpx.Response(400, text="<html>"), httpx.Response(204), httpx.Response(204))

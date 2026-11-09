@@ -11,6 +11,7 @@ What differs from other CRMs, checked live:
 - 7 requests a second per account.
 """
 
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -70,6 +71,16 @@ from alnuzum_crm.types import (
 
 WON, LOST = 142, 143
 INN_NAMES = frozenset({"инн", "inn", "tin", "stir", "инн/tin", "tax id"})
+
+
+ACCOUNT_LIMIT = "account_limit"
+
+
+def _account_locked(text: str) -> bool:
+    """A 400 that is the account, not the request: over its records limit (a technical account keeps
+    100 contacts and companies) creating a contact or a company answers code 205 ("contact not
+    created" in amoCRM's table of error codes) and a deal "Payment Required"."""
+    return "Payment Required" in text or re.search(r"\b(?:Код ошибки|Error code) 205\b", text) is not None
 
 
 def _error_text(resp: httpx.Response) -> str:
@@ -192,6 +203,8 @@ class AmoCRM(CRM):
             raise CrmRateLimited(text, crm=crm, status=status)
         if status >= 500:
             raise CrmUnavailable(text, crm=crm, status=status)
+        if _account_locked(text):
+            raise CrmPermissionError(text, crm=crm, status=status, code=ACCOUNT_LIMIT)
         raise CrmValidationError(text, crm=crm, status=status)
 
     async def _embedded(self, method: str, url: str, key: str, **kw: Any) -> list[dict[str, Any]]:
