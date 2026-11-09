@@ -77,10 +77,15 @@ install -d -m 0750 /etc/alnuzum /var/lib/alnuzum
 install -m 0755 "$HERE/apps-deploy" /usr/local/bin/apps-deploy
 install -m 0644 "$HERE/compose.app.yml" /srv/apps/compose.app.yml
 install -m 0644 "$HERE/compose.edge.yml" /srv/apps/edge/compose.yml
-install -m 0644 "$HERE/Caddyfile" /srv/apps/edge/Caddyfile
+# Caddy sees its Caddyfile through a bind mount of the file: a new inode (install, cp over a rename) stays
+# unseen by the running container, so the content is replaced in place and Caddy reloaded below
+[ -f /srv/apps/edge/Caddyfile ] || install -m 0644 /dev/null /srv/apps/edge/Caddyfile
+cat "$HERE/Caddyfile" > /srv/apps/edge/Caddyfile
 install -m 0644 "$HERE/compose.odoo.yml" /srv/apps/compose.odoo.yml
 install -d -m 0755 /var/log/caddy
 docker compose -p edge -f /srv/apps/edge/compose.yml up -d
+docker compose -p edge -f /srv/apps/edge/compose.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
+  || docker compose -p edge -f /srv/apps/edge/compose.yml restart caddy
 
 # --- watchdog every minute, nightly dump of production to the backup host ---
 # The administrator writes /etc/alnuzum/alerts.env (TELEGRAM_ALERT_TOKEN, TELEGRAM_ALERT_CHAT) and

@@ -124,3 +124,11 @@ def test_the_access_log_drops_every_header_that_carries_a_secret() -> None:
     for header in ("Referer", "X-Telegram-Bot-Api-Secret-Token"):
         assert f"request>headers>{header} delete" in caddy
     assert 'request>uri regexp "\\?.*$" "?_"' in caddy
+
+
+def test_the_caddyfile_is_replaced_in_place_and_reloaded() -> None:
+    """Caddy mounts the file itself: a new inode would leave the running Caddy on the old rules."""
+    boot = (DEPLOY / "server" / "bootstrap.sh").read_text()
+    assert 'install -m 0644 "$HERE/Caddyfile"' not in boot
+    assert 'cat "$HERE/Caddyfile" > /srv/apps/edge/Caddyfile' in boot
+    assert "caddy reload --config /etc/caddy/Caddyfile" in boot
