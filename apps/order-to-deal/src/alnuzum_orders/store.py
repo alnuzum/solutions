@@ -52,6 +52,9 @@ class OrderRun(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     owner: Mapped[str] = mapped_column(String(128), index=True)
     ip_key: Mapped[str] = mapped_column(String(64), index=True)
+    # the address that asked to write it: the demo deals of an address are counted by this key, set under
+    # the same lock as status "writing"
+    write_ip_key: Mapped[str | None] = mapped_column(String(64), index=True)
     connection_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("crm_connections.id", ondelete="CASCADE"))
     demo: Mapped[bool] = mapped_column(Boolean, default=False)
     crm: Mapped[str] = mapped_column(String(16))
@@ -243,7 +246,7 @@ class OrderStore:
                 await _lock(session, LOCK_WRITES_CRM, crm)
                 if await _demo_writes(session, OrderRun.owner == owner) >= demo.per_session:
                     return "quota"
-                if await _demo_writes(session, OrderRun.ip_key == ip_key) >= demo.per_ip:
+                if await _demo_writes(session, OrderRun.write_ip_key == ip_key) >= demo.per_ip:
                     return "quota"
                 if state := await _crm_state(session, crm, demo):
                     return state
@@ -252,7 +255,7 @@ class OrderStore:
                 .where(
                     OrderRun.id == run_id, OrderRun.owner == owner, OrderRun.status.in_(("ready", "failed"))
                 )
-                .values(status="writing")
+                .values(status="writing", write_ip_key=ip_key[:64])
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
 

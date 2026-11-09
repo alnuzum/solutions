@@ -564,3 +564,28 @@ async def test_kommo_demo_is_bounded_in_all_by_the_journal(make: Any, engine: As
     assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=full_total")
     page = await b.http.get(f"/ru/orders/{rid}")
     assert "Демо Kommo заполнено: тестовый аккаунт больше не принимает сделок." in page.text
+
+
+async def test_demo_writes_per_address_count_the_address_that_writes(make: Any) -> None:
+    """Uploaded from A, written from B: B's writes are counted for B, never for A."""
+    from .conftest import ORIGIN as _origin
+
+    h = await make(*([choose_first()] * 4), orders_demo_writes_per_session=10, orders_demo_writes_per_ip=2)
+    a = Browser(h.app, ip="198.51.100.1")
+    runs = [run_id(await a.order("demo:bitrix24", sample="order-ru.xlsx")) for _ in range(4)]
+    token = await a.csrf(f"/ru/orders/{runs[0]}")
+    cookies = dict(a.http.cookies)
+
+    async def write_from(ip: str, rid: str) -> str:
+        other = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=h.app, client=(ip, 5555)), base_url=_origin, cookies=cookies
+        )
+        resp = await other.post(f"/ru/orders/{rid}", data={"csrf": token, "action": "write"})
+        return resp.headers["location"].rsplit("?n=", 1)[-1]
+
+    assert await write_from("203.0.113.50", runs[0]) == "written"
+    assert await write_from("203.0.113.50", runs[1]) == "written"
+    assert await write_from("203.0.113.50", runs[2]) == "quota"  # B has written its two
+    # A uploaded all four but wrote none: B's deals are not A's
+    resp = await a.decide(runs[3], {"action": "write"})
+    assert resp.headers["location"].endswith("?n=written")
