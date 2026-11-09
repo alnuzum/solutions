@@ -1,6 +1,7 @@
 """Pages of the solution and the Telegram webhook."""
 
 import asyncio
+import functools
 import hmac
 import json
 import logging
@@ -35,6 +36,9 @@ HOOK = "/hooks/voice/telegram"
 # updates in work at once: each may hold a downloaded note (up to 8 MB); one more is answered 503 and
 # Telegram sends it again later (the update is marked seen only when its work begins)
 MAX_TASKS = 8
+# of them, one chat's: its extra update is answered at once in the webhook's reply (Telegram runs the method
+# it names), so one account cannot hold every place
+MAX_CHAT_TASKS = 2
 MAX_UPDATE = 64 * 1024
 MAX_FIELD = 20 * 1024  # a typed command is at most MAX_TEXT characters: 20 KB holds it in any script
 
@@ -86,6 +90,32 @@ def _uuid(value: str, lang: str) -> uuid.UUID:
         raise PageError(404, "e_404_t", "e_404", lang) from None
 
 
+def _chat_of(update: dict[str, Any]) -> tuple[int | None, dict[str, Any]]:
+    """The chat of an update, and the method that answers its extra update at once: a message gets «wait»,
+    a pressed button gets its spinner stopped with the same words."""
+    cq = update.get("callback_query")
+    msg = (cq.get("message") if isinstance(cq, dict) else None) or update.get("message")
+    chat = msg.get("chat") if isinstance(msg, dict) else None
+    chat_id = chat.get("id") if isinstance(chat, dict) else None
+    if not isinstance(chat_id, int):
+        return None, {}
+    holder = cq if isinstance(cq, dict) else msg
+    sender = (holder.get("from") if isinstance(holder, dict) else None) or {}
+    lang = "en" if str(sender.get("language_code") or "").startswith("en") else "ru"
+    text = texts(lang)["b_wait"]
+    if isinstance(cq, dict) and isinstance(cq.get("id"), str):
+        return chat_id, {"method": "answerCallbackQuery", "callback_query_id": cq["id"], "text": text}
+    return chat_id, {"method": "sendMessage", "chat_id": chat_id, "text": text}
+
+
+def _done_in_chat(voice: Voice, chat: int, _task: object = None) -> None:
+    left = voice.chat_tasks.get(chat, 0) - 1
+    if left > 0:
+        voice.chat_tasks[chat] = left
+    else:
+        voice.chat_tasks.pop(chat, None)
+
+
 def build(kit: Kit, voice: Voice) -> APIRouter:
     router = APIRouter()
     updates = Updates(voice, kit)
@@ -106,12 +136,18 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
         except ValueError:
             return JSONResponse({"ok": False}, status_code=400)
         if isinstance(update, dict):
+            chat, wait = _chat_of(update)
+            if chat is not None and voice.chat_tasks.get(chat, 0) >= MAX_CHAT_TASKS:
+                return JSONResponse(wait)
             if len(voice.tasks) >= MAX_TASKS:
                 return JSONResponse({"ok": False}, status_code=503)
             # answered at once: Telegram waits for no reading; the work goes on in the background
             task = asyncio.create_task(updates.handle(request.app, update))
             voice.tasks.add(task)
             task.add_done_callback(voice.tasks.discard)
+            if chat is not None:
+                voice.chat_tasks[chat] = voice.chat_tasks.get(chat, 0) + 1
+                task.add_done_callback(functools.partial(_done_in_chat, voice, chat))
         return JSONResponse({"ok": True})
 
     @router.get("/voice/link.css")

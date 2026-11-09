@@ -114,6 +114,7 @@ class Voice:
         self._reader, self._scribe, self._bot = reader, scribe, bot
         self.catalogs = CatalogCache()
         self.tasks: set[Any] = set()
+        self.chat_tasks: dict[int, int] = {}  # updates in work per chat
 
     def reader(self) -> VoiceReader:
         if self._reader is None:

@@ -983,3 +983,38 @@ async def test_a_test_account_over_its_records_limit_says_the_demo_is_unavailabl
     await h.update(callback(593, 4, button))
     assert "Демо Битрикс24 временно недоступно" in h.tg.texts()[-1]
     assert await rows(engine, "SELECT count(*) FROM crm_writes") == [(1,)]
+
+
+async def test_one_chat_cannot_take_every_place_in_work(make: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Narrow check I-1: a chat has at most two updates in work; its extra one gets an answer at once (in
+    the webhook's reply, no 503), and another chat still gets a place."""
+    from alnuzum_voice import bot as bot_mod
+    from alnuzum_voice.web import MAX_CHAT_TASKS
+
+    h: Harness = await make()
+    gate, seen = asyncio.Event(), []
+
+    async def slow(self: Any, app: Any, update: dict[str, Any]) -> None:
+        seen.append(update.get("update_id"))
+        await gate.wait()
+
+    monkeypatch.setattr(bot_mod.Updates, "handle", slow)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": TG_SECRET}
+    async with h.client() as c:
+        mine = [
+            await c.post("/hooks/voice/telegram", json=message(601, n, text="/start"), headers=headers)
+            for n in (1, 2, 3)
+        ]
+        press = await c.post("/hooks/voice/telegram", json=callback(601, 4, "c:bitrix24"), headers=headers)
+        other = await c.post("/hooks/voice/telegram", json=message(602, 5, text="/start"), headers=headers)
+    assert MAX_CHAT_TASKS == 2
+    assert [r.status_code for r in mine] == [200, 200, 200] and press.status_code == other.status_code == 200
+    extra = mine[2].json()
+    assert extra["method"] == "sendMessage" and extra["chat_id"] == 601 and "предыдущ" in extra["text"]
+    assert press.json()["method"] == "answerCallbackQuery" and press.json()["callback_query_id"] == "cb4"
+    assert other.json() == {"ok": True}
+    await asyncio.sleep(0)
+    assert seen == [1, 2, 5]  # the other chat is in work
+    gate.set()
+    await asyncio.gather(*list(h.voice.tasks))
+    assert h.voice.chat_tasks == {}
