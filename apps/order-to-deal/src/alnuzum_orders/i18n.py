@@ -13,11 +13,16 @@ _T: dict[str, tuple[str, str]] = {
         "calculation and a task for what is left.",
     ),
     "o_quality": (
-        "Точность на эталонном наборе: {acc} % строк ({lines} строк, {orders} заявок в четырёх форматах); "
-        "из ошибок система сама пометила спорными {flagged}. Замер {date}.",
-        "Accuracy on the reference set: {acc} % of lines ({lines} lines, {orders} orders in four formats); of "
-        "the mistakes, the system itself marked {flagged} as unsure. Measured {date}.",
+        "Точность на эталонном наборе: {acc} строк ({lines} строк, {orders} заявок в четырёх форматах); "
+        "{mistakes}. Замер {date}.",
+        "Accuracy on the reference set: {acc} of lines ({lines} lines, {orders} orders in four formats); "
+        "{mistakes}. Measured {date}.",
     ),
+    "o_quality_flagged": (
+        "ошибок {wrong}, из них система сама пометила спорными {flagged}",
+        "mistakes: {wrong}, of which the system itself marked {flagged} as unsure",
+    ),
+    "o_quality_clean": ("ошибок нет", "no mistakes"),
     "o_where": ("Куда записать", "Where to write"),
     "o_demo": ("Демо без регистрации", "Demo, no sign-up"),
     "o_demo_note": (

@@ -33,6 +33,7 @@ from alnuzum_platform.db import make_engine, make_sessionmaker, ping
 from alnuzum_platform.solutions import Kit, Solution, discover
 from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound, ConnectionStore
 from alnuzum_platform.web.connectors import Connectors
+from alnuzum_platform.web.i18n import percent
 from alnuzum_platform.web.routes import HookRefused, PageError, build_router, render_error
 from alnuzum_platform.web.security import SESSION_DAYS, RateLimiter, Sessions, make_middleware
 
@@ -137,6 +138,7 @@ def create_app(
         [FileSystemLoader(str(WEB / "templates")), *(FileSystemLoader(str(s.templates)) for s in found)]
     )
     templates.env.globals["solutions"] = found
+    templates.env.filters["pct"] = percent  # a share as a percent in the page's language
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

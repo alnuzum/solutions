@@ -763,3 +763,26 @@ async def test_a_huge_text_is_refused_before_it_is_read(make: Any) -> None:
         fits = await c.post("/ru/voice", data=form | {"text": "я" * 2001})  # 4 KB: read, then refused
         assert fits.status_code == 422 and "Текст длиннее 2000 знаков" in fits.text
     assert took < 2 and h.messages.requests == []
+
+
+# --- what a visitor reads before an upload ---
+
+OFF_RU, OFF_EN = "Голосовые сейчас не принимаются", "Voice notes are not taken right now"
+
+
+async def test_the_reference_numbers_read_as_a_reader_writes_them(make: Any) -> None:
+    from alnuzum_platform.web.i18n import percent
+
+    assert [percent(v, "ru") for v in (1, 0.985, 0.0847, 0)] == [
+        "100\u00a0%",
+        "98,5\u00a0%",
+        "8,5\u00a0%",
+        "0\u00a0%",
+    ]
+    assert [percent(v, "en") for v in (1, 0.985, 0.0847, 0)] == ["100%", "98.5%", "8.5%", "0%"]
+    h: Harness = await make()
+    async with h.client() as c:
+        ru, en = (await c.get("/ru/voice")).text, (await c.get("/en/voice")).text
+    assert "распознавания 8,5\u00a0%, сделка найдена в 100\u00a0%, изменения без ошибок в 100\u00a0%" in ru
+    assert "speech 8.5%, deal found in 100%, changes without a mistake in 100%" in en
+    assert "8.5 %" not in ru + en and OFF_RU not in ru and OFF_EN not in en

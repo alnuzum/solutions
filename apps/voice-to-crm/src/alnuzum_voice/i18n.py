@@ -25,7 +25,7 @@ RU = {
     "v_linked": "привязано чатов: {n}",
     "v_unlink": "Отвязать чаты",
     "v_quality": "Эталон: {n} {word}, синтезированные голоса, {uz} из них по-узбекски. Доля ошибок слов "
-    "распознавания {wer} %, сделка найдена в {deal} %, изменения без ошибок в {exact} %, лишних изменений {extra}. "
+    "распознавания {wer}, сделка найдена в {deal}, изменения без ошибок в {exact}, лишних изменений {extra}. "
     "Это чистая синтезированная речь: точность на живых голосовых с шумом эталон не обещает.",
     "v_cost": "Распознавание и разбор: {usd} $",
     "v_transcript": "Что сказано",
@@ -148,7 +148,7 @@ EN = {
     "v_linked": "bound chats: {n}",
     "v_unlink": "Unbind chats",
     "v_quality": "Reference set: {n} {word}, synthesised voices, {uz} of them in Uzbek. Word error rate of the "
-    "speech {wer} %, deal found in {deal} %, changes without a mistake in {exact} %, extra changes {extra}. "
+    "speech {wer}, deal found in {deal}, changes without a mistake in {exact}, extra changes {extra}. "
     "It is clean synthesised speech: the set promises nothing about live voice notes with noise.",
     "v_cost": "Speech and reading: {usd} $",
     "v_transcript": "What was said",

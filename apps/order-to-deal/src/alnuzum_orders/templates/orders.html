@@ -4,7 +4,7 @@
 {% block body %}
 <div class="head">
   <div><h1>{{ t.o_title }}</h1><p>{{ t.o_lead }}</p>
-  {% if quality %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.o_quality.format(acc=(quality.accuracy * 100)|round(1), lines=quality.lines, orders=quality.orders, flagged=(quality.wrong_flagged ~ ' / ' ~ quality.wrong) if quality.wrong else '—', date=quality.date) }}</p>{% endif %}
+  {% if quality %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.o_quality.format(acc=quality.accuracy|pct(lang), lines=quality.lines, orders=quality.orders, mistakes=t.o_quality_flagged.format(wrong=quality.wrong, flagged=quality.wrong_flagged) if quality.wrong else t.o_quality_clean, date=quality.date) }}</p>{% endif %}
   </div>
 </div>
 {% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] }}</p>{% endif %}
