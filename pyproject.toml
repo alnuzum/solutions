@@ -38,7 +38,7 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF", "SIM", "PT", "RET"
 ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S101", "S105", "S106", "S107", "S311", "ASYNC210", "E501"]
+"**/tests/**" = ["S101", "S105", "S106", "S107", "S311", "ASYNC210", "E501", "PT018"]
 "scripts/**" = ["S101"]
 # prompts and the reference set read better as whole sentences and rows
 "apps/order-to-deal/src/alnuzum_orders/model.py" = ["E501"]

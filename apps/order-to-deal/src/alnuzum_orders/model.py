@@ -195,9 +195,10 @@ def _quantity(value: Any) -> Decimal | None:
     except ArithmeticError:
         return None
     # a quantity, not an instruction: positive, bounded, at most three decimals
-    if not qty.is_finite() or qty <= 0 or qty > 1_000_000:
+    if not qty.is_finite() or qty > 1_000_000:
         return None
-    return plain(qty.quantize(Decimal("0.001")))
+    qty = qty.quantize(Decimal("0.001"))
+    return plain(qty) if qty > 0 else None
 
 
 def parse_extraction(data: dict[str, Any], line_count: int) -> Extraction:
