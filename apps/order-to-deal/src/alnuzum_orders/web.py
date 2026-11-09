@@ -417,7 +417,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         if demo and not result.catalog.get("currency"):
             # Zoho gives products no currency; the demo account's own is known
             result.catalog["currency"] = _demo_currency(info)
-        result.catalog["target"] = target
+        result.catalog["target"] = _target_key(info, demo)
         await ost.fill_run(run_id, result.to_json())
         log.info("order run %s: %d lines, %d calls", run_id, len(result.lines), result.usage["calls"])
         return redirect(f"/{lang}/orders/{run_id}")
@@ -535,9 +535,10 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         sid = kit.need_session(request, lang)
         info, demo = await orders.target(kit, request, lang, target)
         rules = await orders.rules(
-            request, kit.owner(sid), target, None if not demo else _demo_currency(info)
+            request, kit.owner(sid), _target_key(info, demo), None if not demo else _demo_currency(info)
         )
-        return kit.page(request, "orders_rules.html", lang, target=target, info=info, demo=demo, rules=rules,
+        key = _target_key(info, demo)
+        return kit.page(request, "orders_rules.html", lang, target=key, info=info, demo=demo, rules=rules,
                         back=request.query_params.get("back", ""))  # fmt: skip
 
     @router.post("/{lang}/orders/rules/{target}")
@@ -558,17 +559,24 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         try:
             rules = parse_rules(data)
         except RulesError as exc:
-            return kit.page(request, "orders_rules.html", lang, 400, target=target, info=info, demo=demo,
+            key = _target_key(info, demo)
+            return kit.page(request, "orders_rules.html", lang, 400, target=key, info=info, demo=demo,
                             rules=None, typed=f, error=exc.code, back=f.get("back", ""))  # fmt: skip
-        await orders.store(request).set_rules(kit.owner(sid), target, rules.to_json())
-        back = f.get("back", "")
+        # the key and every part of the address come from what is stored, never from what was posted
+        saved_for = _target_key(info, demo)
+        await orders.store(request).set_rules(kit.owner(sid), saved_for, rules.to_json())
         try:
-            run_back = uuid.UUID(back)
-        except ValueError:
-            return redirect(f"/{lang}/orders/rules/{target}?n=saved")
-        return redirect(f"/{lang}/orders/{run_back}")
+            run_back = await orders.store(request).get_run(uuid.UUID(f.get("back", "")), kit.owner(sid))
+        except (ValueError, RunNotFound):
+            return redirect(f"/{lang}/orders/rules/{saved_for}?n=saved")
+        return redirect(f"/{lang}/orders/{run_back.id}")
 
     return router
+
+
+def _target_key(info: ConnectionInfo, demo: bool) -> str:
+    """How a target is written in a run and keys its rules: always built from the stored connection."""
+    return f"demo:{info.crm.value}" if demo else f"conn:{info.id}"
 
 
 def _demo_currency(info: ConnectionInfo) -> str | None:
