@@ -683,7 +683,8 @@ async def test_a_retry_into_amocrm_does_not_add_the_products_twice(make: Any, en
         assert first.headers["location"].endswith("?n=failed")  # the second line met 429 after the first
         shown = await c.get(first.headers["location"])
         assert "Записано шагов: 1 из 5, повтор допишет остальное" in shown.text
-        again = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
+        skip = {f"p{i}": "skip" for i in range(8)}  # a part is written: the plan no longer changes
+        again = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"} | skip)
         assert again.headers["location"].endswith("?n=written")
     assert amo.link_calls == [[av16], [nym], [nym]]  # the retry did not link the first product again
     assert amo.links == {av16: 25.0, nym: 50.0}  # 5 + 20, not 5 + 20 + 20
