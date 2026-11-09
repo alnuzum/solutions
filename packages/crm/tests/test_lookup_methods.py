@@ -251,7 +251,7 @@ async def test_bitrix24_finds_by_requisites_site_mail_phone_and_title_then_reads
         )
     ]
     sites = next(p["filter"]["WEB"] for m, p in calls if m == "crm.company.list" and "WEB" in p["filter"])
-    assert "https://romashka-demo.uz" in sites and "www.romashka-demo.uz" in sites
+    assert {"https://romashka-demo.uz", "www.romashka-demo.uz"} <= set(sites)
     assert not any("%WEB" in p.get("filter", {}) or "%PHONE" in p.get("filter", {}) for _, p in calls)
     dup = [p for m, p in calls if m == "crm.duplicate.findbycomm"]
     assert [(p["type"], p["values"]) for p in dup] == [

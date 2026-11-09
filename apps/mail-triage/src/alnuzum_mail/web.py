@@ -327,7 +327,8 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
             key,
             {"rules": [r.to_json() for r in rules], "names": {k: v for k, v in names.items() if k in used}},
         )
-        return redirect(f"/{lang}/mail/rules/{value}?n=saved")
+        # back to the page of the target found, not of the words the visitor sent
+        return redirect(f"/{lang}/mail/rules/{key if demo else info.id}?n=saved")
 
     return router
 
