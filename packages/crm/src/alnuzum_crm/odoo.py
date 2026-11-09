@@ -286,7 +286,10 @@ class Odoo(CRM):
         if keys.get("email"):
             parts.append(["email", "=ilike", like_literal(keys["email"])])
         if keys.get("phone"):
-            parts.append(["phone_mobile_search", "ilike", keys["phone"][-9:]])
+            # Odoo takes a value that starts with «00» for an international prefix and matches it only at the
+            # start of a number (+7 900…, a test number with the code 00): such a tail goes without them
+            tail = keys["phone"][-9:]
+            parts.append(["phone_mobile_search", "ilike", tail[2:] if tail.startswith("00") else tail])
         if keys.get("name"):
             parts.append(["name", "ilike", like_literal(keys["name"])])
         if not parts:

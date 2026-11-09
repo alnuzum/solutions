@@ -418,6 +418,7 @@ async def test_odoo_looks_among_companies_only_and_routes_a_new_deal() -> None:
             inn="305123456", domain="romashka-demo.uz", phone="+998712001101", name="Ромашка"
         )
         await crm.create_deal(DealIn("Письмо", stage_id="3", responsible_id="2"))
+        await crm.find_companies(phone="+7 900 123 45 67")  # a tail «00…» Odoo would anchor at the start
     assert hits == [
         CompanyHit(
             "16",
@@ -431,8 +432,9 @@ async def test_odoo_looks_among_companies_only_and_routes_a_new_deal() -> None:
     domains = [
         args[0] for model, method, args in fake.calls if model == "res.partner" and method == "search_read"
     ]
-    assert domains[-1][:2] == ["&", ["is_company", "=", True]]
-    assert domains[-1].count("|") == 4 and ["phone_mobile_search", "ilike", "712001101"] in domains[-1]
+    assert domains[-2][:2] == ["&", ["is_company", "=", True]]
+    assert domains[-2].count("|") == 4 and ["phone_mobile_search", "ilike", "712001101"] in domains[-2]
+    assert ["phone_mobile_search", "ilike", "1234567"] in domains[-1]
     created = next(
         args[0] for model, method, args in fake.calls if model == "crm.lead" and method == "create"
     )
