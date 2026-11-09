@@ -255,6 +255,19 @@ PURCHASE_POOL = (("E2E purchase pool 1", 60, Decimal(3)), ("E2E purchase pool 2"
 POOL_KINDS = ("amocrm", "kommo", "zoho")
 
 
+async def _linked_back(crm: CRM, company: str, title: str) -> bool:
+    """The conformance run unlinks every deal from the amoCRM pool company: a pool deal found by its title
+    is linked back instead of a new one made."""
+    if not isinstance(crm, AmoCRM):
+        return False
+    for hit in await crm.find_deals(title, limit=20):
+        if hit.title == title and hit.status is DealStatus.WON:
+            link = [{"to_entity_id": int(hit.id), "to_entity_type": "leads"}]
+            await crm._request("POST", f"/api/v4/companies/{int(company)}/link", json=link)
+            return True
+    return False
+
+
 async def _product(crm: CRM, name: str, made: list[str]) -> str:
     found = next((p.id for p in (await crm.list_products(query=name)).items if p.name == name), None)
     if found is None:
@@ -293,7 +306,7 @@ async def test_purchases_and_a_task_on_the_client(
             have = {p.title: p for p in (await crm.purchases(company_id=company)).items}
             fresh = False
             for title, days, qty in PURCHASE_POOL:
-                if title in have and pool:
+                if pool and (title in have or await _linked_back(crm, company, title)):
                     continue
                 line = DealLine(f"E2E product {key}", qty, Decimal(100), product_id=product)
                 made = await crm.create_won_deal(
