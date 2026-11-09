@@ -120,7 +120,8 @@ class ZohoCRM(CRM):
         orgs = data.get("org") if isinstance(data, dict) else None
         org = orgs[0] if isinstance(orgs, list) and orgs and isinstance(orgs[0], dict) else {}
         web = f"https://{ZOHO_WEB_HOSTS.get(self.api_host, 'crm.zoho.com')}/crm/{org.get('domain_name', '')}"
-        return AccountInfo(str(org.get("id", "")), str(org.get("company_name", "")), web)
+        name = org.get("company_name") or org.get("domain_name") or ""
+        return AccountInfo(str(org.get("id", "")), str(name), web)
 
     def deal_link(self, account: AccountInfo, deal_id: str) -> str:
         return f"{account.web}/tab/Potentials/{self._id(deal_id)}"

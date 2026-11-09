@@ -106,6 +106,17 @@ async def test_zoho_account_survives_an_odd_answer() -> None:
     assert (await crm.account()).id == ""
 
 
+async def test_zoho_org_without_a_company_name_is_named_by_its_domain() -> None:
+    # a fresh Zoho org answers "company_name": null; the page showed "None"
+    org = {"org": [{"id": "9001", "domain_name": "org9001", "company_name": None}]}
+    crm = ZohoCRM(
+        "www.zohoapis.com",
+        StaticToken("t", crm="zoho"),
+        transport=transport(httpx.Response(200, json=org), []),
+    )
+    assert (await crm.account()).name == "org9001"
+
+
 async def test_odoo_account_authenticates_every_time() -> None:
     seen: list[httpx.Request] = []
 
