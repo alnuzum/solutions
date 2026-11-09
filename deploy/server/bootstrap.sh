@@ -27,6 +27,8 @@ fi
 install -m 0644 "$HERE/daemon.json" /etc/docker/daemon.json
 systemctl restart docker
 for n in edge-prod edge-stand edge-odoo; do docker network inspect "$n" >/dev/null 2>&1 || docker network create "$n"; done
+# Caddy's own network with IPv6 (a ULA subnet from Docker's pool): IPv6 visitors reach it with their address
+docker network inspect edge-v6 >/dev/null 2>&1 || docker network create --ipv6 edge-v6
 
 # --- ssh: keys only ---
 install -m 0644 "$HERE/sshd-alnuzum.conf" /etc/ssh/sshd_config.d/10-alnuzum.conf
