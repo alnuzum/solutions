@@ -852,3 +852,55 @@ def test_the_telegram_hook_is_the_path_outside_the_limit_of_an_address() -> None
     from alnuzum_platform.web.security import UNLIMITED
 
     assert HOOK in UNLIMITED
+
+
+async def test_a_write_or_a_reading_that_breaks_outside_the_crm_errors_leaves_no_run_stuck(
+    make: Any, engine: Any
+) -> None:
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 2)
+    await _pick_demo(h, 571)
+    found = h.crm.find_deals
+
+    async def broken(*_a: Any, **_k: Any) -> Any:
+        raise RuntimeError("a bug of an adapter")
+
+    h.crm.find_deals = broken  # type: ignore[method-assign]
+    await h.update(message(571, 1, text="По сделке Ромашка переведи на переговоры."))
+    assert "Не удалось разобрать" in h.tg.texts()[-1]  # the person gets an answer
+    assert await rows(engine, "SELECT status, error FROM voice_runs") == [("rejected", "error")]
+    h.crm.find_deals = found  # type: ignore[method-assign]
+    await h.update(message(571, 2, text="По сделке Ромашка переведи на переговоры."))
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    h.crm.update_deal = broken  # type: ignore[method-assign]
+    await h.update(callback(571, 3, button))
+    assert "Не удалось записать" in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT status, error FROM voice_runs WHERE result IS NOT NULL") == [
+        ("failed", "error")
+    ]
+    assert await rows(engine, "SELECT ok, error FROM crm_writes") == [(False, "error")]
+
+
+async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_start(
+    make: Any, engine: Any
+) -> None:
+    from alnuzum_voice import web
+
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 3)
+    await _pick_demo(h, 572)
+    for n in range(3):
+        await h.update(message(572, 10 + n, text="По сделке Ромашка переведи на переговоры."))
+    ids = [r[0] for r in await rows(engine, "SELECT id FROM voice_runs ORDER BY created_at")]
+    stale = (
+        "UPDATE voice_runs SET status = CAST(:s AS varchar), created_at = now() - make_interval(mins => :c), "
+        "writing_at = CASE WHEN CAST(:s AS varchar) = 'writing' THEN now() - make_interval(mins => :w) END WHERE id = :i"
+    )
+    async with engine.begin() as conn:
+        for rid, state, age in zip(ids, ("writing", "writing", "reading"), (31, 5, 31), strict=True):
+            await conn.execute(text(stale), {"s": state, "c": age + 1, "w": age, "i": rid})
+    await web._startup(h.app)
+    got = {r[0]: (r[1], r[2]) for r in await rows(engine, "SELECT id, status, error FROM voice_runs")}
+    assert got == {
+        ids[0]: ("failed", "interrupted"),
+        ids[1]: ("writing", None),
+        ids[2]: ("rejected", "interrupted"),
+    }

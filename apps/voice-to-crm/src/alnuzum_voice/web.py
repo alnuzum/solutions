@@ -317,7 +317,15 @@ class _Solution:
     voice = Voice()
 
 
+async def _release(app: FastAPI) -> None:
+    if getattr(app.state, "sessionmaker", None) is not None:
+        written, read = await Voice.store(app).release_stuck()
+        if written or read:
+            log.warning("voice: %d runs left writing and %d left reading released", written, read)
+
+
 async def _startup(app: FastAPI) -> None:
+    await _release(app)
     bot, s = _Solution.voice.bot(), _Solution.voice.settings
     if bot is None or not s.voice_tg_secret.get_secret_value():
         log.info("voice bot: off")
@@ -335,6 +343,7 @@ async def _startup(app: FastAPI) -> None:
 
 
 async def _sweep(app: FastAPI) -> None:
+    await _release(app)
     if getattr(app.state, "sessionmaker", None) is not None:
         runs, spend = await Voice.store(app).purge()
         log.info("voice sweep: %d runs and %d old spends erased", runs, spend)

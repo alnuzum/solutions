@@ -45,6 +45,9 @@ LOCK_WRITES_IP, LOCK_WRITES_CRM = 0x4F58, 0x4F59
 # a run is "reading" while the system reads it and "rejected" when that failed: neither is shown,
 # both count against the quotas
 HIDDEN = ("reading", "rejected")
+# a write or a reading takes minutes at most (every call to the CRM and to the model has its time-out);
+# one still going after this was left by a stopped process (a deploy, a crash)
+STUCK = timedelta(minutes=30)
 
 
 class OrderRun(Base):
@@ -69,6 +72,8 @@ class OrderRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # when the write began: a run a stopped process left "writing" is released after ``STUCK``
+    writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class OrderRules(Base):
@@ -256,7 +261,7 @@ class OrderStore:
                 .where(
                     OrderRun.id == run_id, OrderRun.owner == owner, OrderRun.status.in_(("ready", "failed"))
                 )
-                .values(status="writing", write_ip_key=ip_key[:64])
+                .values(status="writing", write_ip_key=ip_key[:64], writing_at=func.now())
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
 
@@ -283,6 +288,26 @@ class OrderStore:
                     written_at=datetime.now(UTC) if ok else None,
                 )
             )
+
+    async def release_stuck(self) -> tuple[int, int]:
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (the visitor may
+        try again, the demo quota is free), "reading" becomes "rejected" (it counts as any failed attempt)."""
+        cut = datetime.now(UTC) - STUCK
+        async with self._sessions.begin() as session:
+            written = await session.execute(
+                update(OrderRun)
+                .where(
+                    OrderRun.status == "writing",
+                    or_(OrderRun.writing_at.is_(None), OrderRun.writing_at < cut),
+                )
+                .values(status="failed", error="interrupted")
+            )
+            read = await session.execute(
+                update(OrderRun)
+                .where(OrderRun.status == "reading", OrderRun.created_at < cut)
+                .values(status="rejected", error="interrupted")
+            )
+            return int(written.rowcount), int(read.rowcount)  # type: ignore[attr-defined]
 
     async def runs_today(self, *, owner: str | None = None, ip_key: str | None = None) -> int:
         since = datetime.now(UTC) - timedelta(days=1)

@@ -39,6 +39,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from alnuzum_platform.db import Base
 
 KEEP = timedelta(days=1)
+# a write or a reading takes minutes at most; one still going after this was left by a stopped process
+STUCK = timedelta(minutes=30)
 LINK_LIFE = timedelta(minutes=10)
 LOCK_SPEND = 0x564F4943  # the money ceiling of the solution ("VOIC")
 LOCK_RUNS, LOCK_DEMO = 0x5652, 0x5644  # runs of an owner or an address; demo writes of an owner
@@ -67,6 +69,8 @@ class VoiceRun(Base):
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # the steps of the write already done, each named; once one is done the plan no longer changes
     steps: Mapped[list[str] | None] = mapped_column(JSONB)
+    # when the write began: a run a stopped process left "writing" is released after ``STUCK``
+    writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class VoiceSpend(Base):
@@ -331,9 +335,29 @@ class VoiceStore:
                 .where(
                     VoiceRun.id == run_id, VoiceRun.owner == owner, VoiceRun.status.in_(("ready", "failed"))
                 )
-                .values(status="writing")
+                .values(status="writing", writing_at=func.now())
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
+
+    async def release_stuck(self) -> tuple[int, int]:
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (a retry goes on
+        from the first step not done, the quotas are free), "reading" becomes "rejected"."""
+        cut = datetime.now(UTC) - STUCK
+        async with self._sessions.begin() as session:
+            written = await session.execute(
+                update(VoiceRun)
+                .where(
+                    VoiceRun.status == "writing",
+                    or_(VoiceRun.writing_at.is_(None), VoiceRun.writing_at < cut),
+                )
+                .values(status="failed", error="interrupted")
+            )
+            read = await session.execute(
+                update(VoiceRun)
+                .where(VoiceRun.status == "reading", VoiceRun.created_at < cut)
+                .values(status="rejected", error="interrupted")
+            )
+            return int(written.rowcount), int(read.rowcount)  # type: ignore[attr-defined]
 
     async def step_done(self, run_id: uuid.UUID, step: str) -> None:
         """Kept before the next step begins: a retry skips it."""

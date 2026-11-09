@@ -278,7 +278,9 @@ class Orders:
         return OrderStore(maker)
 
     async def startup(self, app: FastAPI) -> None:
-        """The demo accounts become connections of the owner ``demo`` (encrypted like any other)."""
+        """The demo accounts become connections of the owner ``demo`` (encrypted like any other); the runs
+        a stopped process left "writing" or "reading" are released."""
+        await self.release(app)
         store: ConnectionStore | None = app.state.store
         app.state.orders_demo = {}
         if store is None:
@@ -318,7 +320,16 @@ class Orders:
         await store.touch(DEMO_OWNER)
         log.info("demo accounts: %s", ", ".join(sorted(app.state.orders_demo)) or "none")
 
+    @staticmethod
+    async def release(app: FastAPI) -> None:
+        maker = getattr(app.state, "sessionmaker", None)
+        if maker is not None:
+            written, read = await OrderStore(maker).release_stuck()
+            if written or read:
+                log.warning("orders: %d runs left writing and %d left reading released", written, read)
+
     async def sweep(self, app: FastAPI) -> None:
+        await self.release(app)
         maker = getattr(app.state, "sessionmaker", None)
         if maker is not None:
             runs, calls = await OrderStore(maker).purge()
@@ -503,38 +514,43 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             await ost.reject_run(run_id, error)
             return await start(request, lang, status=status, error=error, target=target)
 
+        # anything else (a bug, a lost database) must not leave the run "reading"
         try:
-            if data:
-                source = await orders.parsing.read(intake.read, name, data)
-            else:
-                source = await orders.parsing.read(intake.from_text, "text", typed)
-        except intake.IntakeError as exc:
-            return await refuse(503 if exc.code == "e_busy" else 400, exc.code)
-        finally:
-            del data
-        if reader is None and not source.columns:
-            return await refuse(503, "e_model_off")
-        try:
-            catalog = await orders.catalog(kit, request, info, demo)
-        except CrmError as exc:
-            log.info("catalog of %s not read: %s", info.id, _crm_error(exc))
-            return await refuse(502, "e_catalog")
-        if not catalog.items:
-            return await refuse(409, "e_catalog_empty")
-        try:
-            result = await run(source, catalog, reader or _NoReader(), orders.gate(request, owner))
-        except ModelError as exc:
-            return await refuse(503, exc.code)
-        if not result.lines:
-            return await refuse(422, "e_no_lines")
-        result.catalog["line_prices"] = info.crm in LINE_PRICES
-        if demo and not result.catalog.get("currency"):
-            # Zoho gives products no currency; the demo account's own is known
-            result.catalog["currency"] = _demo_currency(info)
-        result.catalog["target"] = _target_key(info, demo)
-        await ost.fill_run(run_id, result.to_json())
-        log.info("order run %s: %d lines, %d calls", run_id, len(result.lines), result.usage["calls"])
-        return redirect(f"/{lang}/orders/{run_id}")
+            try:
+                if data:
+                    source = await orders.parsing.read(intake.read, name, data)
+                else:
+                    source = await orders.parsing.read(intake.from_text, "text", typed)
+            except intake.IntakeError as exc:
+                return await refuse(503 if exc.code == "e_busy" else 400, exc.code)
+            finally:
+                del data
+            if reader is None and not source.columns:
+                return await refuse(503, "e_model_off")
+            try:
+                catalog = await orders.catalog(kit, request, info, demo)
+            except CrmError as exc:
+                log.info("catalog of %s not read: %s", info.id, _crm_error(exc))
+                return await refuse(502, "e_catalog")
+            if not catalog.items:
+                return await refuse(409, "e_catalog_empty")
+            try:
+                result = await run(source, catalog, reader or _NoReader(), orders.gate(request, owner))
+            except ModelError as exc:
+                return await refuse(503, exc.code)
+            if not result.lines:
+                return await refuse(422, "e_no_lines")
+            result.catalog["line_prices"] = info.crm in LINE_PRICES
+            if demo and not result.catalog.get("currency"):
+                # Zoho gives products no currency; the demo account's own is known
+                result.catalog["currency"] = _demo_currency(info)
+            result.catalog["target"] = _target_key(info, demo)
+            await ost.fill_run(run_id, result.to_json())
+            log.info("order run %s: %d lines, %d calls", run_id, len(result.lines), result.usage["calls"])
+            return redirect(f"/{lang}/orders/{run_id}")
+        except Exception:
+            await ost.reject_run(run_id, "error")
+            raise
 
     async def own_run(request: Request, lang: str, run_id: str) -> tuple[str, Any]:
         sid = kit.need_session(request, lang)
@@ -652,6 +668,11 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             if code == "auth" and not item.demo:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("order run %s not written: %s", item.id, code)
+            return redirect(f"{back}?n=failed")
+        except Exception:  # anything else: the run must not stay "writing", the visitor may try again
+            log.exception("order run %s not written", item.id)
+            await st.finish_write(write_id, ok=False, error="error")
+            await ost.finish_writing(item.id, ok=False, error="error")
             return redirect(f"{back}?n=failed")
         await st.finish_write(write_id, ok=True, record_id=done.deal_id, record_url=url)
         await ost.finish_writing(item.id, ok=True, deal_id=done.deal_id, deal_url=url, readback=done.readback)

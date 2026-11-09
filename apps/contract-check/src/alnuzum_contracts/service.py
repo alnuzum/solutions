@@ -222,6 +222,9 @@ class Contracts:
         except (FileError, ModelError, ContractError) as exc:
             await cs.reject_run(run_id, exc.code)
             raise ContractError(exc.code, getattr(exc, "n", None)) from None
+        except Exception:  # anything else must not leave the run "reading"
+            await cs.reject_run(run_id, "error")
+            raise
         spent = {"calls": usage.calls, "usd": str(usage.usd.quantize(Decimal("0.0001")))}
         result = to_result(
             cmp,

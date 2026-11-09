@@ -742,3 +742,43 @@ async def test_the_deal_search_field_is_drawn_like_the_other_fields(make: Any) -
     css = (await Browser(h.app).http.get("/static/contracts/contracts.css")).text
     rule = css.split(".deal input[type=search]{", 1)[1].split("}", 1)[0]
     assert "background:var(--deep)" in rule and "color:var(--on-deep)" in rule
+
+
+# --- the Minor pack 1 ---
+
+
+async def test_a_reading_that_breaks_outside_the_known_errors_is_rejected(make: Any, engine: Any) -> None:
+    h: Harness = await make()
+
+    async def broken(*_a: Any, **_k: Any) -> Any:
+        raise RuntimeError("a bug of a parser")
+
+    h.contracts.document = broken  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError):
+        await Browser(h.app).compare()
+    assert await rows(engine, "SELECT status, error FROM contract_runs") == [("rejected", "error")]
+
+
+async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_start(
+    make: Any, engine: Any
+) -> None:
+    h: Harness = await make()
+    b = Browser(h.app)
+    ids = old, fresh, read = [run_id(await b.compare()) for _ in range(3)]
+    sa = __import__("sqlalchemy")
+    stale = (
+        "UPDATE contract_runs SET status = CAST(:s AS varchar), created_at = now() - make_interval(mins => :c), "
+        "writing_at = CASE WHEN CAST(:s AS varchar) = 'writing' THEN now() - make_interval(mins => :w) END WHERE id = :i"
+    )
+    async with engine.begin() as conn:
+        for rid, state, age in zip(ids, ("writing", "writing", "reading"), (31, 5, 31), strict=True):
+            await conn.execute(
+                sa.text(stale), {"s": state, "c": age + 1, "w": age, "i": __import__("uuid").UUID(rid)}
+            )
+    await web._startup(h.app)
+    got = {str(r[0]): (r[1], r[2]) for r in await rows(engine, "SELECT id, status, error FROM contract_runs")}
+    assert got == {
+        old: ("failed", "interrupted"),
+        fresh: ("writing", None),
+        read: ("rejected", "interrupted"),
+    }

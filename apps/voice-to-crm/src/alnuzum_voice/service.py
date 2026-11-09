@@ -273,6 +273,10 @@ class Voice:
         except CrmError as exc:
             await vs.reject_run(run_id, "crm:" + crm_error(exc))
             raise VoiceError("e_crm") from None
+        except Exception:  # anything else must not leave the run "reading"; the person gets an answer
+            log.exception("voice run %s not read", run_id)
+            await vs.reject_run(run_id, "error")
+            raise VoiceError("e_error") from None
         await vs.fill_run(run_id, result.to_json())
         return result
 
@@ -316,6 +320,11 @@ class Voice:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("voice run %s not written: %s", run.id, code)
             return "auth" if code == "auth" else "failed"
+        except Exception:  # anything else: the run must not stay "writing" (a retry goes on from the step)
+            log.exception("voice run %s not written", run.id)
+            await st.finish_write(write_id, ok=False, error="error")
+            await vs.finish_writing(run.id, ok=False, error="error")
+            return "failed"
         await st.finish_write(write_id, ok=True, record_id=done.deal_id, record_url=url)
         await vs.finish_writing(run.id, ok=True, readback=done.readback, deal_url=url)
         log.info("voice run %s written to deal %s", run.id, done.deal_id)

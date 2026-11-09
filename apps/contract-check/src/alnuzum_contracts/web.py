@@ -26,7 +26,7 @@ from alnuzum_contracts.service import (
     sample_bytes,
     samples,
 )
-from alnuzum_contracts.store import KEEP, NotFound, RunInfo, RunsExceeded
+from alnuzum_contracts.store import KEEP, ContractStore, NotFound, RunInfo, RunsExceeded, Seal
 from alnuzum_files import FileError
 from alnuzum_orders.model import ModelError
 from alnuzum_platform.solutions import Kit, Solution
@@ -343,16 +343,31 @@ class _Solution:
     contracts = Contracts()
 
 
-async def _sweep(app: FastAPI) -> None:
+def _store(app: FastAPI) -> ContractStore | None:
     maker = getattr(app.state, "sessionmaker", None)
     conf = getattr(getattr(app.state, "connectors", None), "settings", None)
     keys = getattr(conf, "secret_keys", None)
     if maker is None or keys is None or not keys.get_secret_value():
-        return
-    from alnuzum_contracts.store import ContractStore, Seal
+        return None
     from alnuzum_platform.crypto import Keyring
 
-    runs, standards = await ContractStore(maker, Seal(Keyring.from_env(keys.get_secret_value()))).purge()
+    return ContractStore(maker, Seal(Keyring.from_env(keys.get_secret_value())))
+
+
+async def _startup(app: FastAPI) -> None:
+    """The runs a stopped process left "writing" or "reading" are released."""
+    if (cs := _store(app)) is None:
+        return
+    written, read = await cs.release_stuck()
+    if written or read:
+        log.warning("contracts: %d runs left writing and %d left reading released", written, read)
+
+
+async def _sweep(app: FastAPI) -> None:
+    await _startup(app)
+    if (cs := _store(app)) is None:
+        return
+    runs, standards = await cs.purge()
     log.info("contracts sweep: %d runs and %d standards erased", runs, standards)
 
 
@@ -365,6 +380,7 @@ def make_solution(contracts: Contracts) -> Solution:
         static=HERE / "static",
         texts=texts,
         router=lambda kit: build(kit, contracts),
+        startup=_startup,
         sweep=_sweep,
     )
 

@@ -705,3 +705,58 @@ async def test_the_accuracy_reads_as_a_reader_writes_it(make: Any, monkeypatch: 
     ru, en = await pages()
     assert "98,5\u00a0% строк" in ru and "ошибок 2, из них система сама пометила спорными 1." in ru
     assert "98.5% of lines" in en and "mistakes: 2, of which the system itself marked 1 as unsure." in en
+
+
+# --- the Minor pack 1 ---
+
+
+async def test_a_write_that_breaks_outside_the_crm_errors_leaves_the_run_failed(
+    make: Any, engine: AsyncEngine
+) -> None:
+    h = await make(choose_first())
+    b = Browser(h.app)
+    rid = run_id(await b.order(sample="order-ru.xlsx"))
+    h.crm.fail = KeyError("a bug of an adapter")
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=failed")
+    assert [tuple(r) for r in await rows(engine, "SELECT status, error FROM orders_runs")] == [
+        ("failed", "error")
+    ]
+    assert [tuple(r) for r in await rows(engine, "SELECT ok, error FROM crm_writes")] == [(False, "error")]
+    h.crm.fail = None  # the visitor tries again
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=written")
+
+
+async def test_a_reading_that_breaks_outside_the_known_errors_is_rejected(
+    make: Any, engine: AsyncEngine
+) -> None:
+    h = await make(choose_first())
+    b = Browser(h.app)
+    h.crm.fail_list = KeyError("a bug of an adapter")
+    with pytest.raises(KeyError):
+        await b.order(sample="order-ru.xlsx")
+    assert [tuple(r) for r in await rows(engine, "SELECT status, error FROM orders_runs")] == [
+        ("rejected", "error")
+    ]
+
+
+async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_start(
+    make: Any, engine: AsyncEngine
+) -> None:
+    h = await make(choose_first(), choose_first(), choose_first())
+    b = Browser(h.app)
+    ids = old, fresh, read = [run_id(await b.order(sample="order-ru.xlsx")) for _ in range(3)]
+    stale = (
+        "UPDATE orders_runs SET status = CAST(:s AS varchar), created_at = now() - make_interval(mins => :c), "
+        "writing_at = CASE WHEN CAST(:s AS varchar) = 'writing' THEN now() - make_interval(mins => :w) END WHERE id = :i"
+    )
+    async with engine.begin() as conn:
+        for rid, state, age in zip(ids, ("writing", "writing", "reading"), (31, 5, 31), strict=True):
+            await conn.execute(text(stale), {"s": state, "c": age + 1, "w": age, "i": uuid.UUID(rid)})
+    await h.orders.startup(h.app)
+    got = {str(r[0]): (r[1], r[2]) for r in await rows(engine, "SELECT id, status, error FROM orders_runs")}
+    assert got == {
+        old: ("failed", "interrupted"),
+        fresh: ("writing", None),
+        read: ("rejected", "interrupted"),
+    }
+    assert (await b.decide(old, {"action": "write"})).headers["location"].endswith("?n=written")

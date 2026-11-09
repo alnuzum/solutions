@@ -44,6 +44,8 @@ from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import Base
 
 KEEP = timedelta(days=1)
+# a write or a reading takes minutes at most; one still going after this was left by a stopped process
+STUCK = timedelta(minutes=30)
 LOCK_SPEND = 0x434F4E54  # the money ceiling of the solution ("CONT")
 LOCK_RUNS, LOCK_DEMO = 0x4352, 0x4344  # runs of an owner, an address or a connection; demo writes
 
@@ -70,6 +72,8 @@ class ContractRun(Base):
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     write_ip_key: Mapped[str | None] = mapped_column(String(64))
     steps: Mapped[list[str] | None] = mapped_column(JSONB)
+    # when the write began: a run a stopped process left "writing" is released after ``STUCK``
+    writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     erase_after: Mapped[bool] = mapped_column(Boolean, default=False)  # erased once its write ends
 
 
@@ -380,9 +384,37 @@ class ContractStore:
                     ContractRun.status.in_(("ready", "failed")),
                     ContractRun.deal_id.is_not(None),
                 )
-                .values(status="writing", write_ip_key=ip_key[:64])
+                .values(status="writing", write_ip_key=ip_key[:64], writing_at=func.now())
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
+
+    async def release_stuck(self) -> tuple[int, int]:
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (a retry goes on
+        from the first step not done; one its owner asked to erase meanwhile is erased now), "reading"
+        becomes "rejected"."""
+        cut = datetime.now(UTC) - STUCK
+        async with self._sessions.begin() as session:
+            stuck = (
+                await session.scalars(
+                    select(ContractRun)
+                    .where(
+                        ContractRun.status == "writing",
+                        or_(ContractRun.writing_at.is_(None), ContractRun.writing_at < cut),
+                    )
+                    .with_for_update()
+                )
+            ).all()
+            for row in stuck:
+                row.status, row.error = "failed", "interrupted"
+                if row.erase_after:
+                    for field, value in TOMBSTONE.items():
+                        setattr(row, field, value)
+            read = await session.execute(
+                update(ContractRun)
+                .where(ContractRun.status == "reading", ContractRun.created_at < cut)
+                .values(status="rejected", error="interrupted")
+            )
+            return len(stuck), int(read.rowcount)  # type: ignore[attr-defined]
 
     async def step_done(self, run_id: uuid.UUID, step: str) -> None:
         """Kept before the next step begins: a retry skips it."""
