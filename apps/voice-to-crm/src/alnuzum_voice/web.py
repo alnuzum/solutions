@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException
 
 from alnuzum_orders.catalog import CatalogItem
 from alnuzum_orders.store import DEMO_OWNER
@@ -32,6 +33,7 @@ log = logging.getLogger("alnuzum_voice.web")
 HERE = Path(__file__).parent
 HOOK = "/hooks/voice/telegram"
 MAX_UPDATE = 64 * 1024
+MAX_FIELD = 20 * 1024  # a typed command is at most MAX_TEXT characters: 20 KB holds it in any script
 
 
 def link_css(limit: int = MAX_PHRASES) -> str:
@@ -154,7 +156,11 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
     @router.post("/{lang}/voice")
     async def submit(request: Request, lang: str) -> Response:
         lang = _lang(lang)
-        form = await request.form(max_files=1, max_fields=8, max_part_size=audio.MAX_BYTES + 1)
+        try:
+            # a field (the text) holds at most MAX_FIELD bytes, the parser stops there; a file is no field
+            form = await request.form(max_files=1, max_fields=8, max_part_size=MAX_FIELD)
+        except HTTPException:
+            return await start(request, lang, status=413, error="e_too_long_text")
         sid = kit.need_csrf(request, form, lang)
         owner = kit.owner(sid)
         info, demo = await target(request, lang, str(form.get("target") or ""))

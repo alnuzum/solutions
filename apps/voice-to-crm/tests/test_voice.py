@@ -746,3 +746,19 @@ async def test_speech_minutes_are_bounded_per_address_across_sessions(make: Any,
                 assert sent.status_code == 303
     assert sent.status_code == 422 and "Ваш лимит распознавания на сегодня исчерпан" in sent.text
     assert h.speech.calls == 2
+
+
+async def test_a_huge_text_is_refused_before_it_is_read(make: Any) -> None:
+    h: Harness = await make()
+    async with h.client() as c:
+        token = csrf_of((await c.get("/ru/voice")).text)
+        form = {"csrf": token, "target": "demo:bitrix24", "text": "x" * (8 * 1024 * 1024)}
+        started = time.monotonic()
+        plain = await c.post("/ru/voice", data=form)
+        multipart = await c.post("/ru/voice", data=form, files={"audio": ("", b"", "audio/ogg")})
+        took = time.monotonic() - started
+        assert plain.status_code == multipart.status_code == 413
+        assert "Текст длиннее 2000 знаков" in plain.text and "Текст длиннее 2000 знаков" in multipart.text
+        fits = await c.post("/ru/voice", data=form | {"text": "я" * 2001})  # 4 KB: read, then refused
+        assert fits.status_code == 422 and "Текст длиннее 2000 знаков" in fits.text
+    assert took < 2 and h.messages.requests == []
