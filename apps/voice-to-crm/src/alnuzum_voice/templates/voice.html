@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ t.v_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/voice/voice.css">{% endblock %}
+{% block body %}
+<div class="head">
+  <div><h1>{{ t.v_title }}</h1><p>{{ t.v_lead }}</p>
+  {% if q %}<p class="q"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.v_quality.format(n=q.commands, word=q_word, uz=q.uzbek, wer=(q.wer * 100)|round(1), deal=(q.deal * 100)|round(0)|int, exact=(q.exact * 100)|round(0)|int, extra=q.extra) }}</p>{% endif %}
+  {% if bot %}<p><a class="open" href="https://t.me/{{ bot }}" rel="noopener noreferrer">{{ t.v_bot }} @{{ bot }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a><br><small class="muted">{{ t.v_bot_hint }}</small></p>{% endif %}
+  </div>
+</div>
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error] if error in t else t.e_model_unreadable }}</p>{% endif %}
+{% if link_url %}<p class="err good" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.v_link_ready }} <a class="open lnk" href="{{ link_url }}" rel="noopener noreferrer">{{ link_url }}</a></p>{% endif %}
+<form class="ord" method="post" action="/{{ lang }}/voice" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <section class="card">
+    <h2>{{ t.v_target }}</h2>
+    {% if demos %}
+    <h3>{{ t.v_demo }}</h3>
+    <div class="picks">
+      {% for k in demos %}<label class="pick"><input type="radio" name="target" value="demo:{{ k }}" required{% if loop.first %} checked{% endif %}><span><svg class="ic" aria-hidden="true"><use href="#c-{{ k }}"/></svg>{{ t['crm_' ~ k] }}</span></label>{% endfor %}
+    </div>
+    <p class="muted small">{{ t.v_deals }}</p>
+    {% endif %}
+    <h3>{{ t.v_own }}</h3>
+    {% if own %}
+    <div class="picks">
+      {% for c in own %}<label class="pick"><input type="radio" name="target" value="conn:{{ c.id }}" required><span><svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg>{{ t['crm_' ~ c.crm.value] }} · {{ c.label }}{% if bound.get(c.id) %} <small class="muted">· {{ t.v_linked.format(n=bound[c.id]) }}</small>{% endif %}</span></label>{% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small">{{ t.v_own_none }} <a class="open" href="/{{ lang }}">→</a></p>
+    {% endif %}
+  </section>
+  <section class="plate">
+    <h2>{{ t.v_samples }}</h2>
+    <div class="picks light samples">
+      {% for s in samples %}<label class="pick"><input type="radio" name="sample" value="{{ s.id }}"><span><small class="muted">{{ s.lang|upper }}</small> {{ s.text }}</span></label>{% endfor %}
+    </div>
+    <label class="fld">{{ t.v_audio }}<input type="file" name="audio" accept="audio/*,.ogg,.oga,.opus,.mp3,.m4a,.wav,.webm"></label>
+    <label class="fld">{{ t.v_text }}<textarea name="text" rows="3" maxlength="2000" spellcheck="false" placeholder="{{ t.v_text_ph }}"></textarea></label>
+    <div class="go"><button class="btn" type="submit">{{ t.v_send }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button></div>
+  </section>
+</form>
+{% if own and bot %}
+<section class="card links">
+  <h2>Telegram</h2>
+  {% for c in own %}
+  <form class="row" method="post" action="/{{ lang }}/voice/link/{{ c.id }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <span><svg class="ic" aria-hidden="true"><use href="#c-{{ c.crm.value }}"/></svg>{{ t['crm_' ~ c.crm.value] }} · {{ c.label }}{% if bound.get(c.id) %} · {{ t.v_linked.format(n=bound[c.id]) }}{% endif %}</span>
+    <button class="btn ghost" type="submit" name="action" value="link">{{ t.v_link }}</button>
+    {% if bound.get(c.id) %}<button class="btn ghost" type="submit" name="action" value="unbind">{{ t.v_unlink }}</button>{% endif %}
+  </form>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

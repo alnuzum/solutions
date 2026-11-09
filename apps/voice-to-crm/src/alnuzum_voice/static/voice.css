@@ -1,0 +1,9 @@
+/* Additions to the order page's style for the voice solution (dark room, document beside). */
+.samples .pick span{display:block;white-space:normal;line-height:1.35}
+.samples{max-height:22rem;overflow:auto}
+.links .row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;padding:.5rem 0;border-top:1px solid var(--line,rgba(255,255,255,.08))}
+.links .row:first-of-type{border-top:0}
+.lnk{word-break:break-all}
+.it.st-off b{opacity:.75}
+.it.st-unsure{box-shadow:inset 3px 0 0 var(--warn,#d9a441)}
+@media (max-width:640px){.links .row{flex-direction:column;align-items:flex-start}}

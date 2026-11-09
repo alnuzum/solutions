@@ -146,7 +146,9 @@ def make_middleware(
 ) -> Callable[[Request, Handler], Awaitable[Response]]:
     async def middleware(request: Request, call_next: Handler) -> Response:
         path = request.url.path
-        if path != "/health" and not path.startswith("/static/"):
+        # a webhook (``/hooks/``) proves itself with its own secret and has its own quotas: the senders' few
+        # shared addresses must not run into the per-address limit
+        if path != "/health" and not path.startswith(("/static/", "/hooks/")):
             ip = request.client.host if request.client else "?"
             if not limiter.allow(ip, request.method):
                 return PlainTextResponse("Too many requests", status_code=429, headers={"Retry-After": "60"})

@@ -1,5 +1,7 @@
 # One environment of the platform (prod or stand): `docker compose -p apps-<env> --env-file /srv/apps/<env>/.env`.
-# Installed by an administrator; deploys only change IMAGE_TAG and the secrets in .env.
+# Installed by an administrator; deploys only change IMAGE_TAG and the settings in .env. The platform gets the
+# whole .env (env_file), so a new setting reaches it without touching this file; `environment` below wins over
+# it and keeps the defaults.
 services:
   db:
     image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
@@ -23,6 +25,7 @@ services:
   platform:
     image: alnuzum/platform-${APP_ENV:?}:${IMAGE_TAG:?}
     restart: unless-stopped
+    env_file: ["/srv/apps/${APP_ENV:?}/.env"]
     environment:
       DATABASE_URL: postgresql+asyncpg://alnuzum:${POSTGRES_PASSWORD}@db:5432/alnuzum
       SECRET_KEYS: ${SECRET_KEYS:?}

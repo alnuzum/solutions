@@ -5,8 +5,8 @@
 	}
 }
 
-# access log per site as JSON lines; the query string (OAuth codes) and the Referer never reach it,
-# Cookie and Authorization are redacted by Caddy itself
+# access log per site as JSON lines; the query string (OAuth codes), the Referer and the Telegram webhook
+# secret never reach it, Cookie and Authorization are redacted by Caddy itself
 (access) {
 	log {
 		output file /var/log/caddy/{args[0]}.log {
@@ -18,6 +18,8 @@
 			fields {
 				request>uri regexp "\?.*$" "?_"
 				request>headers>Referer delete
+				# the webhook secret of the Telegram bots comes in a header of its own
+				request>headers>X-Telegram-Bot-Api-Secret-Token delete
 			}
 		}
 	}
@@ -27,9 +29,10 @@
 	}
 }
 
-# the platform: CRM hooks take at most 64 KB (no CRM sends more), an order with its file (POST
-# /ru/orders, /en/orders) 9 MB (the file itself at most 8 MB), anything else 1 MB; the admin API
-# (/connections) answers only from inside the server
+# the platform: hooks take at most 64 KB (no CRM and no Telegram update sends more: a voice note comes by
+# getFile), an order or a voice note with its file (POST /ru/orders, /en/orders, /ru/voice, /en/voice) 9 MB
+# (the file itself at most 8 MB), anything else 1 MB; the admin API (/connections) answers only from inside
+# the server
 (platform) {
 	@hooks path /hooks/*
 	request_body @hooks {
@@ -37,7 +40,7 @@
 	}
 	@order {
 		method POST
-		path_regexp ^/(ru|en)/orders$
+		path_regexp ^/(ru|en)/(orders|voice)$
 	}
 	request_body @order {
 		max_size 9MB
@@ -46,7 +49,7 @@
 		not path /hooks/*
 		not {
 			method POST
-			path_regexp ^/(ru|en)/orders$
+			path_regexp ^/(ru|en)/(orders|voice)$
 		}
 	}
 	request_body @other {

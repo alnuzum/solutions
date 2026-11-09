@@ -24,7 +24,18 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from alnuzum_crm.base import CRM, dec, digits, record_id, require_one, same_name
+from alnuzum_crm.base import (
+    CRM,
+    catalog_lines,
+    dec,
+    digits,
+    hits_in_order,
+    positive,
+    record_id,
+    require_one,
+    same_name,
+    search_text,
+)
 from alnuzum_crm.errors import (
     CrmAuthError,
     CrmError,
@@ -43,14 +54,17 @@ from alnuzum_crm.types import (
     CreatedDeal,
     CrmKind,
     Deal,
+    DealHit,
     DealIn,
     DealLine,
     DealStatus,
+    DealUpdate,
     FileIn,
     Leftovers,
     Page,
     Product,
     ProductIn,
+    Stage,
     TaskIn,
 )
 
@@ -113,10 +127,20 @@ def _dt(value: Any) -> datetime | None:
     return datetime.fromisoformat(str(value)) if value else None
 
 
+def _semantic(value: Any) -> DealStatus:
+    return DealStatus.WON if value == "S" else DealStatus.LOST if value == "F" else DealStatus.OPEN
+
+
+DEAL_FIELDS = ["ID", "TITLE", "STAGE_ID", "STAGE_SEMANTIC_ID", "OPPORTUNITY", "COMPANY_ID", "CONTACT_ID"]
+
+
+NO_BBCODE = str.maketrans({"[": "［", "]": "］"})  # fullwidth brackets read the same, parse as text
+
+
 class Bitrix24(CRM):
     kind: ClassVar[CrmKind] = CrmKind.BITRIX24
     capabilities: ClassVar[frozenset[str]] = frozenset(
-        {"inn", "fractional_amount", "delete", "line_prices", "stock"}
+        {"inn", "fractional_amount", "delete", "line_prices", "stock", "close_date"}
     )
     #: our units to the symbols of ``crm.measure.list``
     UNITS: ClassVar[dict[str, str]] = {"шт": "шт", "м": "м", "кг": "кг", "л": "л.", "г": "г"}
@@ -477,10 +501,7 @@ class Bitrix24(CRM):
         return CreatedDeal(deal_id)
 
     def _deal(self, row: dict[str, Any], lines: tuple[DealLine, ...] = ()) -> Deal:
-        semantic = row.get("STAGE_SEMANTIC_ID")
-        status = (
-            DealStatus.WON if semantic == "S" else DealStatus.LOST if semantic == "F" else DealStatus.OPEN
-        )
+        status = _semantic(row.get("STAGE_SEMANTIC_ID"))
         return Deal(
             id=str(row["ID"]),
             title=str(row.get("TITLE", "")),
@@ -490,6 +511,7 @@ class Bitrix24(CRM):
             created_at=_dt(row.get("DATE_CREATE")),
             closed_at=_dt(row.get("CLOSEDATE")) if row.get("CLOSED") == "Y" else None,
             lines=lines,
+            stage_id=row.get("STAGE_ID") or None,
         )
 
     async def get_deal(self, deal_id: str) -> Deal:
@@ -538,7 +560,9 @@ class Bitrix24(CRM):
         return str(await self._result("crm.timeline.comment.add", {"fields": fields}))
 
     async def add_note(self, deal_id: str, text: str) -> str:
-        fields = {"ENTITY_ID": int(deal_id), "ENTITY_TYPE": "deal", "COMMENT": text}
+        # the timeline renders BBCode: a note quoting a person must not become a link or a picture there
+        plain = text.translate(NO_BBCODE)
+        fields = {"ENTITY_ID": int(deal_id), "ENTITY_TYPE": "deal", "COMMENT": plain}
         return str(await self._result("crm.timeline.comment.add", {"fields": fields}))
 
     async def add_task(self, deal_id: str, task: TaskIn) -> str:
@@ -553,6 +577,135 @@ class Bitrix24(CRM):
             params["responsibleId"] = int(task.responsible_id)
         result = await self._result("crm.activity.todo.add", params)
         return str(result["id"] if isinstance(result, dict) else result)
+
+    # --- the voice of a manager: find a deal, move it, add products ---
+
+    async def stages(self) -> list[Stage]:
+        try:
+            data = await self._result("crm.category.list", {"entityTypeId": 2})
+            categories = [
+                (int(c["id"]), str(c.get("name") or "")) for c in (data or {}).get("categories", [])
+            ]
+        except CrmUnsupported:  # a portal without pipelines of deals: the one default pipeline
+            categories = [(0, "")]
+        out: list[Stage] = []
+        for cat, name in categories or [(0, "")]:
+            entity = "DEAL_STAGE" if cat == 0 else f"DEAL_STAGE_{cat}"
+            rows = await self._result(
+                "crm.status.list", {"filter": {"ENTITY_ID": entity}, "order": {"SORT": "ASC"}}
+            )
+            out += [
+                Stage(
+                    str(r["STATUS_ID"]), str(r.get("NAME") or ""), _semantic(r.get("SEMANTICS")), name or None
+                )
+                for r in rows or []
+            ]
+        return out
+
+    async def _titles(self, method: str, ids: set[str], name: Any) -> dict[str, str]:
+        if not ids:
+            return {}
+        rows = await self._list(
+            method, {"filter": {"ID": sorted(ids)}, "select": ["ID", "TITLE", "NAME", "LAST_NAME"]}, 50
+        )
+        return {str(r["ID"]): name(r) for r in rows}
+
+    async def find_deals(self, query: str, *, limit: int = 8) -> list[DealHit]:
+        text = search_text(query)
+        if len(text) < 2:
+            return []
+        by_title = await self._list(
+            "crm.deal.list", {"filter": {"%TITLE": text}, "select": DEAL_FIELDS}, limit
+        )
+        companies = await self._list("crm.company.list", {"filter": {"%TITLE": text}, "select": ["ID"]}, 10)
+        by_company = (
+            await self._list(
+                "crm.deal.list",
+                {"filter": {"COMPANY_ID": [int(c["ID"]) for c in companies]}, "select": DEAL_FIELDS},
+                limit,
+            )
+            if companies
+            else []
+        )
+        words = text.split()
+        filters: list[dict[str, str]] = [{"%NAME": text}, {"%LAST_NAME": text}]
+        if len(words) >= 2:
+            filters.append({"%NAME": words[0], "%LAST_NAME": words[-1]})
+        people: dict[str, None] = {}
+        for flt in filters:
+            for c in await self._list("crm.contact.list", {"filter": flt, "select": ["ID"]}, 10):
+                people[str(c["ID"])] = None
+        by_contact = (
+            await self._list(
+                "crm.deal.list",
+                {"filter": {"CONTACT_ID": [int(i) for i in people]}, "select": DEAL_FIELDS},
+                limit,
+            )
+            if people
+            else []
+        )
+        rows = by_title + by_company + by_contact
+        names = await self._titles(
+            "crm.company.list",
+            {str(r["COMPANY_ID"]) for r in rows if int(r.get("COMPANY_ID") or 0)},
+            lambda r: str(r.get("TITLE") or ""),
+        )
+        persons = await self._titles(
+            "crm.contact.list",
+            {str(r["CONTACT_ID"]) for r in rows if int(r.get("CONTACT_ID") or 0)},
+            lambda r: " ".join(x for x in (r.get("NAME"), r.get("LAST_NAME")) if x),
+        )
+
+        def hit(by: str, r: dict[str, Any]) -> DealHit:
+            return DealHit(
+                str(r["ID"]),
+                str(r.get("TITLE") or ""),
+                names.get(str(r.get("COMPANY_ID"))),
+                persons.get(str(r.get("CONTACT_ID"))),
+                r.get("STAGE_ID") or None,
+                dec(r.get("OPPORTUNITY")),
+                _semantic(r.get("STAGE_SEMANTIC_ID")),
+                by,
+            )
+
+        return hits_in_order(
+            [
+                [hit("title", r) for r in by_title],
+                [hit("company", r) for r in by_company],
+                [hit("contact", r) for r in by_contact],
+            ],
+            limit,
+        )
+
+    async def update_deal(self, deal_id: str, update: DealUpdate) -> None:
+        positive(update, self.kind.value)
+        fields: dict[str, Any] = {}
+        if update.stage_id is not None:
+            if not re.fullmatch(r"[A-Z0-9_:]{1,50}", update.stage_id):
+                raise CrmValidationError("not a stage of Bitrix24", crm=self.kind.value)
+            fields["STAGE_ID"] = update.stage_id
+        if update.amount is not None:
+            # without the manual flag the amount is counted again from the product rows (checked live)
+            fields |= {"OPPORTUNITY": float(update.amount), "IS_MANUAL_OPPORTUNITY": "Y"}
+        if update.close_date is not None:
+            fields["CLOSEDATE"] = update.close_date.isoformat()
+        if fields:
+            await self._result(
+                "crm.deal.update", {"id": int(record_id(deal_id, self.kind.value)), "fields": fields}
+            )
+
+    async def add_lines(self, deal_id: str, lines: tuple[DealLine, ...]) -> None:
+        catalog_lines(lines, self.kind.value)
+        owner = int(record_id(deal_id, self.kind.value))
+        for line in lines:
+            fields = {
+                "ownerType": "D",
+                "ownerId": owner,
+                "productId": int(str(line.product_id)),
+                "price": float(line.unit_price),
+                "quantity": float(line.quantity),
+            }
+            await self._result("crm.item.productrow.add", {"fields": fields})
 
     # --- cleanup ---
 

@@ -21,14 +21,18 @@ import httpx
 from alnuzum_crm.base import (
     CRM,
     E2E_TAG,
+    catalog_lines,
     dec,
     digits,
+    hits_in_order,
     norm_name,
+    positive,
     record_id,
     require_one,
     same_email,
     same_name,
     same_phone,
+    search_text,
 )
 from alnuzum_crm.errors import (
     CrmAuthError,
@@ -50,14 +54,17 @@ from alnuzum_crm.types import (
     CreatedDeal,
     CrmKind,
     Deal,
+    DealHit,
     DealIn,
     DealLine,
     DealStatus,
+    DealUpdate,
     FileIn,
     Leftovers,
     Page,
     Product,
     ProductIn,
+    Stage,
     TaskIn,
 )
 
@@ -94,6 +101,16 @@ def _platform_url(url: str) -> bool:
 
 def _ts(value: Any) -> datetime | None:
     return datetime.fromtimestamp(int(value), UTC) if value else None
+
+
+def _status(status_id: int) -> DealStatus:
+    return DealStatus.WON if status_id == WON else DealStatus.LOST if status_id == LOST else DealStatus.OPEN
+
+
+def _stage_id(lead: dict[str, Any]) -> str | None:
+    if not lead.get("status_id") or not lead.get("pipeline_id"):
+        return None
+    return f"{int(lead['pipeline_id'])}:{int(lead['status_id'])}"
 
 
 def _field_values(
@@ -486,6 +503,7 @@ class AmoCRM(CRM):
             created_at=_ts(lead.get("created_at")),
             closed_at=_ts(lead.get("closed_at")),
             lines=lines,
+            stage_id=_stage_id(lead),
         )
 
     async def get_deal(self, deal_id: str) -> Deal:
@@ -578,6 +596,124 @@ class AmoCRM(CRM):
         if task.responsible_id:
             item["responsible_user_id"] = int(task.responsible_id)
         return await self._first_id("POST", "/api/v4/tasks", "tasks", [item])
+
+    # --- the voice of a manager: find a deal, move it, add products ---
+
+    async def stages(self) -> list[Stage]:
+        pipelines = await self._embedded("GET", "/api/v4/leads/pipelines", "pipelines")
+        out: list[Stage] = []
+        for pipe in sorted(pipelines, key=lambda p: (not p.get("is_main"), int(p.get("sort") or 0))):
+            for st in sorted(
+                pipe.get("_embedded", {}).get("statuses", []), key=lambda x: int(x.get("sort") or 0)
+            ):
+                if (
+                    int(st.get("type") or 0) == 1
+                ):  # «Неразобранное»: leads land there, nobody moves them there
+                    continue
+                sid = int(st["id"])
+                out.append(
+                    Stage(
+                        f"{int(pipe['id'])}:{sid}",
+                        str(st.get("name", "")),
+                        _status(sid),
+                        str(pipe.get("name") or ""),
+                    )
+                )
+        return out
+
+    async def _names(self, path: str, key: str, ids: set[int]) -> dict[int, str]:
+        if not ids:
+            return {}
+        params = {"filter[id][]": sorted(ids)[:50], "limit": 50}
+        return {
+            int(x["id"]): str(x.get("name") or "")
+            for x in await self._embedded("GET", path, key, params=params)
+        }
+
+    async def _leads_by_ids(self, ids: list[int]) -> list[dict[str, Any]]:
+        if not ids:
+            return []
+        params = {"filter[id][]": ids[:50], "limit": 50, "with": "contacts"}
+        found = {
+            int(x["id"]): x for x in await self._embedded("GET", "/api/v4/leads", "leads", params=params)
+        }
+        return [found[i] for i in ids if i in found]
+
+    async def find_deals(self, query: str, *, limit: int = 8) -> list[DealHit]:
+        text = search_text(query)
+        if len(text) < 2:
+            return []
+        groups: list[tuple[str, list[dict[str, Any]]]] = []
+        data = await self._request(
+            "GET", "/api/v4/leads", params={"query": text, "limit": 50, "with": "contacts"}
+        )
+        groups.append(("title", list((data or {}).get("_embedded", {}).get("leads", []))))
+        for path, key, by in (
+            ("/api/v4/companies", "companies", "company"),
+            ("/api/v4/contacts", "contacts", "contact"),
+        ):
+            data = await self._request("GET", path, params={"query": text, "limit": 10, "with": "leads"})
+            ids: list[int] = []
+            for owner in (data or {}).get("_embedded", {}).get(key, []):
+                ids += [int(x["id"]) for x in owner.get("_embedded", {}).get("leads", [])]
+            groups.append((by, await self._leads_by_ids(list(dict.fromkeys(ids))[: limit * 2])))
+        leads = [(by, lead) for by, group in groups for lead in group]
+        company_ids = {int(c["id"]) for _, ld in leads for c in ld.get("_embedded", {}).get("companies", [])}
+        contact_ids = {
+            int(c["id"]) for _, ld in leads for c in ld.get("_embedded", {}).get("contacts", [])[:1]
+        }
+        companies = await self._names("/api/v4/companies", "companies", company_ids)
+        contacts = await self._names("/api/v4/contacts", "contacts", contact_ids)
+
+        def hit(by: str, lead: dict[str, Any]) -> DealHit:
+            emb = lead.get("_embedded", {})
+            co = next((companies.get(int(c["id"])) for c in emb.get("companies", [])), None)
+            ct = next((contacts.get(int(c["id"])) for c in emb.get("contacts", [])), None)
+            return DealHit(
+                str(lead["id"]),
+                str(lead.get("name") or ""),
+                co,
+                ct,
+                _stage_id(lead),
+                dec(lead.get("price")),
+                _status(int(lead.get("status_id") or 0)),
+                by,
+            )
+
+        return hits_in_order([[hit(by, ld) for ld in group] for by, group in groups], limit)
+
+    async def update_deal(self, deal_id: str, update: DealUpdate) -> None:
+        crm = self.kind.value
+        positive(update, crm)
+        if update.close_date is not None:
+            raise CrmUnsupported("amoCRM keeps no planned closing date of a deal", crm=crm)
+        body: dict[str, Any] = {}
+        if update.stage_id is not None:
+            pipeline, _, status = update.stage_id.partition(":")
+            body["pipeline_id"] = int(record_id(pipeline, crm))
+            body["status_id"] = int(record_id(status, crm))
+        if update.amount is not None:
+            body["price"] = int(update.amount.to_integral_value())
+        if body:
+            await self._request("PATCH", f"/api/v4/leads/{int(record_id(deal_id, crm))}", json=body)
+
+    async def add_lines(self, deal_id: str, lines: tuple[DealLine, ...]) -> None:
+        crm = self.kind.value
+        catalog_lines(lines, crm)
+        cat, price_field = await self._catalog(), await self._price_field_id()
+        have = {line.product_id: line.quantity for line in (await self.get_deal(deal_id)).lines}
+        # a link of a product the deal already has replaces its quantity (checked live): add to it
+        quantities: dict[str, Decimal] = {}
+        for line in lines:
+            pid = str(line.product_id)
+            quantities[pid] = quantities.get(pid, have.get(pid, Decimal(0))) + line.quantity
+        links = []
+        for pid, qty in quantities.items():
+            meta: dict[str, Any] = {"quantity": float(qty), "catalog_id": cat}
+            if price_field:
+                meta["price_id"] = price_field
+            links.append({"to_entity_id": int(pid), "to_entity_type": "catalog_elements", "metadata": meta})
+        await self._request("POST", f"/api/v4/leads/{int(record_id(deal_id, crm))}/link", json=links)
 
     # --- cleanup ---
 

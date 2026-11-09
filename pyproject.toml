@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Open-source CRM solutions by Al-Nuzum: shared CRM adapters and platform"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
-dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-orders"]
+dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-orders", "alnuzum-voice"]
 
 [tool.uv]
 package = false
@@ -16,6 +16,7 @@ members = ["packages/*", "apps/*"]
 alnuzum-crm = { workspace = true }
 alnuzum-platform = { workspace = true }
 alnuzum-orders = { workspace = true }
+alnuzum-voice = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -27,6 +28,8 @@ dev = [
     "bandit>=1.8",
     "pip-audit>=2.7",
     "types-openpyxl>=3.1",
+    "pyyaml>=6.0",
+    "types-pyyaml>=6.0",
 ]
 
 [tool.ruff]
@@ -45,6 +48,10 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "apps/order-to-deal/eval/**" = ["E501", "S603", "S101"]
 "apps/order-to-deal/src/alnuzum_orders/quality.py" = ["E501"]
 "apps/order-to-deal/src/alnuzum_orders/i18n.py" = ["E501"]
+"apps/voice-to-crm/src/alnuzum_voice/model.py" = ["E501"]
+"apps/voice-to-crm/src/alnuzum_voice/i18n.py" = ["E501"]
+"apps/voice-to-crm/src/alnuzum_voice/quality.py" = ["E501"]
+"apps/voice-to-crm/eval/**" = ["E501", "S603", "S607", "S101"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]
@@ -65,15 +72,15 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests"]
+testpaths = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests"]
 addopts = "--import-mode=importlib -m 'not e2e and not quality'"
 markers = [
     "e2e: live calls into real CRM accounts (needs secrets)",
-    "quality: the order-to-deal reference set against the live model (needs ANTHROPIC_API_KEY)",
+    "quality: a reference set against the live model (needs ANTHROPIC_API_KEY; voice also ELEVENLABS_API_KEY)",
 ]
 
 [tool.coverage.run]
-source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]
+source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders", "alnuzum_voice"]
 branch = true
 
 [tool.coverage.report]
@@ -82,4 +89,4 @@ skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
 
 [tool.bandit]
-exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", ".venv"]
+exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests", ".venv"]

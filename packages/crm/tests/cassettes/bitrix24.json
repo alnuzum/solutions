@@ -1,7 +1,7 @@
 {
  "meta": {
   "crm": "bitrix24",
-  "run_id": "fe95fa6f"
+  "run_id": "248aced1"
  },
  "calls": [
   {
@@ -10,7 +10,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794184578,\"finish\":1794184578.16755,\"duration\":0.16755008697509766,\"processing\":0,\"date_start\":\"2026-11-09T03:36:18+03:00\",\"date_finish\":\"2026-11-09T03:36:18+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196369,\"finish\":1794196369.435386,\"duration\":0.43538594245910645,\"processing\":0,\"date_start\":\"2026-11-09T06:52:49+03:00\",\"date_finish\":\"2026-11-09T06:52:49+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -19,7 +19,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794184578,\"finish\":1794184578.30277,\"duration\":0.30276989936828613,\"processing\":0,\"date_start\":\"2026-11-09T03:36:18+03:00\",\"date_finish\":\"2026-11-09T03:36:18+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196369,\"finish\":1794196369.580571,\"duration\":0.5805709362030029,\"processing\":0,\"date_start\":\"2026-11-09T06:52:49+03:00\",\"date_finish\":\"2026-11-09T06:52:49+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -28,7 +28,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":43,\"time\":{\"start\":1794184578,\"finish\":1794184579.048849,\"duration\":1.048849105834961,\"processing\":1,\"date_start\":\"2026-11-09T03:36:18+03:00\",\"date_finish\":\"2026-11-09T03:36:19+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.1100618839263916}}",
+   "body": "{\"result\":61,\"time\":{\"start\":1794196370,\"finish\":1794196370.299303,\"duration\":0.2993030548095703,\"processing\":0,\"date_start\":\"2026-11-09T06:52:50+03:00\",\"date_finish\":\"2026-11-09T06:52:50+03:00\",\"operating_reset_at\":1794196920,\"operating\":0.14252305030822754}}",
    "binary": false
   },
   {
@@ -37,7 +37,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"1\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_COMPANY#\"},{\"ID\":\"3\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_INDIVIDUAL#\"},{\"ID\":\"5\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_PERSON#\"}],\"total\":3,\"time\":{\"start\":1794184579,\"finish\":1794184579.28897,\"duration\":0.2889699935913086,\"processing\":0,\"date_start\":\"2026-11-09T03:36:19+03:00\",\"date_finish\":\"2026-11-09T03:36:19+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"1\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_COMPANY#\"},{\"ID\":\"3\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_INDIVIDUAL#\"},{\"ID\":\"5\",\"ENTITY_TYPE_ID\":\"8\",\"XML_ID\":\"#CRM_REQUISITE_PRESET_DEF_RU_PERSON#\"}],\"total\":3,\"time\":{\"start\":1794196370,\"finish\":1794196370.567939,\"duration\":0.567939043045044,\"processing\":0,\"date_start\":\"2026-11-09T06:52:50+03:00\",\"date_finish\":\"2026-11-09T06:52:50+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -46,7 +46,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":43,\"time\":{\"start\":1794184579,\"finish\":1794184579.960708,\"duration\":0.9607079029083252,\"processing\":0,\"date_start\":\"2026-11-09T03:36:19+03:00\",\"date_finish\":\"2026-11-09T03:36:19+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":61,\"time\":{\"start\":1794196371,\"finish\":1794196371.189213,\"duration\":0.18921303749084473,\"processing\":0,\"date_start\":\"2026-11-09T06:52:51+03:00\",\"date_finish\":\"2026-11-09T06:52:51+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -55,7 +55,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"43\",\"TITLE\":\"E2E Co fe95fa6f\"}],\"total\":1,\"time\":{\"start\":1794184580,\"finish\":1794184580.303945,\"duration\":0.30394506454467773,\"processing\":0,\"date_start\":\"2026-11-09T03:36:20+03:00\",\"date_finish\":\"2026-11-09T03:36:20+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"61\",\"TITLE\":\"E2E Co 248aced1\"}],\"total\":1,\"time\":{\"start\":1794196371,\"finish\":1794196371.570636,\"duration\":0.5706360340118408,\"processing\":0,\"date_start\":\"2026-11-09T06:52:51+03:00\",\"date_finish\":\"2026-11-09T06:52:51+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -64,7 +64,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"43\",\"TITLE\":\"E2E Co fe95fa6f\"}],\"total\":1,\"time\":{\"start\":1794184580,\"finish\":1794184580.950863,\"duration\":0.9508628845214844,\"processing\":0,\"date_start\":\"2026-11-09T03:36:20+03:00\",\"date_finish\":\"2026-11-09T03:36:20+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"61\",\"TITLE\":\"E2E Co 248aced1\"}],\"total\":1,\"time\":{\"start\":1794196372,\"finish\":1794196372.166503,\"duration\":0.1665029525756836,\"processing\":0,\"date_start\":\"2026-11-09T06:52:52+03:00\",\"date_finish\":\"2026-11-09T06:52:52+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -73,7 +73,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ENTITY_ID\":\"43\"}],\"total\":1,\"time\":{\"start\":1794184581,\"finish\":1794184581.289884,\"duration\":0.289884090423584,\"processing\":0,\"date_start\":\"2026-11-09T03:36:21+03:00\",\"date_finish\":\"2026-11-09T03:36:21+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ENTITY_ID\":\"61\"}],\"total\":1,\"time\":{\"start\":1794196372,\"finish\":1794196372.567909,\"duration\":0.5679090023040771,\"processing\":0,\"date_start\":\"2026-11-09T06:52:52+03:00\",\"date_finish\":\"2026-11-09T06:52:52+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -82,7 +82,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794184581,\"finish\":1794184581.947492,\"duration\":0.9474918842315674,\"processing\":0,\"date_start\":\"2026-11-09T03:36:21+03:00\",\"date_finish\":\"2026-11-09T03:36:21+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196373,\"finish\":1794196373.153163,\"duration\":0.15316295623779297,\"processing\":0,\"date_start\":\"2026-11-09T06:52:53+03:00\",\"date_finish\":\"2026-11-09T06:52:53+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -91,7 +91,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"43\",\"TITLE\":\"E2E Co fe95fa6f\"}],\"total\":1,\"time\":{\"start\":1794184582,\"finish\":1794184582.30237,\"duration\":0.3023700714111328,\"processing\":0,\"date_start\":\"2026-11-09T03:36:22+03:00\",\"date_finish\":\"2026-11-09T03:36:22+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"61\",\"TITLE\":\"E2E Co 248aced1\"}],\"total\":1,\"time\":{\"start\":1794196373,\"finish\":1794196373.580075,\"duration\":0.5800750255584717,\"processing\":0,\"date_start\":\"2026-11-09T06:52:53+03:00\",\"date_finish\":\"2026-11-09T06:52:53+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -100,7 +100,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ENTITY_ID\":\"43\",\"RQ_INN\":\"371241839\"}],\"total\":1,\"time\":{\"start\":1794184582,\"finish\":1794184582.953028,\"duration\":0.9530279636383057,\"processing\":0,\"date_start\":\"2026-11-09T03:36:22+03:00\",\"date_finish\":\"2026-11-09T03:36:22+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ENTITY_ID\":\"61\",\"RQ_INN\":\"313076689\"}],\"total\":1,\"time\":{\"start\":1794196374,\"finish\":1794196374.168868,\"duration\":0.1688680648803711,\"processing\":0,\"date_start\":\"2026-11-09T06:52:54+03:00\",\"date_finish\":\"2026-11-09T06:52:54+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -109,7 +109,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"time\":{\"start\":1794184583,\"finish\":1794184583.293408,\"duration\":0.2934079170227051,\"processing\":0,\"date_start\":\"2026-11-09T03:36:23+03:00\",\"date_finish\":\"2026-11-09T03:36:23+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[],\"time\":{\"start\":1794196374,\"finish\":1794196374.570477,\"duration\":0.5704770088195801,\"processing\":0,\"date_start\":\"2026-11-09T06:52:54+03:00\",\"date_finish\":\"2026-11-09T06:52:54+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -118,7 +118,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"time\":{\"start\":1794184583,\"finish\":1794184583.954843,\"duration\":0.9548430442810059,\"processing\":0,\"date_start\":\"2026-11-09T03:36:23+03:00\",\"date_finish\":\"2026-11-09T03:36:23+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[],\"time\":{\"start\":1794196375,\"finish\":1794196375.160982,\"duration\":0.1609818935394287,\"processing\":0,\"date_start\":\"2026-11-09T06:52:55+03:00\",\"date_finish\":\"2026-11-09T06:52:55+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -127,7 +127,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":77,\"time\":{\"start\":1794184584,\"finish\":1794184584.401616,\"duration\":0.40161609649658203,\"processing\":0,\"date_start\":\"2026-11-09T03:36:24+03:00\",\"date_finish\":\"2026-11-09T03:36:24+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.11123514175415039}}",
+   "body": "{\"result\":117,\"time\":{\"start\":1794196375,\"finish\":1794196375.720813,\"duration\":0.7208130359649658,\"processing\":0,\"date_start\":\"2026-11-09T06:52:55+03:00\",\"date_finish\":\"2026-11-09T06:52:55+03:00\",\"operating_reset_at\":1794196920,\"operating\":0.1454758644104004}}",
    "binary": false
   },
   {
@@ -136,7 +136,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"CONTACT\":[77]},\"time\":{\"start\":1794184584,\"finish\":1794184584.948573,\"duration\":0.948573112487793,\"processing\":0,\"date_start\":\"2026-11-09T03:36:24+03:00\",\"date_finish\":\"2026-11-09T03:36:24+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"CONTACT\":[117]},\"time\":{\"start\":1794196376,\"finish\":1794196376.160728,\"duration\":0.16072797775268555,\"processing\":0,\"date_start\":\"2026-11-09T06:52:56+03:00\",\"date_finish\":\"2026-11-09T06:52:56+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -145,7 +145,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"CONTACT\":[77]},\"time\":{\"start\":1794184585,\"finish\":1794184585.297324,\"duration\":0.29732394218444824,\"processing\":0,\"date_start\":\"2026-11-09T03:36:25+03:00\",\"date_finish\":\"2026-11-09T03:36:25+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"CONTACT\":[117]},\"time\":{\"start\":1794196376,\"finish\":1794196376.581115,\"duration\":0.5811150074005127,\"processing\":0,\"date_start\":\"2026-11-09T06:52:56+03:00\",\"date_finish\":\"2026-11-09T06:52:56+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -154,7 +154,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"CONTACT\":[77]},\"time\":{\"start\":1794184585,\"finish\":1794184585.95088,\"duration\":0.9508800506591797,\"processing\":0,\"date_start\":\"2026-11-09T03:36:25+03:00\",\"date_finish\":\"2026-11-09T03:36:25+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"CONTACT\":[117]},\"time\":{\"start\":1794196377,\"finish\":1794196377.177923,\"duration\":0.17792296409606934,\"processing\":0,\"date_start\":\"2026-11-09T06:52:57+03:00\",\"date_finish\":\"2026-11-09T06:52:57+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -163,7 +163,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":79,\"time\":{\"start\":1794184586,\"finish\":1794184586.375291,\"duration\":0.375291109085083,\"processing\":0,\"date_start\":\"2026-11-09T03:36:26+03:00\",\"date_finish\":\"2026-11-09T03:36:26+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.11123514175415039}}",
+   "body": "{\"result\":119,\"time\":{\"start\":1794196377,\"finish\":1794196377.669764,\"duration\":0.6697640419006348,\"processing\":0,\"date_start\":\"2026-11-09T06:52:57+03:00\",\"date_finish\":\"2026-11-09T06:52:57+03:00\",\"operating_reset_at\":1794196920,\"operating\":0.1454758644104004}}",
    "binary": false
   },
   {
@@ -172,7 +172,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"CONTACT\":[79]},\"time\":{\"start\":1794184586,\"finish\":1794184586.95455,\"duration\":0.95455002784729,\"processing\":0,\"date_start\":\"2026-11-09T03:36:26+03:00\",\"date_finish\":\"2026-11-09T03:36:26+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"CONTACT\":[119]},\"time\":{\"start\":1794196378,\"finish\":1794196378.177177,\"duration\":0.17717695236206055,\"processing\":0,\"date_start\":\"2026-11-09T06:52:58+03:00\",\"date_finish\":\"2026-11-09T06:52:58+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -181,7 +181,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"CONTACT\":[79]},\"time\":{\"start\":1794184587,\"finish\":1794184587.297649,\"duration\":0.29764890670776367,\"processing\":0,\"date_start\":\"2026-11-09T03:36:27+03:00\",\"date_finish\":\"2026-11-09T03:36:27+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"CONTACT\":[119]},\"time\":{\"start\":1794196378,\"finish\":1794196378.572869,\"duration\":0.572869062423706,\"processing\":0,\"date_start\":\"2026-11-09T06:52:58+03:00\",\"date_finish\":\"2026-11-09T06:52:58+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -190,7 +190,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"time\":{\"start\":1794184587,\"finish\":1794184587.955557,\"duration\":0.955557107925415,\"processing\":0,\"date_start\":\"2026-11-09T03:36:27+03:00\",\"date_finish\":\"2026-11-09T03:36:27+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[],\"time\":{\"start\":1794196379,\"finish\":1794196379.16879,\"duration\":0.16879010200500488,\"processing\":0,\"date_start\":\"2026-11-09T06:52:59+03:00\",\"date_finish\":\"2026-11-09T06:52:59+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -199,7 +199,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184588,\"finish\":1794184588.305345,\"duration\":0.3053450584411621,\"processing\":0,\"date_start\":\"2026-11-09T03:36:28+03:00\",\"date_finish\":\"2026-11-09T03:36:28+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196379,\"finish\":1794196379.575382,\"duration\":0.5753819942474365,\"processing\":0,\"date_start\":\"2026-11-09T06:52:59+03:00\",\"date_finish\":\"2026-11-09T06:52:59+03:00\",\"operating_reset_at\":1794196920,\"operating\":0}}",
    "binary": false
   },
   {
@@ -208,7 +208,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"COMPANY_ID\":43,\"SORT\":10,\"ROLE_ID\":0,\"IS_PRIMARY\":\"Y\"}],\"time\":{\"start\":1794184588,\"finish\":1794184588.960107,\"duration\":0.9601070880889893,\"processing\":0,\"date_start\":\"2026-11-09T03:36:28+03:00\",\"date_finish\":\"2026-11-09T03:36:28+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"COMPANY_ID\":61,\"SORT\":10,\"ROLE_ID\":0,\"IS_PRIMARY\":\"Y\"}],\"time\":{\"start\":1794196380,\"finish\":1794196380.165205,\"duration\":0.1652050018310547,\"processing\":0,\"date_start\":\"2026-11-09T06:53:00+03:00\",\"date_finish\":\"2026-11-09T06:53:00+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -217,7 +217,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":\"RUB\",\"time\":{\"start\":1794184589,\"finish\":1794184589.301174,\"duration\":0.3011739253997803,\"processing\":0,\"date_start\":\"2026-11-09T03:36:29+03:00\",\"date_finish\":\"2026-11-09T03:36:29+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":\"RUB\",\"time\":{\"start\":1794196380,\"finish\":1794196380.571532,\"duration\":0.5715320110321045,\"processing\":0,\"date_start\":\"2026-11-09T06:53:00+03:00\",\"date_finish\":\"2026-11-09T06:53:00+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -226,7 +226,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"1\",\"CODE\":\"6\",\"MEASURE_TITLE\":\"Метр\",\"SYMBOL_RUS\":\"м\",\"SYMBOL_INTL\":\"m\",\"SYMBOL_LETTER_INTL\":\"MTR\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"3\",\"CODE\":\"112\",\"MEASURE_TITLE\":\"Литр\",\"SYMBOL_RUS\":\"л.\",\"SYMBOL_INTL\":\"l\",\"SYMBOL_LETTER_INTL\":\"LTR\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"5\",\"CODE\":\"163\",\"MEASURE_TITLE\":\"Грамм\",\"SYMBOL_RUS\":\"г\",\"SYMBOL_INTL\":\"g\",\"SYMBOL_LETTER_INTL\":\"GRM\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"7\",\"CODE\":\"166\",\"MEASURE_TITLE\":\"Килограмм\",\"SYMBOL_RUS\":\"кг\",\"SYMBOL_INTL\":\"kg\",\"SYMBOL_LETTER_INTL\":\"KGM\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"9\",\"CODE\":\"796\",\"MEASURE_TITLE\":\"Штука\",\"SYMBOL_RUS\":\"шт\",\"SYMBOL_INTL\":\"pc. 1\",\"SYMBOL_LETTER_INTL\":\"PCE. NMB\",\"IS_DEFAULT\":\"Y\"}],\"total\":5,\"time\":{\"start\":1794184589,\"finish\":1794184589.960133,\"duration\":0.9601330757141113,\"processing\":0,\"date_start\":\"2026-11-09T03:36:29+03:00\",\"date_finish\":\"2026-11-09T03:36:29+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"1\",\"CODE\":\"6\",\"MEASURE_TITLE\":\"Метр\",\"SYMBOL_RUS\":\"м\",\"SYMBOL_INTL\":\"m\",\"SYMBOL_LETTER_INTL\":\"MTR\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"3\",\"CODE\":\"112\",\"MEASURE_TITLE\":\"Литр\",\"SYMBOL_RUS\":\"л.\",\"SYMBOL_INTL\":\"l\",\"SYMBOL_LETTER_INTL\":\"LTR\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"5\",\"CODE\":\"163\",\"MEASURE_TITLE\":\"Грамм\",\"SYMBOL_RUS\":\"г\",\"SYMBOL_INTL\":\"g\",\"SYMBOL_LETTER_INTL\":\"GRM\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"7\",\"CODE\":\"166\",\"MEASURE_TITLE\":\"Килограмм\",\"SYMBOL_RUS\":\"кг\",\"SYMBOL_INTL\":\"kg\",\"SYMBOL_LETTER_INTL\":\"KGM\",\"IS_DEFAULT\":\"N\"},{\"ID\":\"9\",\"CODE\":\"796\",\"MEASURE_TITLE\":\"Штука\",\"SYMBOL_RUS\":\"шт\",\"SYMBOL_INTL\":\"pc. 1\",\"SYMBOL_LETTER_INTL\":\"PCE. NMB\",\"IS_DEFAULT\":\"Y\"}],\"total\":5,\"time\":{\"start\":1794196381,\"finish\":1794196381.167143,\"duration\":0.1671431064605713,\"processing\":0,\"date_start\":\"2026-11-09T06:53:01+03:00\",\"date_finish\":\"2026-11-09T06:53:01+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -235,25 +235,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794184590,\"finish\":1794184590.331066,\"duration\":0.3310658931732178,\"processing\":0,\"date_start\":\"2026-11-09T03:36:30+03:00\",\"date_finish\":\"2026-11-09T03:36:30+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/catalog.catalog.list.json",
-   "op": "",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"catalogs\":[{\"iblockId\":25,\"iblockTypeId\":\"CRM_PRODUCT_CATALOG\",\"id\":25,\"lid\":\"s1\",\"name\":\"Товарный каталог CRM\",\"productIblockId\":null,\"skuPropertyId\":null,\"subscription\":\"N\",\"vatId\":null,\"yandexExport\":\"N\"},{\"iblockId\":27,\"iblockTypeId\":\"CRM_PRODUCT_CATALOG\",\"id\":27,\"lid\":\"s1\",\"name\":\"Товарный каталог CRM (предложения)\",\"productIblockId\":25,\"skuPropertyId\":103,\"subscription\":\"N\",\"vatId\":null,\"yandexExport\":\"N\"}]},\"total\":2,\"time\":{\"start\":1794184590,\"finish\":1794184590.964531,\"duration\":0.9645309448242188,\"processing\":0,\"date_start\":\"2026-11-09T03:36:30+03:00\",\"date_finish\":\"2026-11-09T03:36:30+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
-   "binary": false
-  },
-  {
-   "method": "POST",
-   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.productsection.add.json",
-   "op": "",
-   "status": 200,
-   "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":3,\"time\":{\"start\":1794184591,\"finish\":1794184591.311958,\"duration\":0.31195807456970215,\"processing\":0,\"date_start\":\"2026-11-09T03:36:31+03:00\",\"date_finish\":\"2026-11-09T03:36:31+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"3\",\"NAME\":\"E2E\"},{\"ID\":\"5\",\"NAME\":\"Кабель и провод\"},{\"ID\":\"7\",\"NAME\":\"Автоматические выключатели\"},{\"ID\":\"9\",\"NAME\":\"УЗО и дифавтоматы\"},{\"ID\":\"11\",\"NAME\":\"Розетки и выключатели\"},{\"ID\":\"13\",\"NAME\":\"Клеммы и соединители\"},{\"ID\":\"15\",\"NAME\":\"Гофра и трубы\"},{\"ID\":\"17\",\"NAME\":\"Кабель-каналы и короба\"},{\"ID\":\"19\",\"NAME\":\"Монтажные коробки\"},{\"ID\":\"21\",\"NAME\":\"Крепёж\"},{\"ID\":\"23\",\"NAME\":\"Лампы и светильники\"},{\"ID\":\"25\",\"NAME\":\"Удлинители и вилки\"},{\"ID\":\"27\",\"NAME\":\"Щиты и комплектующие\"},{\"ID\":\"29\",\"NAME\":\"Изоляционные материалы\"},{\"ID\":\"31\",\"NAME\":\"Инструмент\"}],\"total\":15,\"time\":{\"start\":1794196381,\"finish\":1794196381.587394,\"duration\":0.5873939990997314,\"processing\":0,\"date_start\":\"2026-11-09T06:53:01+03:00\",\"date_finish\":\"2026-11-09T06:53:01+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -262,7 +244,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":49,\"time\":{\"start\":1794184591,\"finish\":1794184592.032509,\"duration\":1.0325090885162354,\"processing\":1,\"date_start\":\"2026-11-09T03:36:31+03:00\",\"date_finish\":\"2026-11-09T03:36:32+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":463,\"time\":{\"start\":1794196382,\"finish\":1794196382.272427,\"duration\":0.2724270820617676,\"processing\":0,\"date_start\":\"2026-11-09T06:53:02+03:00\",\"date_finish\":\"2026-11-09T06:53:02+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.10580611228942871}}",
    "binary": false
   },
   {
@@ -271,7 +253,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"element\":{\"active\":\"Y\",\"available\":\"Y\",\"barcodeMulti\":\"N\",\"bundle\":\"N\",\"canBuyZero\":\"Y\",\"code\":\"e2e-product-fe95fa6f\",\"createdBy\":1,\"dateActiveFrom\":null,\"dateActiveTo\":null,\"dateCreate\":\"2026-11-09T05:36:31+03:00\",\"detailPicture\":null,\"detailText\":\"Категория: E2E\\nСинонимы: e2e fe95fa6f\",\"detailTextType\":\"text\",\"height\":null,\"iblockId\":25,\"iblockSection\":[3],\"iblockSectionId\":3,\"id\":49,\"length\":null,\"measure\":9,\"modifiedBy\":1,\"name\":\"E2E product fe95fa6f\",\"previewPicture\":null,\"previewText\":null,\"previewTextType\":\"text\",\"property101\":null,\"purchasingCurrency\":null,\"purchasingPrice\":null,\"quantity\":7,\"quantityReserved\":null,\"quantityTrace\":\"N\",\"recurSchemeLength\":null,\"recurSchemeType\":\"D\",\"sort\":500,\"subscribe\":\"Y\",\"timestampX\":\"2026-11-09T05:36:32+03:00\",\"trialPriceId\":null,\"type\":1,\"vatId\":null,\"vatIncluded\":\"N\",\"weight\":null,\"width\":null,\"withoutOrder\":\"N\",\"xmlId\":\"E2E-fe95fa6f\"}},\"time\":{\"start\":1794184592,\"finish\":1794184592.477849,\"duration\":0.47784900665283203,\"processing\":0,\"date_start\":\"2026-11-09T03:36:32+03:00\",\"date_finish\":\"2026-11-09T03:36:32+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.17013907432556152}}",
+   "body": "{\"result\":{\"element\":{\"active\":\"Y\",\"available\":\"Y\",\"barcodeMulti\":\"N\",\"bundle\":\"N\",\"canBuyZero\":\"Y\",\"code\":\"e2e-product-248aced1\",\"createdBy\":1,\"dateActiveFrom\":null,\"dateActiveTo\":null,\"dateCreate\":\"2026-11-09T08:53:02+03:00\",\"detailPicture\":null,\"detailText\":\"Категория: E2E\\nСинонимы: e2e 248aced1\",\"detailTextType\":\"text\",\"height\":null,\"iblockId\":25,\"iblockSection\":[3],\"iblockSectionId\":3,\"id\":463,\"length\":null,\"measure\":9,\"modifiedBy\":1,\"name\":\"E2E product 248aced1\",\"previewPicture\":null,\"previewText\":null,\"previewTextType\":\"text\",\"property101\":null,\"purchasingCurrency\":null,\"purchasingPrice\":null,\"quantity\":7,\"quantityReserved\":null,\"quantityTrace\":\"N\",\"recurSchemeLength\":null,\"recurSchemeType\":\"D\",\"sort\":500,\"subscribe\":\"Y\",\"timestampX\":\"2026-11-09T08:53:02+03:00\",\"trialPriceId\":null,\"type\":1,\"vatId\":null,\"vatIncluded\":\"N\",\"weight\":null,\"width\":null,\"withoutOrder\":\"N\",\"xmlId\":\"E2E-248aced1\"}},\"time\":{\"start\":1794196382,\"finish\":1794196382.682263,\"duration\":0.6822628974914551,\"processing\":0,\"date_start\":\"2026-11-09T06:53:02+03:00\",\"date_finish\":\"2026-11-09T06:53:02+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.10809612274169922}}",
    "binary": false
   },
   {
@@ -280,7 +262,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":49,\"time\":{\"start\":1794184592,\"finish\":1794184593.232223,\"duration\":1.2322230339050293,\"processing\":1,\"date_start\":\"2026-11-09T03:36:32+03:00\",\"date_finish\":\"2026-11-09T03:36:33+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.27000904083251953}}",
+   "body": "{\"result\":123,\"time\":{\"start\":1794196383,\"finish\":1794196383.505829,\"duration\":0.5058290958404541,\"processing\":0,\"date_start\":\"2026-11-09T06:53:03+03:00\",\"date_finish\":\"2026-11-09T06:53:03+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.3375589847564697}}",
    "binary": false
   },
   {
@@ -289,7 +271,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184593,\"finish\":1794184593.486151,\"duration\":0.48615097999572754,\"processing\":0,\"date_start\":\"2026-11-09T03:36:33+03:00\",\"date_finish\":\"2026-11-09T03:36:33+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.12584781646728516}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196383,\"finish\":1794196383.790736,\"duration\":0.7907359600067139,\"processing\":0,\"date_start\":\"2026-11-09T06:53:03+03:00\",\"date_finish\":\"2026-11-09T06:53:03+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.1638481616973877}}",
    "binary": false
   },
   {
@@ -298,7 +280,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":353,\"time\":{\"start\":1794184593,\"finish\":1794184594.118026,\"duration\":1.1180260181427002,\"processing\":1,\"date_start\":\"2026-11-09T03:36:33+03:00\",\"date_finish\":\"2026-11-09T03:36:34+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.15878796577453613}}",
+   "body": "{\"result\":781,\"time\":{\"start\":1794196384,\"finish\":1794196384.422365,\"duration\":0.4223649501800537,\"processing\":0,\"date_start\":\"2026-11-09T06:53:04+03:00\",\"date_finish\":\"2026-11-09T06:53:04+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.24932193756103516}}",
    "binary": false
   },
   {
@@ -307,7 +289,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":355,\"time\":{\"start\":1794184594,\"finish\":1794184594.364174,\"duration\":0.36417388916015625,\"processing\":0,\"date_start\":\"2026-11-09T03:36:34+03:00\",\"date_finish\":\"2026-11-09T03:36:34+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.15878796577453613}}",
+   "body": "{\"result\":783,\"time\":{\"start\":1794196384,\"finish\":1794196384.645539,\"duration\":0.6455390453338623,\"processing\":0,\"date_start\":\"2026-11-09T06:53:04+03:00\",\"date_finish\":\"2026-11-09T06:53:04+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.24932193756103516}}",
    "binary": false
   },
   {
@@ -316,7 +298,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"id\":43},\"time\":{\"start\":1794184594,\"finish\":1794184595.033072,\"duration\":1.0330719947814941,\"processing\":1,\"date_start\":\"2026-11-09T03:36:34+03:00\",\"date_finish\":\"2026-11-09T03:36:35+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"id\":137},\"time\":{\"start\":1794196385,\"finish\":1794196385.250904,\"duration\":0.2509040832519531,\"processing\":0,\"date_start\":\"2026-11-09T06:53:05+03:00\",\"date_finish\":\"2026-11-09T06:53:05+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -325,7 +307,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"ID\":\"49\",\"TITLE\":\"E2E deal fe95fa6f\",\"TYPE_ID\":\"SALE\",\"STAGE_ID\":\"NEW\",\"PREVIOUS_STAGE_ID\":\"\",\"PROBABILITY\":null,\"CURRENCY_ID\":\"RUB\",\"OPPORTUNITY\":\"280.75\",\"IS_MANUAL_OPPORTUNITY\":\"Y\",\"TAX_VALUE\":\"0.00\",\"LEAD_ID\":null,\"COMPANY_ID\":\"43\",\"CONTACT_ID\":\"77\",\"MYCOMPANY_ID\":\"0\",\"QUOTE_ID\":null,\"BEGINDATE\":\"2026-11-09T03:00:00+03:00\",\"CLOSEDATE\":\"2026-11-16T03:00:00+03:00\",\"ASSIGNED_BY_ID\":\"1\",\"CREATED_BY_ID\":\"1\",\"MODIFY_BY_ID\":\"1\",\"DATE_CREATE\":\"2026-11-09T03:36:32+03:00\",\"DATE_MODIFY\":\"2026-11-09T03:36:32+03:00\",\"OPENED\":\"Y\",\"CLOSED\":\"N\",\"COMMENTS\":null,\"ADDITIONAL_INFO\":null,\"LOCATION_ID\":null,\"CATEGORY_ID\":\"0\",\"STAGE_SEMANTIC_ID\":\"P\",\"IS_NEW\":\"Y\",\"IS_RECURRING\":\"N\",\"IS_RETURN_CUSTOMER\":\"N\",\"IS_REPEATED_APPROACH\":\"N\",\"SOURCE_ID\":\"\",\"SOURCE_DESCRIPTION\":null,\"ORIGINATOR_ID\":null,\"ORIGIN_ID\":null,\"MOVED_BY_ID\":\"1\",\"MOVED_TIME\":\"2026-11-09T03:36:32+03:00\",\"LAST_ACTIVITY_TIME\":\"2026-11-09T03:36:32+03:00\",\"UTM_SOURCE\":null,\"UTM_MEDIUM\":null,\"UTM_CAMPAIGN\":null,\"UTM_CONTENT\":null,\"UTM_TERM\":null,\"LAST_COMMUNICATION_TIME\":null,\"REPEAT_SALE_SEGMENT_ID\":null,\"LAST_ACTIVITY_BY\":\"1\"},\"time\":{\"start\":1794184595,\"finish\":1794184595.368462,\"duration\":0.36846208572387695,\"processing\":0,\"date_start\":\"2026-11-09T03:36:35+03:00\",\"date_finish\":\"2026-11-09T03:36:35+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"TYPE_ID\":\"SALE\",\"STAGE_ID\":\"NEW\",\"PREVIOUS_STAGE_ID\":\"\",\"PROBABILITY\":null,\"CURRENCY_ID\":\"RUB\",\"OPPORTUNITY\":\"280.75\",\"IS_MANUAL_OPPORTUNITY\":\"Y\",\"TAX_VALUE\":\"0.00\",\"LEAD_ID\":null,\"COMPANY_ID\":\"61\",\"CONTACT_ID\":\"117\",\"MYCOMPANY_ID\":\"0\",\"QUOTE_ID\":null,\"BEGINDATE\":\"2026-11-09T03:00:00+03:00\",\"CLOSEDATE\":\"2026-11-16T03:00:00+03:00\",\"ASSIGNED_BY_ID\":\"1\",\"CREATED_BY_ID\":\"1\",\"MODIFY_BY_ID\":\"1\",\"DATE_CREATE\":\"2026-11-09T06:53:03+03:00\",\"DATE_MODIFY\":\"2026-11-09T06:53:03+03:00\",\"OPENED\":\"Y\",\"CLOSED\":\"N\",\"COMMENTS\":null,\"ADDITIONAL_INFO\":null,\"LOCATION_ID\":null,\"CATEGORY_ID\":\"0\",\"STAGE_SEMANTIC_ID\":\"P\",\"IS_NEW\":\"Y\",\"IS_RECURRING\":\"N\",\"IS_RETURN_CUSTOMER\":\"N\",\"IS_REPEATED_APPROACH\":\"N\",\"SOURCE_ID\":\"\",\"SOURCE_DESCRIPTION\":null,\"ORIGINATOR_ID\":null,\"ORIGIN_ID\":null,\"MOVED_BY_ID\":\"1\",\"MOVED_TIME\":\"2026-11-09T06:53:03+03:00\",\"LAST_ACTIVITY_TIME\":\"2026-11-09T06:53:03+03:00\",\"UTM_SOURCE\":null,\"UTM_MEDIUM\":null,\"UTM_CAMPAIGN\":null,\"UTM_CONTENT\":null,\"UTM_TERM\":null,\"LAST_COMMUNICATION_TIME\":null,\"REPEAT_SALE_SEGMENT_ID\":null,\"LAST_ACTIVITY_BY\":\"1\"},\"time\":{\"start\":1794196385,\"finish\":1794196385.653411,\"duration\":0.6534109115600586,\"processing\":0,\"date_start\":\"2026-11-09T06:53:05+03:00\",\"date_finish\":\"2026-11-09T06:53:05+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -334,7 +316,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"89\",\"OWNER_ID\":\"49\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":49,\"PRODUCT_NAME\":\"E2E product fe95fa6f\",\"ORIGINAL_PRODUCT_NAME\":\"E2E product fe95fa6f\",\"PRODUCT_DESCRIPTION\":\"Категория: E2E\\nСинонимы: e2e fe95fa6f\",\"PRICE\":100,\"PRICE_EXCLUSIVE\":100,\"PRICE_NETTO\":100,\"PRICE_BRUTTO\":100,\"PRICE_ACCOUNT\":\"100.00000000\",\"QUANTITY\":2.5,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null},{\"ID\":\"91\",\"OWNER_ID\":\"49\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":0,\"PRODUCT_NAME\":\"E2E service fe95fa6f\",\"ORIGINAL_PRODUCT_NAME\":null,\"PRODUCT_DESCRIPTION\":null,\"PRICE\":10.25,\"PRICE_EXCLUSIVE\":10.25,\"PRICE_NETTO\":10.25,\"PRICE_BRUTTO\":10.25,\"PRICE_ACCOUNT\":\"10.25000000\",\"QUANTITY\":3,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"Без НДС\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null}],\"time\":{\"start\":1794184595,\"finish\":1794184595.976381,\"duration\":0.9763810634613037,\"processing\":0,\"date_start\":\"2026-11-09T03:36:35+03:00\",\"date_finish\":\"2026-11-09T03:36:35+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"297\",\"OWNER_ID\":\"123\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":463,\"PRODUCT_NAME\":\"E2E product 248aced1\",\"ORIGINAL_PRODUCT_NAME\":\"E2E product 248aced1\",\"PRODUCT_DESCRIPTION\":\"Категория: E2E\\nСинонимы: e2e 248aced1\",\"PRICE\":100,\"PRICE_EXCLUSIVE\":100,\"PRICE_NETTO\":100,\"PRICE_BRUTTO\":100,\"PRICE_ACCOUNT\":\"100.00000000\",\"QUANTITY\":2.5,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null},{\"ID\":\"299\",\"OWNER_ID\":\"123\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":0,\"PRODUCT_NAME\":\"E2E service 248aced1\",\"ORIGINAL_PRODUCT_NAME\":null,\"PRODUCT_DESCRIPTION\":null,\"PRICE\":10.25,\"PRICE_EXCLUSIVE\":10.25,\"PRICE_NETTO\":10.25,\"PRICE_BRUTTO\":10.25,\"PRICE_ACCOUNT\":\"10.25000000\",\"QUANTITY\":3,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"Без НДС\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null}],\"time\":{\"start\":1794196386,\"finish\":1794196386.190655,\"duration\":0.19065499305725098,\"processing\":0,\"date_start\":\"2026-11-09T06:53:06+03:00\",\"date_finish\":\"2026-11-09T06:53:06+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -343,7 +325,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"49\",\"TITLE\":\"E2E deal fe95fa6f\",\"OPPORTUNITY\":\"280.75000000\",\"CURRENCY_ID\":\"RUB\",\"STAGE_SEMANTIC_ID\":\"P\",\"CLOSED\":\"N\",\"CLOSEDATE\":\"2026-11-16T03:00:00+03:00\",\"DATE_CREATE\":\"2026-11-09T03:36:32+03:00\"}],\"total\":1,\"time\":{\"start\":1794184596,\"finish\":1794184596.360199,\"duration\":0.360198974609375,\"processing\":0,\"date_start\":\"2026-11-09T03:36:36+03:00\",\"date_finish\":\"2026-11-09T03:36:36+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"OPPORTUNITY\":\"280.75000000\",\"CURRENCY_ID\":\"RUB\",\"STAGE_SEMANTIC_ID\":\"P\",\"CLOSED\":\"N\",\"CLOSEDATE\":\"2026-11-16T03:00:00+03:00\",\"DATE_CREATE\":\"2026-11-09T06:53:03+03:00\"}],\"total\":1,\"time\":{\"start\":1794196386,\"finish\":1794196386.643271,\"duration\":0.6432709693908691,\"processing\":0,\"date_start\":\"2026-11-09T06:53:06+03:00\",\"date_finish\":\"2026-11-09T06:53:06+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -352,7 +334,268 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"49\",\"TITLE\":\"E2E deal fe95fa6f\",\"OPPORTUNITY\":\"280.75000000\",\"CURRENCY_ID\":\"RUB\",\"STAGE_SEMANTIC_ID\":\"P\",\"CLOSED\":\"N\",\"CLOSEDATE\":\"2026-11-16T03:00:00+03:00\",\"DATE_CREATE\":\"2026-11-09T03:36:32+03:00\"}],\"total\":1,\"time\":{\"start\":1794184596,\"finish\":1794184596.97747,\"duration\":0.9774699211120605,\"processing\":0,\"date_start\":\"2026-11-09T03:36:36+03:00\",\"date_finish\":\"2026-11-09T03:36:36+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"OPPORTUNITY\":\"280.75000000\",\"CURRENCY_ID\":\"RUB\",\"STAGE_SEMANTIC_ID\":\"P\",\"CLOSED\":\"N\",\"CLOSEDATE\":\"2026-11-16T03:00:00+03:00\",\"DATE_CREATE\":\"2026-11-09T06:53:03+03:00\"}],\"total\":1,\"time\":{\"start\":1794196387,\"finish\":1794196387.188631,\"duration\":0.1886310577392578,\"processing\":0,\"date_start\":\"2026-11-09T06:53:07+03:00\",\"date_finish\":\"2026-11-09T06:53:07+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.category.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"categories\":[{\"id\":0,\"name\":\"Общая воронка\",\"sort\":0,\"entityTypeId\":2,\"isDefault\":\"Y\"}]},\"total\":1,\"time\":{\"start\":1794196387,\"finish\":1794196387.638984,\"duration\":0.638983964920044,\"processing\":0,\"date_start\":\"2026-11-09T06:53:07+03:00\",\"date_finish\":\"2026-11-09T06:53:07+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.status.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"101\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"NEW\",\"NAME\":\"Новая\",\"NAME_INIT\":\"Новая\",\"SORT\":\"10\",\"SYSTEM\":\"Y\",\"COLOR\":\"#39A8EF\",\"SEMANTICS\":null,\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"process\",\"COLOR\":\"#39A8EF\"}},{\"ID\":\"103\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"PREPARATION\",\"NAME\":\"Подготовка документов\",\"NAME_INIT\":\"\",\"SORT\":\"20\",\"SYSTEM\":\"N\",\"COLOR\":\"#2FC6F6\",\"SEMANTICS\":null,\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"process\",\"COLOR\":\"#2FC6F6\"}},{\"ID\":\"105\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"PREPAYMENT_INVOICE\",\"NAME\":\"Cчёт на предоплату\",\"NAME_INIT\":\"\",\"SORT\":\"30\",\"SYSTEM\":\"N\",\"COLOR\":\"#55D0E0\",\"SEMANTICS\":null,\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"process\",\"COLOR\":\"#55D0E0\"}},{\"ID\":\"107\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"EXECUTING\",\"NAME\":\"В работе\",\"NAME_INIT\":\"\",\"SORT\":\"40\",\"SYSTEM\":\"N\",\"COLOR\":\"#47E4C2\",\"SEMANTICS\":null,\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"process\",\"COLOR\":\"#47E4C2\"}},{\"ID\":\"109\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"FINAL_INVOICE\",\"NAME\":\"Финальный счёт\",\"NAME_INIT\":\"\",\"SORT\":\"50\",\"SYSTEM\":\"N\",\"COLOR\":\"#FFA900\",\"SEMANTICS\":null,\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"process\",\"COLOR\":\"#FFA900\"}},{\"ID\":\"111\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"WON\",\"NAME\":\"Сделка успешна\",\"NAME_INIT\":\"Сделка успешна\",\"SORT\":\"60\",\"SYSTEM\":\"Y\",\"COLOR\":\"#7BD500\",\"SEMANTICS\":\"S\",\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"success\",\"COLOR\":\"#7BD500\"}},{\"ID\":\"113\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"LOSE\",\"NAME\":\"Сделка провалена\",\"NAME_INIT\":\"Сделка провалена\",\"SORT\":\"70\",\"SYSTEM\":\"Y\",\"COLOR\":\"#FF5752\",\"SEMANTICS\":\"F\",\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"failure\",\"COLOR\":\"#FF5752\"}},{\"ID\":\"115\",\"ENTITY_ID\":\"DEAL_STAGE\",\"STATUS_ID\":\"APOLOGY\",\"NAME\":\"Анализ причины провала\",\"NAME_INIT\":\"\",\"SORT\":\"80\",\"SYSTEM\":\"N\",\"COLOR\":\"#FF5752\",\"SEMANTICS\":\"F\",\"CATEGORY_ID\":\"0\",\"DESCRIPTION\":\"\",\"EXTRA\":{\"SEMANTICS\":\"apology\",\"COLOR\":\"#FF5752\"}}],\"total\":8,\"time\":{\"start\":1794196388,\"finish\":1794196388.186828,\"duration\":0.1868278980255127,\"processing\":0,\"date_start\":\"2026-11-09T06:53:08+03:00\",\"date_finish\":\"2026-11-09T06:53:08+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"STAGE_ID\":\"NEW\",\"STAGE_SEMANTIC_ID\":\"P\",\"OPPORTUNITY\":\"280.75000000\",\"COMPANY_ID\":\"61\",\"CONTACT_ID\":\"117\"}],\"total\":1,\"time\":{\"start\":1794196388,\"finish\":1794196388.650948,\"duration\":0.6509480476379395,\"processing\":0,\"date_start\":\"2026-11-09T06:53:08+03:00\",\"date_finish\":\"2026-11-09T06:53:08+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196389,\"finish\":1794196389.199472,\"duration\":0.19947195053100586,\"processing\":0,\"date_start\":\"2026-11-09T06:53:09+03:00\",\"date_finish\":\"2026-11-09T06:53:09+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196389,\"finish\":1794196389.64761,\"duration\":0.6476099491119385,\"processing\":0,\"date_start\":\"2026-11-09T06:53:09+03:00\",\"date_finish\":\"2026-11-09T06:53:09+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196390,\"finish\":1794196390.193641,\"duration\":0.19364094734191895,\"processing\":0,\"date_start\":\"2026-11-09T06:53:10+03:00\",\"date_finish\":\"2026-11-09T06:53:10+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196390,\"finish\":1794196390.642254,\"duration\":0.642254114151001,\"processing\":0,\"date_start\":\"2026-11-09T06:53:10+03:00\",\"date_finish\":\"2026-11-09T06:53:10+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"61\",\"TITLE\":\"E2E Co 248aced1\"}],\"total\":1,\"time\":{\"start\":1794196391,\"finish\":1794196391.195099,\"duration\":0.1950991153717041,\"processing\":0,\"date_start\":\"2026-11-09T06:53:11+03:00\",\"date_finish\":\"2026-11-09T06:53:11+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"117\",\"NAME\":\"E2E Person 248aced1\",\"LAST_NAME\":null}],\"total\":1,\"time\":{\"start\":1794196391,\"finish\":1794196391.649227,\"duration\":0.6492269039154053,\"processing\":0,\"date_start\":\"2026-11-09T06:53:11+03:00\",\"date_finish\":\"2026-11-09T06:53:11+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196392,\"finish\":1794196392.198373,\"duration\":0.19837307929992676,\"processing\":0,\"date_start\":\"2026-11-09T06:53:12+03:00\",\"date_finish\":\"2026-11-09T06:53:12+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"61\"}],\"total\":1,\"time\":{\"start\":1794196392,\"finish\":1794196392.650362,\"duration\":0.6503620147705078,\"processing\":0,\"date_start\":\"2026-11-09T06:53:12+03:00\",\"date_finish\":\"2026-11-09T06:53:12+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"STAGE_ID\":\"NEW\",\"STAGE_SEMANTIC_ID\":\"P\",\"OPPORTUNITY\":\"280.75000000\",\"COMPANY_ID\":\"61\",\"CONTACT_ID\":\"117\"}],\"total\":1,\"time\":{\"start\":1794196393,\"finish\":1794196393.202893,\"duration\":0.20289301872253418,\"processing\":0,\"date_start\":\"2026-11-09T06:53:13+03:00\",\"date_finish\":\"2026-11-09T06:53:13+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196393,\"finish\":1794196393.649468,\"duration\":0.649467945098877,\"processing\":0,\"date_start\":\"2026-11-09T06:53:13+03:00\",\"date_finish\":\"2026-11-09T06:53:13+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196394,\"finish\":1794196394.203547,\"duration\":0.20354700088500977,\"processing\":0,\"date_start\":\"2026-11-09T06:53:14+03:00\",\"date_finish\":\"2026-11-09T06:53:14+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196394,\"finish\":1794196394.654519,\"duration\":0.6545190811157227,\"processing\":0,\"date_start\":\"2026-11-09T06:53:14+03:00\",\"date_finish\":\"2026-11-09T06:53:14+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"61\",\"TITLE\":\"E2E Co 248aced1\"}],\"total\":1,\"time\":{\"start\":1794196395,\"finish\":1794196395.204505,\"duration\":0.20450496673583984,\"processing\":0,\"date_start\":\"2026-11-09T06:53:15+03:00\",\"date_finish\":\"2026-11-09T06:53:15+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"117\",\"NAME\":\"E2E Person 248aced1\",\"LAST_NAME\":null}],\"total\":1,\"time\":{\"start\":1794196395,\"finish\":1794196395.657859,\"duration\":0.6578590869903564,\"processing\":0,\"date_start\":\"2026-11-09T06:53:15+03:00\",\"date_finish\":\"2026-11-09T06:53:15+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196396,\"finish\":1794196396.209141,\"duration\":0.20914101600646973,\"processing\":0,\"date_start\":\"2026-11-09T06:53:16+03:00\",\"date_finish\":\"2026-11-09T06:53:16+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196396,\"finish\":1794196396.664862,\"duration\":0.6648619174957275,\"processing\":0,\"date_start\":\"2026-11-09T06:53:16+03:00\",\"date_finish\":\"2026-11-09T06:53:16+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"117\"}],\"total\":1,\"time\":{\"start\":1794196397,\"finish\":1794196397.215984,\"duration\":0.21598410606384277,\"processing\":0,\"date_start\":\"2026-11-09T06:53:17+03:00\",\"date_finish\":\"2026-11-09T06:53:17+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196397,\"finish\":1794196397.656016,\"duration\":0.6560161113739014,\"processing\":0,\"date_start\":\"2026-11-09T06:53:17+03:00\",\"date_finish\":\"2026-11-09T06:53:17+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[],\"total\":0,\"time\":{\"start\":1794196398,\"finish\":1794196398.200841,\"duration\":0.20084095001220703,\"processing\":0,\"date_start\":\"2026-11-09T06:53:18+03:00\",\"date_finish\":\"2026-11-09T06:53:18+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"STAGE_ID\":\"NEW\",\"STAGE_SEMANTIC_ID\":\"P\",\"OPPORTUNITY\":\"280.75000000\",\"COMPANY_ID\":\"61\",\"CONTACT_ID\":\"117\"}],\"total\":1,\"time\":{\"start\":1794196398,\"finish\":1794196398.666943,\"duration\":0.6669430732727051,\"processing\":0,\"date_start\":\"2026-11-09T06:53:18+03:00\",\"date_finish\":\"2026-11-09T06:53:18+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.company.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"61\",\"TITLE\":\"E2E Co 248aced1\"}],\"total\":1,\"time\":{\"start\":1794196399,\"finish\":1794196399.199444,\"duration\":0.19944405555725098,\"processing\":0,\"date_start\":\"2026-11-09T06:53:19+03:00\",\"date_finish\":\"2026-11-09T06:53:19+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.contact.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"117\",\"NAME\":\"E2E Person 248aced1\",\"LAST_NAME\":null}],\"total\":1,\"time\":{\"start\":1794196399,\"finish\":1794196399.66445,\"duration\":0.66444993019104,\"processing\":0,\"date_start\":\"2026-11-09T06:53:19+03:00\",\"date_finish\":\"2026-11-09T06:53:19+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.item.productrow.add.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"productRow\":{\"id\":301,\"ownerId\":123,\"ownerType\":\"D\",\"productId\":463,\"productName\":\"E2E product 248aced1\",\"price\":100,\"priceAccount\":100,\"priceExclusive\":100,\"priceNetto\":100,\"priceBrutto\":100,\"quantity\":4,\"discountTypeId\":2,\"discountRate\":0,\"discountSum\":0,\"taxIncluded\":\"N\",\"customized\":\"Y\",\"measureCode\":796,\"measureName\":\"шт\",\"sort\":0,\"xmlId\":\"\",\"type\":1}},\"time\":{\"start\":1794196400,\"finish\":1794196400.418337,\"duration\":0.4183371067047119,\"processing\":0,\"date_start\":\"2026-11-09T06:53:20+03:00\",\"date_finish\":\"2026-11-09T06:53:20+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.20781993865966797}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.update.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196400,\"finish\":1794196400.958982,\"duration\":0.958981990814209,\"processing\":0,\"date_start\":\"2026-11-09T06:53:20+03:00\",\"date_finish\":\"2026-11-09T06:53:20+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.2869839668273926}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.get.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"ID\":\"123\",\"TITLE\":\"E2E deal 248aced1\",\"TYPE_ID\":\"SALE\",\"STAGE_ID\":\"PREPARATION\",\"PREVIOUS_STAGE_ID\":\"NEW\",\"PROBABILITY\":null,\"CURRENCY_ID\":\"RUB\",\"OPPORTUNITY\":\"4321.00\",\"IS_MANUAL_OPPORTUNITY\":\"Y\",\"TAX_VALUE\":\"0.00\",\"LEAD_ID\":null,\"COMPANY_ID\":\"61\",\"CONTACT_ID\":\"117\",\"MYCOMPANY_ID\":\"0\",\"QUOTE_ID\":null,\"BEGINDATE\":\"2026-11-09T03:00:00+03:00\",\"CLOSEDATE\":\"2026-12-09T03:00:00+03:00\",\"ASSIGNED_BY_ID\":\"1\",\"CREATED_BY_ID\":\"1\",\"MODIFY_BY_ID\":\"1\",\"DATE_CREATE\":\"2026-11-09T06:53:03+03:00\",\"DATE_MODIFY\":\"2026-11-09T06:53:20+03:00\",\"OPENED\":\"Y\",\"CLOSED\":\"N\",\"COMMENTS\":null,\"ADDITIONAL_INFO\":null,\"LOCATION_ID\":null,\"CATEGORY_ID\":\"0\",\"STAGE_SEMANTIC_ID\":\"P\",\"IS_NEW\":\"N\",\"IS_RECURRING\":\"N\",\"IS_RETURN_CUSTOMER\":\"N\",\"IS_REPEATED_APPROACH\":\"N\",\"SOURCE_ID\":\"\",\"SOURCE_DESCRIPTION\":null,\"ORIGINATOR_ID\":null,\"ORIGIN_ID\":null,\"MOVED_BY_ID\":\"1\",\"MOVED_TIME\":\"2026-11-09T06:53:20+03:00\",\"LAST_ACTIVITY_TIME\":\"2026-11-09T06:53:03+03:00\",\"UTM_SOURCE\":null,\"UTM_MEDIUM\":null,\"UTM_CAMPAIGN\":null,\"UTM_CONTENT\":null,\"UTM_TERM\":null,\"LAST_COMMUNICATION_TIME\":null,\"REPEAT_SALE_SEGMENT_ID\":null,\"LAST_ACTIVITY_BY\":\"1\"},\"time\":{\"start\":1794196401,\"finish\":1794196401.210529,\"duration\":0.21052908897399902,\"processing\":0,\"date_start\":\"2026-11-09T06:53:21+03:00\",\"date_finish\":\"2026-11-09T06:53:21+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/crm.deal.productrows.get.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":[{\"ID\":\"297\",\"OWNER_ID\":\"123\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":463,\"PRODUCT_NAME\":\"E2E product 248aced1\",\"ORIGINAL_PRODUCT_NAME\":\"E2E product 248aced1\",\"PRODUCT_DESCRIPTION\":\"Категория: E2E\\nСинонимы: e2e 248aced1\",\"PRICE\":100,\"PRICE_EXCLUSIVE\":100,\"PRICE_NETTO\":100,\"PRICE_BRUTTO\":100,\"PRICE_ACCOUNT\":\"100.00000000\",\"QUANTITY\":2.5,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null},{\"ID\":\"299\",\"OWNER_ID\":\"123\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":0,\"PRODUCT_NAME\":\"E2E service 248aced1\",\"ORIGINAL_PRODUCT_NAME\":null,\"PRODUCT_DESCRIPTION\":null,\"PRICE\":10.25,\"PRICE_EXCLUSIVE\":10.25,\"PRICE_NETTO\":10.25,\"PRICE_BRUTTO\":10.25,\"PRICE_ACCOUNT\":\"10.25000000\",\"QUANTITY\":3,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"Без НДС\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":null,\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null},{\"ID\":\"301\",\"OWNER_ID\":\"123\",\"OWNER_TYPE\":\"D\",\"PRODUCT_ID\":463,\"PRODUCT_NAME\":\"E2E product 248aced1\",\"ORIGINAL_PRODUCT_NAME\":\"E2E product 248aced1\",\"PRODUCT_DESCRIPTION\":\"Категория: E2E\\nСинонимы: e2e 248aced1\",\"PRICE\":100,\"PRICE_EXCLUSIVE\":100,\"PRICE_NETTO\":100,\"PRICE_BRUTTO\":100,\"PRICE_ACCOUNT\":\"100.00000000\",\"QUANTITY\":4,\"DISCOUNT_TYPE_ID\":2,\"DISCOUNT_RATE\":0,\"DISCOUNT_SUM\":0,\"TAX_RATE\":null,\"TAX_NAME\":\"\",\"TAX_INCLUDED\":\"N\",\"CUSTOMIZED\":\"Y\",\"MEASURE_CODE\":796,\"MEASURE_NAME\":\"шт\",\"SORT\":0,\"XML_ID\":\"\",\"TYPE\":1,\"STORE_ID\":null,\"RESERVE_ID\":null,\"DATE_RESERVE_END\":null,\"RESERVE_QUANTITY\":null}],\"time\":{\"start\":1794196401,\"finish\":1794196401.679348,\"duration\":0.6793479919433594,\"processing\":0,\"date_start\":\"2026-11-09T06:53:21+03:00\",\"date_finish\":\"2026-11-09T06:53:21+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -361,7 +604,16 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":[{\"ID\":\"49\",\"NAME\":\"E2E product fe95fa6f\",\"XML_ID\":\"E2E-fe95fa6f\",\"SECTION_ID\":\"3\",\"DESCRIPTION\":\"Категория: E2E\\nСинонимы: e2e fe95fa6f\",\"PRICE\":\"100.00000000\",\"CURRENCY_ID\":\"RUB\",\"MEASURE\":\"9\"}],\"total\":1,\"time\":{\"start\":1794184597,\"finish\":1794184597.364931,\"duration\":0.3649311065673828,\"processing\":0,\"date_start\":\"2026-11-09T03:36:37+03:00\",\"date_finish\":\"2026-11-09T03:36:37+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":[{\"ID\":\"463\",\"NAME\":\"E2E product 248aced1\",\"XML_ID\":\"E2E-248aced1\",\"SECTION_ID\":\"3\",\"DESCRIPTION\":\"Категория: E2E\\nСинонимы: e2e 248aced1\",\"PRICE\":\"100.00000000\",\"CURRENCY_ID\":\"RUB\",\"MEASURE\":\"9\"}],\"total\":1,\"time\":{\"start\":1794196402,\"finish\":1794196402.213799,\"duration\":0.21379899978637695,\"processing\":0,\"date_start\":\"2026-11-09T06:53:22+03:00\",\"date_finish\":\"2026-11-09T06:53:22+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
+   "binary": false
+  },
+  {
+   "method": "POST",
+   "url": "https://example.bitrix24.ru/rest/1/WEBHOOKTOKEN/catalog.catalog.list.json",
+   "op": "",
+   "status": 200,
+   "content_type": "application/json; charset=utf-8",
+   "body": "{\"result\":{\"catalogs\":[{\"iblockId\":25,\"iblockTypeId\":\"CRM_PRODUCT_CATALOG\",\"id\":25,\"lid\":\"s1\",\"name\":\"Товарный каталог CRM\",\"productIblockId\":null,\"skuPropertyId\":null,\"subscription\":\"N\",\"vatId\":null,\"yandexExport\":\"N\"},{\"iblockId\":27,\"iblockTypeId\":\"CRM_PRODUCT_CATALOG\",\"id\":27,\"lid\":\"s1\",\"name\":\"Товарный каталог CRM (предложения)\",\"productIblockId\":25,\"skuPropertyId\":103,\"subscription\":\"N\",\"vatId\":null,\"yandexExport\":\"N\"}]},\"total\":2,\"time\":{\"start\":1794196402,\"finish\":1794196402.660775,\"duration\":0.6607749462127686,\"processing\":0,\"date_start\":\"2026-11-09T06:53:22+03:00\",\"date_finish\":\"2026-11-09T06:53:22+03:00\",\"operating_reset_at\":1794196980,\"operating\":0}}",
    "binary": false
   },
   {
@@ -370,7 +622,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":{\"products\":[{\"iblockId\":25,\"id\":49,\"quantity\":7}]},\"total\":1,\"time\":{\"start\":1794184597,\"finish\":1794184597.983189,\"duration\":0.9831891059875488,\"processing\":0,\"date_start\":\"2026-11-09T03:36:37+03:00\",\"date_finish\":\"2026-11-09T03:36:37+03:00\",\"operating_reset_at\":1794185160,\"operating\":0}}",
+   "body": "{\"result\":{\"products\":[{\"iblockId\":25,\"id\":463,\"quantity\":7}]},\"total\":1,\"time\":{\"start\":1794196403,\"finish\":1794196403.329657,\"duration\":0.32965707778930664,\"processing\":0,\"date_start\":\"2026-11-09T06:53:23+03:00\",\"date_finish\":\"2026-11-09T06:53:23+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.13673186302185059}}",
    "binary": false
   },
   {
@@ -388,7 +640,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184598,\"finish\":1794184599.213555,\"duration\":1.213555097579956,\"processing\":1,\"date_start\":\"2026-11-09T03:36:38+03:00\",\"date_finish\":\"2026-11-09T03:36:39+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.24537181854248047}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196404,\"finish\":1794196404.690307,\"duration\":0.6903069019317627,\"processing\":0,\"date_start\":\"2026-11-09T06:53:24+03:00\",\"date_finish\":\"2026-11-09T06:53:24+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.47536516189575195}}",
    "binary": false
   },
   {
@@ -397,7 +649,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184599,\"finish\":1794184599.524577,\"duration\":0.5245769023895264,\"processing\":0,\"date_start\":\"2026-11-09T03:36:39+03:00\",\"date_finish\":\"2026-11-09T03:36:39+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.17118191719055176}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196404,\"finish\":1794196405.081109,\"duration\":1.0811090469360352,\"processing\":1,\"date_start\":\"2026-11-09T06:53:24+03:00\",\"date_finish\":\"2026-11-09T06:53:25+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.261307954788208}}",
    "binary": false
   },
   {
@@ -406,7 +658,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184599,\"finish\":1794184600.113348,\"duration\":1.1133480072021484,\"processing\":1,\"date_start\":\"2026-11-09T03:36:39+03:00\",\"date_finish\":\"2026-11-09T03:36:40+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.3172929286956787}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196405,\"finish\":1794196405.528635,\"duration\":0.5286350250244141,\"processing\":0,\"date_start\":\"2026-11-09T06:53:25+03:00\",\"date_finish\":\"2026-11-09T06:53:25+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.5928950309753418}}",
    "binary": false
   },
   {
@@ -415,7 +667,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184600,\"finish\":1794184600.570725,\"duration\":0.5707249641418457,\"processing\":0,\"date_start\":\"2026-11-09T03:36:40+03:00\",\"date_finish\":\"2026-11-09T03:36:40+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.21738386154174805}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196405,\"finish\":1794196406.218514,\"duration\":1.2185139656066895,\"processing\":1,\"date_start\":\"2026-11-09T06:53:25+03:00\",\"date_finish\":\"2026-11-09T06:53:26+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.41051793098449707}}",
    "binary": false
   },
   {
@@ -424,7 +676,7 @@
    "op": "",
    "status": 200,
    "content_type": "application/json; charset=utf-8",
-   "body": "{\"result\":true,\"time\":{\"start\":1794184600,\"finish\":1794184601.506667,\"duration\":1.506666898727417,\"processing\":1,\"date_start\":\"2026-11-09T03:36:40+03:00\",\"date_finish\":\"2026-11-09T03:36:41+03:00\",\"operating_reset_at\":1794185160,\"operating\":0.5394940376281738}}",
+   "body": "{\"result\":true,\"time\":{\"start\":1794196406,\"finish\":1794196406.798182,\"duration\":0.7981820106506348,\"processing\":0,\"date_start\":\"2026-11-09T06:53:26+03:00\",\"date_finish\":\"2026-11-09T06:53:26+03:00\",\"operating_reset_at\":1794196980,\"operating\":0.4643549919128418}}",
    "binary": false
   }
  ]

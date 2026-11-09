@@ -5,6 +5,8 @@ name: Live E2E
 on:
   push:
     branches: [main]
+    # a push of documents only changes nothing these jobs check, and the voice job pays for its minutes
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
   schedule:
     - cron: "17 2 * * *"
@@ -99,3 +101,24 @@ jobs:
       - name: Reference set against the bar of the page
         # short tracebacks: no frame arguments in the log
         run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/order-to-deal/tests/test_quality.py
+
+  voice-quality:
+    name: Voice to CRM on the reference set (live speech and model)
+    # on main and by hand, not nightly: a run hears 165 s of audio, which the ElevenLabs plan counts
+    # against the same monthly credits as its speech synthesis
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Reference set against the bar of CI
+        # short tracebacks: no frame arguments in the log
+        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/voice-to-crm/tests/test_quality.py
