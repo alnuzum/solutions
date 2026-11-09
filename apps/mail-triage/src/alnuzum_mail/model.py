@@ -24,7 +24,7 @@ CLASSES = ("new", "reply", "junk")
 LANGUAGES = ("ru", "en", "uz", "other")
 SCAN_CHARS = 3000
 QUOTE_CHARS = 200
-_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏ -‮⁠-⁩]")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069]")
 _EMAIL = re.compile(r"[a-z0-9._%+'-]{1,64}@[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+")
 
 TRIAGE_SYSTEM = """You sort the letters that customers send to a company and read the sender's requisites out of them.
