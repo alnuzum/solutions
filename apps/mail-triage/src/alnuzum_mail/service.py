@@ -25,7 +25,7 @@ from alnuzum_mail.intake import Letter
 from alnuzum_mail.match import Keys, best, conflict, deals, rank, sender
 from alnuzum_mail.model import MailReader, Reading
 from alnuzum_mail.rules import load, route
-from alnuzum_mail.store import CeilingReached, Limits, MailStore, RunInfo
+from alnuzum_mail.store import AddressCeilingReached, CeilingReached, Limits, MailStore, RunInfo
 from alnuzum_orders.model import Gate, ModelError, Usage
 from alnuzum_orders.store import DEMO_OWNER
 from alnuzum_orders.web import Parsing
@@ -156,16 +156,18 @@ class Mail:
             return {}
         return {c.crm.value: c.id for c in await st.list(DEMO_OWNER) if c.status == "active"}
 
-    def gate(self, ms: MailStore, owner: str) -> Gate:
+    def gate(self, ms: MailStore, owner: str, ip_key: str | None = None) -> Gate:
         budget = self.settings.mail_usd_per_day
 
         async def gate(kind: str, worst: Decimal):  # type: ignore[no-untyped-def]
             if worst > budget:  # no day would ever fit it: «tomorrow again» would be a lie
                 raise ModelError("e_too_big")
             try:
-                spend_id = await ms.reserve_spend(owner, kind, budget=budget, worst=worst)
+                spend_id = await ms.reserve_spend(owner, kind, budget=budget, worst=worst, ip_key=ip_key)
             except CeilingReached:
                 raise ModelError("e_ceiling") from None
+            except AddressCeilingReached:
+                raise ModelError("e_ceiling_ip") from None
 
             async def done(used: Usage | None, ok: bool) -> None:
                 if used is None:
@@ -282,9 +284,10 @@ class Mail:
         data: bytes | None,
         text: str | None,
         lang: str,
+        ip_key: str | None = None,
     ) -> None:
         """The run is already reserved (counted): here the letter is read, bound and routed, or rejected."""
-        gate = self.gate(ms, owner)
+        gate = self.gate(ms, owner, ip_key)
         try:
             letter = await self.parsing.read(intake.read, data, text)
             reading = await self.reader().triage(letter, lang=lang, gate=gate)

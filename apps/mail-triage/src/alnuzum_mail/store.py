@@ -45,6 +45,8 @@ STUCK = timedelta(minutes=30)
 DEMO_DOWN_FOR = timedelta(minutes=30)
 RULES_KEEP = timedelta(days=30)  # the rules of a demo CRM, unchanged this long, are dropped
 LOCK_SPEND = 0x4D41494C  # the money ceiling of the solution ("MAIL")
+# one address may spend this part of the day's dollars, and never less than this many worst bookings
+ADDRESS_SHARE, ADDRESS_WORST = Decimal("0.25"), 3
 LOCK_RUNS, LOCK_DEMO = 0x4D52, 0x4D44  # runs of an owner, an address or a connection; demo writes
 MAX_CREATES = 3  # records one write of a new request may create: a company, a contact, a deal
 SMALL = frozenset({"amocrm", "kommo"})  # technical accounts of 100 contacts and companies, 100 deals
@@ -93,6 +95,7 @@ class MailSpend(Base):
     usd: Mapped[Decimal] = mapped_column(Numeric(10, 5))
     units: Mapped[int] = mapped_column(Integer, default=0)
     ok: Mapped[bool | None] = mapped_column(Boolean)
+    ip_key: Mapped[str | None] = mapped_column(String(64))  # the address that asked: its share of the day
 
 
 class MailDemoRecord(Base):
@@ -107,6 +110,10 @@ class MailDemoRecord(Base):
 
 class CeilingReached(RuntimeError):
     """The solution's dollars for the day are spent."""
+
+
+class AddressCeilingReached(RuntimeError):
+    """One address's share of the day's dollars is spent; the others still go."""
 
 
 class RunsExceeded(RuntimeError):
@@ -481,16 +488,31 @@ class MailStore:
 
     # --- money ---
 
-    async def reserve_spend(self, owner: str, kind: str, *, budget: Decimal, worst: Decimal) -> uuid.UUID:
-        """Booked at its worst cost before the call, under the global lock."""
+    async def reserve_spend(
+        self, owner: str, kind: str, *, budget: Decimal, worst: Decimal, ip_key: str | None = None
+    ) -> uuid.UUID:
+        """Booked at its worst cost before the call, under the global lock: within the day's dollars and, by
+        an address, within its share (a quarter of them, but room for three worst bookings at least)."""
         async with self._sessions.begin() as session:
             await session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": LOCK_SPEND})
-            spent = await session.scalar(
-                select(func.coalesce(func.sum(MailSpend.usd), 0)).where(MailSpend.created_at > _day())
-            )
+            day = select(func.coalesce(func.sum(MailSpend.usd), 0)).where(MailSpend.created_at > _day())
+            spent = await session.scalar(day)
             if Decimal(spent or 0) + worst > budget:
                 raise CeilingReached(f"${budget} per day")
-            row = MailSpend(id=uuid.uuid4(), owner=owner, kind=kind[:16], usd=worst, units=0, ok=None)
+            if ip_key is not None:
+                share = min(budget, max(ADDRESS_SHARE * budget, ADDRESS_WORST * worst))
+                mine = await session.scalar(day.where(MailSpend.ip_key == ip_key[:64]))
+                if Decimal(mine or 0) + worst > share:
+                    raise AddressCeilingReached(f"${share} per day")
+            row = MailSpend(
+                id=uuid.uuid4(),
+                owner=owner,
+                kind=kind[:16],
+                usd=worst,
+                units=0,
+                ok=None,
+                ip_key=ip_key[:64] if ip_key is not None else None,
+            )
             session.add(row)
             return row.id
 

@@ -320,6 +320,33 @@ async def test_the_money_ceiling_refuses_before_the_model(make: Any, engine: Any
     assert over.status_code == 422 and h2.messages.requests == []
 
 
+async def test_one_address_takes_its_share_of_the_money_not_all_of_it(make: Any, engine: Any) -> None:
+    """A quarter of the day's dollars an address (at least three worst bookings, at most the whole budget):
+    past it that address hears its own limit, the others still go."""
+    h: Harness = await make(mail_usd_per_day=Decimal("1.5"))
+    await sql(
+        engine,
+        "INSERT INTO mail_spend (id, owner, kind, usd, units, ok, created_at, ip_key) "
+        "VALUES (:i, 'x', 'triage', 0.40, 1, true, now(), '203.0.113.7')",
+        i=uuid.uuid4(),
+    )
+    over = await Browser(h.app).send()
+    assert over.status_code == 422 and h.messages.requests == []
+    assert "Ваш лимит на разбор писем на сегодня исчерпан" in html.unescape(over.text)
+    other = await Browser(h.app, "203.0.113.31").send()
+    assert other.status_code == 303 and len(h.messages.requests) == 1
+    spent = await rows(engine, "SELECT ip_key FROM mail_spend WHERE owner <> 'x'")
+    assert spent == [("203.0.113.31",)]
+
+
+async def test_on_a_small_budget_an_address_still_reads_three_letters(make: Any, engine: Any) -> None:
+    """The stand's $0.5: a quarter is less than one worst booking, three of them are the share."""
+    h: Harness = await make(mail_usd_per_day=Decimal("0.5"))
+    b = Browser(h.app)
+    assert run_id(await b.send()) and run_id(await b.send())
+    assert len(h.messages.requests) == 2
+
+
 # --- keeping and erasing ---
 
 

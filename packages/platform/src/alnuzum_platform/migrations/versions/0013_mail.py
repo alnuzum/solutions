@@ -59,8 +59,10 @@ def upgrade() -> None:
         sa.Column("usd", sa.Numeric(10, 5), nullable=False),
         sa.Column("units", sa.Integer, nullable=False, server_default="0"),
         sa.Column("ok", sa.Boolean, nullable=True),
+        sa.Column("ip_key", sa.String(64), nullable=True),
     )
     op.create_index("ix_mail_spend_created", "mail_spend", ["created_at"])
+    op.create_index("ix_mail_spend_ip_created", "mail_spend", ["ip_key", "created_at"])
     op.create_table(
         "mail_demo_records",
         sa.Column("id", sa.Uuid, primary_key=True),

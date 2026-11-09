@@ -156,6 +156,7 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
                 data=data,
                 text=pasted,
                 lang=lang,
+                ip_key=ip_key(request),
             )
         except MailError as exc:
             return await start(request, lang, status=422, error=exc.code, error_n=_limit(exc.code))
