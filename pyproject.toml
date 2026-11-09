@@ -4,17 +4,18 @@ version = "0.1.0"
 description = "Open-source CRM solutions by Al-Nuzum: shared CRM adapters and platform"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
-dependencies = ["alnuzum-crm", "alnuzum-platform"]
+dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-orders"]
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "apps/*"]
 
 [tool.uv.sources]
 alnuzum-crm = { workspace = true }
 alnuzum-platform = { workspace = true }
+alnuzum-orders = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -25,6 +26,7 @@ dev = [
     "mypy>=1.13",
     "bandit>=1.8",
     "pip-audit>=2.7",
+    "types-openpyxl>=3.1",
 ]
 
 [tool.ruff]
@@ -38,27 +40,34 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101", "S105", "S106", "S107", "S311", "ASYNC210", "E501"]
 "scripts/**" = ["S101"]
+# prompts and the reference set read better as whole sentences and rows
+"apps/order-to-deal/src/alnuzum_orders/model.py" = ["E501"]
+"apps/order-to-deal/eval/**" = ["E501", "S603", "S101"]
+"apps/order-to-deal/src/alnuzum_orders/quality.py" = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["alnuzum_crm", "alnuzum_platform"]
+known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
-mypy_path = ["packages/crm/src", "packages/platform/src"]
+mypy_path = ["packages/crm/src", "packages/platform/src", "apps/order-to-deal/src"]
 explicit_package_bases = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["packages/crm/tests", "packages/platform/tests"]
-addopts = "--import-mode=importlib -m 'not e2e'"
-markers = ["e2e: live calls into real CRM accounts (needs secrets)"]
+testpaths = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests"]
+addopts = "--import-mode=importlib -m 'not e2e and not quality'"
+markers = [
+    "e2e: live calls into real CRM accounts (needs secrets)",
+    "quality: the order-to-deal reference set against the live model (needs ANTHROPIC_API_KEY)",
+]
 
 [tool.coverage.run]
-source = ["alnuzum_crm", "alnuzum_platform"]
+source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]
 branch = true
 
 [tool.coverage.report]
@@ -67,4 +76,4 @@ skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
 
 [tool.bandit]
-exclude_dirs = ["packages/crm/tests", "packages/platform/tests", ".venv"]
+exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", ".venv"]
