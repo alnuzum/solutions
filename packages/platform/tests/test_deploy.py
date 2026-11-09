@@ -25,11 +25,13 @@ def _sent_names() -> list[str]:
 def _accepted(names: list[str]) -> dict[str, bool]:
     lines = (DEPLOY / "server" / "apps-deploy").read_text().splitlines()
     rules = "\n".join(line for line in lines if line.startswith(("ALLOWED=", "DENIED=")))
-    check = 'for key in "$@"; do if [[ "$key" =~ $ALLOWED && ! "$key" =~ $DENIED ]]; then echo "$key 1"; ' \
+    check = (
+        'for key in "$@"; do if [[ "$key" =~ $ALLOWED && ! "$key" =~ $DENIED ]]; then echo "$key 1"; '
         'else echo "$key 0"; fi; done'
+    )
     bash = shutil.which("bash")
     assert bash
-    out = subprocess.run(  # nosec B603
+    out = subprocess.run(  # noqa: S603  # nosec B603
         [bash, "-c", f"{rules}\n{check}", "check", *names], capture_output=True, text=True, check=True
     ).stdout
     return {k: v == "1" for k, v in (line.split() for line in out.splitlines())}
@@ -47,8 +49,22 @@ def test_a_setting_never_seen_before_needs_no_change_on_the_server() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["APP_ENV", "PUBLIC_URL", "IMAGE_TAG", "DATABASE_URL", "PATH", "LD_PRELOAD", "PYTHONPATH",
-     "COMPOSE_FILE", "COMPOSE_PROJECT_NAME", "DOCKER_HOST", "HTTPS_PROXY", "SSL_CERT_FILE", "lower", "A"],
+    [
+        "APP_ENV",
+        "PUBLIC_URL",
+        "IMAGE_TAG",
+        "DATABASE_URL",
+        "PATH",
+        "LD_PRELOAD",
+        "PYTHONPATH",
+        "COMPOSE_FILE",
+        "COMPOSE_PROJECT_NAME",
+        "DOCKER_HOST",
+        "HTTPS_PROXY",
+        "SSL_CERT_FILE",
+        "lower",
+        "A",
+    ],
 )
 def test_names_that_change_how_things_run_are_refused(name: str) -> None:
     assert _accepted([name]) == {name: False}

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Open-source CRM solutions by Al-Nuzum: shared CRM adapters and platform"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
-dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-orders"]
+dependencies = ["alnuzum-crm", "alnuzum-platform", "alnuzum-orders", "alnuzum-voice"]
 
 [tool.uv]
 package = false
@@ -16,6 +16,7 @@ members = ["packages/*", "apps/*"]
 alnuzum-crm = { workspace = true }
 alnuzum-platform = { workspace = true }
 alnuzum-orders = { workspace = true }
+alnuzum-voice = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -47,6 +48,10 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "apps/order-to-deal/eval/**" = ["E501", "S603", "S101"]
 "apps/order-to-deal/src/alnuzum_orders/quality.py" = ["E501"]
 "apps/order-to-deal/src/alnuzum_orders/i18n.py" = ["E501"]
+"apps/voice-to-crm/src/alnuzum_voice/model.py" = ["E501"]
+"apps/voice-to-crm/src/alnuzum_voice/i18n.py" = ["E501"]
+"apps/voice-to-crm/src/alnuzum_voice/quality.py" = ["E501"]
+"apps/voice-to-crm/eval/**" = ["E501", "S603", "S607", "S101"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]

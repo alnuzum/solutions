@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ t.v_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/voice/voice.css"><link rel="stylesheet" href="/voice/link.css">{% endblock %}
+{% macro num(v) %}{% set d = v|float %}{{ ("{:,.2f}".format(d)).replace(",", " ").removesuffix(".00") }}{% endmacro %}
+{% block body %}
+{% set crm_name = t['crm_' ~ run.crm] %}
+{% set open_run = run.status in ('ready', 'failed') %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/voice">← {{ t.v_new }}</a></p>
+  <h1>{{ t.v_title }}</h1>
+  <p>{{ crm_name }}{% if run.demo %} ({{ t.v_demo|lower }}){% endif %} · {{ t.v_cost.format(usd=(r.usage.usd|float)|round(4)) }}</p></div>
+</div>
+{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'saved') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'saved') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice].format(crm=crm_name) }}</p>{% endif %}
+{% if run.status == 'cancelled' %}<p class="err" role="status">{{ t.v_cancelled }}</p>{% endif %}
+
+{% if run.status == 'written' and run.readback %}
+<section class="card done">
+  <h2><svg class="ic" aria-hidden="true"><use href="#c-{{ run.crm }}"/></svg>{{ t.v_written.format(crm=crm_name) }}</h2>
+  <p class="muted">{{ t.v_readback.format(crm=crm_name) }}</p>
+  <p><b>{{ run.readback.title }}</b></p>
+  <p>{{ t.k_stage }}: <b>{{ run.readback.stage }}</b>{% if run.readback.amount %} · {{ t.k_amount }}: <b>{{ num(run.readback.amount) }} {{ run.readback.currency or '' }}</b>{% endif %}</p>
+  {% if run.readback.lines %}<table class="rb"><tbody>{% for l in run.readback.lines %}<tr><td>{{ l.name }}</td><td class="r">{{ num(l.quantity) }}</td><td class="r">{{ num(l.price) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  {% if run.deal_url %}<a class="open" href="{{ run.deal_url }}" rel="noopener noreferrer">{{ t.v_open }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>{% endif %}
+</section>
+{% endif %}
+
+<div class="oc">
+ <section class="src card">
+  <h2>{{ t.v_transcript if r.source == 'voice' else t.v_typed }}</h2>
+  <ol class="paper">{% for p in r.phrases %}<li data-n="{{ loop.index }}">{{ p }}</li>{% endfor %}</ol>
+ </section>
+ <form class="res" method="post" action="/{{ lang }}/voice/{{ run.id }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>{{ t.v_changes }}</h2>
+  <p class="muted small">{{ t.v_hover }}</p>
+  <div class="items">
+   <div class="it" data-s="{{ r.deal_phrases|join(' ') }}" tabindex="0">
+    <small class="read">{{ t.v_deal }}</small>
+    {% if r.candidates %}
+     {% if r.deal and (r.deal_by == 'person' or r.candidates|length == 1 or not open_run) %}<b>{{ r.deal.title }}</b><small class="meta">{{ [r.deal.company, r.deal.contact]|select|join(' · ') }}</small>{% endif %}
+     {% if open_run and (r.candidates|length > 1) %}
+     <details class="opts"{% if not r.deal_id %} open{% endif %}><summary>{{ t.v_pick }}</summary>
+      {% for c in r.candidates %}<label class="opt"><input type="radio" name="deal" value="{{ c.id }}"{% if r.deal_id == c.id %} checked{% endif %}><span><b>{{ c.title }}</b><small>{{ [c.company, c.contact]|select|join(' · ') }}{% if c.by == 'company' %} · {{ t.v_by_company }}{% elif c.by == 'contact' %} · {{ t.v_by_contact }}{% endif %}</small></span></label>{% endfor %}
+     </details>
+     {% endif %}
+    {% elif r.queries %}<b class="nf">{{ t.v_none_found.format(q=r.queries|join(', ')) }}</b>
+    {% else %}<b class="nf">{{ t.v_no_deal_said }}</b>{% endif %}
+   </div>
+   {% for c in r.changes %}{% set i = loop.index0 %}
+   <div class="it st-{{ c.state }}" data-s="{{ c.phrases|join(' ') }}" tabindex="0">
+    <small class="read">{{ t['k_' ~ c.kind] }}</small>
+    {% if c.kind == 'stage' %}<b>→ {{ c.stage_name }}</b>
+    {% elif c.kind == 'amount' %}<b>{{ num(c.value) }}</b>
+    {% elif c.kind == 'close_date' %}<b>{{ c.value }}</b>
+    {% elif c.kind == 'task' %}<b>{{ t['t_' ~ c.task_kind] }}</b><small class="meta">{{ c.due }}{% if c.at %} {{ c.at }}{% endif %}</small>
+    {% elif c.kind == 'product' %}
+     {% if c.state == 'ok' %}<b>{{ c.name }}</b><small class="meta">{{ c.sku or '' }} · {{ num(c.quantity) }} {{ c.unit }}{% if c.price %} × {{ num(c.price) }}{% endif %}</small>
+     {% else %}<b class="nf">«{{ c.said }}»</b>{% endif %}
+     {% if open_run and c.candidates and c.state != 'ok' %}
+     <details class="opts" open><summary>{{ t.v_pick_product }}</summary>
+      {% for x in c.candidates %}<label class="opt"><input type="radio" name="p{{ i }}" value="{{ x.id }}"{% if c.product_id == x.id %} checked{% endif %}><span><b>{{ x.name }}</b><small>{{ x.sku or '' }} · {{ x.unit }}</small></span></label>{% endfor %}
+     </details>
+     {% endif %}
+    {% elif c.kind == 'refused' %}<b class="nf">{{ t['r_' ~ c.what] }}</b>{% endif %}
+    {% if c.why %}<small class="warn">{{ t['why_' ~ c.why] }}</small>{% endif %}
+   </div>
+   {% endfor %}
+   <div class="it" data-s="{{ range(1, r.phrases|length + 1)|join(' ') }}" tabindex="0"><small class="read">{{ t.v_note }}</small><b>«{{ (r.phrases|join(' '))[:120] }}{% if (r.phrases|join(' '))|length > 120 %}…{% endif %}»</b></div>
+  </div>
+  {% if open_run %}
+  <div class="acts">
+   <button class="btn ghost" type="submit" name="action" value="cancel">{{ t.v_cancel }}</button>
+   {% if r.candidates|length > 1 or r.changes|selectattr('state', 'eq', 'unsure')|list %}<button class="btn ghost" type="submit" name="action" value="save">{{ t.v_save }}</button>{% endif %}
+   <button class="btn" type="submit" name="action" value="write"{% if not r.candidates %} disabled{% endif %}>{{ t.v_write.format(crm=crm_name) }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+  </div>
+  {% endif %}
+ </form>
+</div>
+{% endblock %}

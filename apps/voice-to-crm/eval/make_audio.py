@@ -48,8 +48,25 @@ def main() -> None:
                 mp3.write(resp.content)
                 mp3.flush()
                 subprocess.run(  # nosec B603 B607
-                    ["ffmpeg", "-loglevel", "error", "-y", "-i", mp3.name, "-ac", "1", "-ar", "48000",
-                     "-c:a", "libopus", "-b:a", "24k", "-application", "voip", str(out)],
+                    [
+                        "ffmpeg",
+                        "-loglevel",
+                        "error",
+                        "-y",
+                        "-i",
+                        mp3.name,
+                        "-ac",
+                        "1",
+                        "-ar",
+                        "48000",
+                        "-c:a",
+                        "libopus",
+                        "-b:a",
+                        "24k",
+                        "-application",
+                        "voip",
+                        str(out),
+                    ],
                     check=True,
                 )
             print(cmd["id"], out.stat().st_size)

@@ -100,6 +100,7 @@ dependencies = [
     { name = "alnuzum-crm" },
     { name = "alnuzum-orders" },
     { name = "alnuzum-platform" },
+    { name = "alnuzum-voice" },
 ]
 
 [package.dev-dependencies]
@@ -121,6 +122,7 @@ requires-dist = [
     { name = "alnuzum-crm", editable = "packages/crm" },
     { name = "alnuzum-orders", editable = "apps/order-to-deal" },
     { name = "alnuzum-platform", editable = "packages/platform" },
+    { name = "alnuzum-voice", editable = "apps/voice-to-crm" },
 ]
 
 [package.metadata.requires-dev]
