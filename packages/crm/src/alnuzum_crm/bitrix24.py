@@ -30,6 +30,8 @@ from alnuzum_crm.base import (
     dec,
     digits,
     hits_in_order,
+    host,
+    lookup_keys,
     positive,
     record_id,
     require_one,
@@ -49,6 +51,7 @@ from alnuzum_crm.errors import (
 from alnuzum_crm.http import HttpCore, RetryPolicy, shared_limiter
 from alnuzum_crm.types import (
     AccountInfo,
+    CompanyHit,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -66,6 +69,7 @@ from alnuzum_crm.types import (
     ProductIn,
     Stage,
     TaskIn,
+    User,
 )
 
 #: cloud portals only: the webhook host is where the server sends requests
@@ -310,6 +314,85 @@ class Bitrix24(CRM):
             await self._result("crm.requisite.add", {"fields": {**req, "RQ_INN": digits(company.inn)}})
         return company_id
 
+    async def find_companies(
+        self,
+        *,
+        inn: str | None = None,
+        domain: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        name: str | None = None,
+        limit: int = 20,
+    ) -> list[CompanyHit]:
+        # live 09.11: the INN lives in requisites; the site matches only as written in full («https://x»), so
+        # every way of writing it is asked at once; mail and phone through the duplicate finder; «%WEB»,
+        # «%EMAIL» and «%PHONE» filters are ignored by the portal and give every company, never used here
+        keys = lookup_keys(inn=inn, domain=domain, email=email, phone=phone, name=name)
+        ids: list[int] = []
+        if keys.get("inn"):
+            reqs = await self._result(
+                "crm.requisite.list",
+                {"filter": {"RQ_INN": keys["inn"], "ENTITY_TYPE_ID": 4}, "select": ["ENTITY_ID"]},
+            )
+            ids += [int(r["ENTITY_ID"]) for r in reqs or []]
+        if keys.get("domain"):
+            sites = [
+                f"{scheme}{www}{keys['domain']}"
+                for scheme in ("https://", "http://", "")
+                for www in ("", "www.")
+            ]
+            rows = await self._result("crm.company.list", {"filter": {"WEB": sites}, "select": ["ID"]})
+            ids += [int(r["ID"]) for r in rows or []]
+        for kind, value in (("EMAIL", keys.get("email")), ("PHONE", keys.get("phone"))):
+            if value:
+                found = await self._result(
+                    "crm.duplicate.findbycomm", {"entity_type": "COMPANY", "type": kind, "values": [value]}
+                )
+                if isinstance(found, dict):
+                    ids += [int(x) for x in found.get("COMPANY", [])]
+        if keys.get("name"):
+            rows = await self._result(
+                "crm.company.list",
+                {"filter": {"%TITLE": keys["name"]}, "select": ["ID"], "order": {"ID": "ASC"}},
+            )
+            ids += [int(r["ID"]) for r in rows or []]
+        wanted = list(dict.fromkeys(ids))[:limit]
+        if not wanted:
+            return []
+        rows = await self._result(
+            "crm.company.list",
+            {"filter": {"ID": wanted}, "select": ["ID", "TITLE", "WEB", "EMAIL", "PHONE"]},
+        )
+        reqs = await self._result(
+            "crm.requisite.list",
+            {"filter": {"ENTITY_TYPE_ID": 4, "ENTITY_ID": wanted}, "select": ["ENTITY_ID", "RQ_INN"]},
+        )
+        inns = {str(r["ENTITY_ID"]): digits(r.get("RQ_INN")) for r in reqs or [] if digits(r.get("RQ_INN"))}
+
+        def values(row: dict[str, Any], key: str) -> tuple[str, ...]:
+            return tuple(str(v.get("VALUE") or "") for v in row.get(key) or [] if v.get("VALUE"))
+
+        by_id = {str(r["ID"]): r for r in rows or []}
+        return [
+            CompanyHit(
+                cid,
+                str(row.get("TITLE") or ""),
+                inn=inns.get(cid),
+                phones=values(row, "PHONE"),
+                emails=values(row, "EMAIL"),
+                web=tuple(w for w in values(row, "WEB") if host(w)),
+            )
+            for cid in map(str, wanted)
+            if (row := by_id.get(cid)) is not None
+        ]
+
+    async def users(self) -> list[User]:
+        rows = await self._result("user.get", {"FILTER": {"ACTIVE": True}})
+        return [
+            User(str(u["ID"]), " ".join(x for x in (u.get("NAME"), u.get("LAST_NAME")) if x) or str(u["ID"]))
+            for u in rows or []
+        ]
+
     async def _duplicates(self, kind: str, value: str) -> list[int]:
         found = await self._result(
             "crm.duplicate.findbycomm", {"entity_type": "CONTACT", "type": kind, "values": [value]}
@@ -486,6 +569,14 @@ class Bitrix24(CRM):
             fields["COMPANY_ID"] = int(deal.company_id)
         if deal.contact_id:
             fields["CONTACT_ID"] = int(deal.contact_id)
+        if deal.stage_id:
+            if not re.fullmatch(r"[A-Z0-9_:]{1,50}", deal.stage_id):
+                raise CrmValidationError("not a stage of Bitrix24", crm=self.kind.value)
+            fields["STAGE_ID"] = deal.stage_id
+            pipeline = re.match(r"C(\d{1,9}):", deal.stage_id)
+            fields["CATEGORY_ID"] = int(pipeline.group(1)) if pipeline else 0
+        if deal.responsible_id:
+            fields["ASSIGNED_BY_ID"] = int(record_id(deal.responsible_id, self.kind.value))
         deal_id = str(await self._result("crm.deal.add", {"fields": fields}))
         if deal.lines:
             rows = [

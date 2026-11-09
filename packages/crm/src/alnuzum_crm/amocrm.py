@@ -26,6 +26,7 @@ from alnuzum_crm.base import (
     dec,
     digits,
     hits_in_order,
+    lookup_keys,
     norm_name,
     positive,
     record_id,
@@ -50,6 +51,7 @@ from alnuzum_crm.oauth import normalize_amo_domain
 from alnuzum_crm.tokens import TokenSource
 from alnuzum_crm.types import (
     AccountInfo,
+    CompanyHit,
     CompanyIn,
     ContactIn,
     CreatedDeal,
@@ -67,6 +69,7 @@ from alnuzum_crm.types import (
     ProductIn,
     Stage,
     TaskIn,
+    User,
 )
 
 WON, LOST = 142, 143
@@ -329,6 +332,47 @@ class AmoCRM(CRM):
         body = [{"name": company.name, "custom_fields_values": fields or None}]
         return await self._first_id("POST", "/api/v4/companies", "companies", body)
 
+    async def find_companies(
+        self,
+        *,
+        inn: str | None = None,
+        domain: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        name: str | None = None,
+        limit: int = 20,
+    ) -> list[CompanyHit]:
+        # one full-text search per key: amoCRM looks into every field, the INN and the site included (live
+        # 09.11); the first page of each is enough, the caller compares the values
+        inn_field = await self._inn_field()
+        found: dict[str, dict[str, Any]] = {}
+        keys = lookup_keys(inn=inn, domain=domain, email=email, phone=phone, name=name)
+        if "phone" in keys:
+            keys["phone"] = keys["phone"][-9:]
+        for query in keys.values():
+            data = await self._request("GET", "/api/v4/companies", params={"query": query, "limit": 50})
+            for c in (data or {}).get("_embedded", {}).get("companies", []):
+                found.setdefault(str(c["id"]), c)
+        return [
+            CompanyHit(
+                cid,
+                str(c.get("name") or ""),
+                inn=next(iter(_field_values(c, field_id=inn_field)), None) if inn_field else None,
+                phones=tuple(_field_values(c, code="PHONE")),
+                emails=tuple(_field_values(c, code="EMAIL")),
+                web=tuple(_field_values(c, code="WEB")),
+            )
+            for cid, c in list(found.items())[:limit]
+        ]
+
+    async def users(self) -> list[User]:
+        data = await self._embedded("GET", "/api/v4/users", "users", params={"limit": 250})
+        return [
+            User(str(u["id"]), str(u.get("name") or ""))
+            for u in data
+            if (u.get("rights") or {}).get("is_active", True) is not False
+        ]
+
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
             hits = await self._search("/api/v4/contacts", "contacts", contact.email.strip())
@@ -497,7 +541,17 @@ class AmoCRM(CRM):
             embedded["contacts"] = [{"id": int(deal.contact_id)}]
         if deal.company_id:
             embedded["companies"] = [{"id": int(deal.company_id)}]
-        lead = {"name": deal.title, "price": int(deal.amount.to_integral_value()), "_embedded": embedded}
+        lead: dict[str, Any] = {
+            "name": deal.title,
+            "price": int(deal.amount.to_integral_value()),
+            "_embedded": embedded,
+        }
+        if deal.stage_id:
+            pipeline, _, status = deal.stage_id.partition(":")
+            lead["pipeline_id"] = int(record_id(pipeline, self.kind.value))
+            lead["status_id"] = int(record_id(status, self.kind.value))
+        if deal.responsible_id:
+            lead["responsible_user_id"] = int(record_id(deal.responsible_id, self.kind.value))
         deal_id = await self._first_id("POST", "/api/v4/leads", "leads", [lead])
         quantities: dict[int, Decimal] = {}
         new_ids = iter(created)
