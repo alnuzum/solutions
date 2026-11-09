@@ -147,6 +147,16 @@ class FakeCRM:
         page = got[start : start + limit]
         return Page(tuple(page), str(start + limit) if start + limit < len(got) else None)
 
+    async def recent_purchases(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        return await self.purchases(since=since, until=until, lines=False, cursor=cursor, limit=limit)
+
     async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
         self.calls.append("names")
         key = "c" if contacts else ""

@@ -37,15 +37,16 @@ def period(day: date) -> tuple[datetime, datetime]:
 
 
 def windows(kind: str, since: datetime, until: datetime) -> list[tuple[datetime, datetime]]:
-    """One window, or quarters of the period for Zoho (oldest first, back to back)."""
+    """One window, or quarters of the period for Zoho, newest first: a read that stops at its ceiling keeps
+    the newest purchases (a client buying now must not look lapsed for want of its last orders)."""
     if kind != "zoho":
         return [(since, until)]
     out: list[tuple[datetime, datetime]] = []
-    lo = since
-    while lo < until:
-        hi = min(lo + timedelta(days=91), until)
+    hi = until
+    while hi > since:
+        lo = max(hi - timedelta(days=91), since)
         out.append((lo, hi))
-        lo = hi
+        hi = lo
     return out
 
 
@@ -68,8 +69,8 @@ async def read_account(
                 for _ in range(MAX_PAGES):
                     if clock() - started > seconds:
                         return Read(list(got.values()), "time")
-                    page = await crm.purchases(
-                        since=lo, until=hi, lines=False, cursor=cursor, limit=PAGE.get(kind, 100)
+                    page = await crm.recent_purchases(
+                        since=lo, until=hi, cursor=cursor, limit=PAGE.get(kind, 100)
                     )
                     for p in page.items:
                         got.setdefault(p.deal_id, p)

@@ -611,3 +611,39 @@ async def test_odoo_names_partners_archived_ones_too() -> None:
             {"fields": ["name"], "context": {"active_test": False}},
         )
     ]
+
+
+# --- the newest purchases of an account first: a scan stopped at its ceiling keeps them ---
+
+
+async def test_amocrm_reads_the_account_newest_first_by_id() -> None:
+    asked: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if (common := _amo_common(request)) is not None:
+            return common
+        asked.append(request.url.params)
+        return httpx.Response(
+            200, json={"_embedded": {"leads": [LEAD_WON, LEAD_LOST]}, "_links": {"next": {"href": "n"}}}
+        )
+
+    async with _amo(handler) as crm:
+        page = await crm.recent_purchases(since=SINCE, until=UNTIL, limit=999)
+    assert [p.deal_id for p in page.items] == ["501"] and page.next_cursor == "2"
+    assert page.items[0].lines == () and page.items[0].company_id == "37"
+    got = asked[0]
+    assert got["order[id]"] == "desc" and got["limit"] == "250" and got["with"] == "contacts"
+    assert got["filter[statuses][0][status_id]"] == "142" and got["filter[statuses][1][pipeline_id]"] == "6"
+
+
+async def test_bitrix24_and_odoo_read_the_account_newest_first_already() -> None:
+    calls: list[tuple[str, Any]] = []
+    async with _b24({"crm.deal.list": []}, calls) as crm:
+        await crm.recent_purchases(since=SINCE, until=UNTIL, limit=50)
+    assert calls[0][1]["order"] == {"CLOSEDATE": "DESC", "ID": "DESC"}
+    odoo_calls: list[tuple[str, str, Any, Any]] = []
+    answers = {("ir.model.fields", "search_read"): [{"name": "won_status"}]}
+    async with _odoo(answers, odoo_calls) as crm:
+        await crm.recent_purchases(since=SINCE, until=UNTIL, limit=100)
+    lead = next(c for c in odoo_calls if c[0] == "crm.lead")
+    assert lead[3]["order"] == "date_closed desc, id desc"

@@ -227,6 +227,20 @@ class CRM(ABC):
         """Delete a task where the CRM allows, otherwise complete it; a missing one is no error."""
         raise CrmUnsupported("tasks on a client", crm=self.kind.value)
 
+    async def recent_purchases(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+    ) -> Page[Purchase]:
+        """The won deals of the whole account without products, newest first as near as the CRM sorts them:
+        a scan that stops at a ceiling keeps the newest and leaves out the oldest. Bitrix24 and Odoo give
+        ``purchases`` newest first already; amoCRM sorts by id here (newest created first); Zoho's search
+        keeps no order (a scan reads its period from the newest window back)."""
+        return await self.purchases(since=since, until=until, lines=False, cursor=cursor, limit=limit)
+
     async def client_names(self, ids: Iterable[str], *, contacts: bool = False) -> dict[str, str]:
         """The names of companies (of contacts with ``contacts``) by their ids, as ``purchases`` gives them;
         an id the CRM does not have is left out. A purchase carries the id of its client only: a scan reads

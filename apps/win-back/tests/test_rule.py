@@ -162,8 +162,9 @@ def test_the_demo_plan_gives_its_answer() -> None:
 def test_zoho_reads_the_period_in_quarters() -> None:
     since, until = datetime(2024, 11, 10, tzinfo=UTC), datetime(2026, 11, 11, tzinfo=UTC)
     got = windows("zoho", since, until)
-    assert got[0][0] == since and got[-1][1] == until and len(got) == 9
-    assert all(a[1] == b[0] for a, b in itertools.pairwise(got))
+    # newest first, back to back
+    assert got[0][1] == until and got[-1][0] == since and len(got) == 9
+    assert all(a[0] == b[1] for a, b in itertools.pairwise(got))
     assert windows("amocrm", since, until) == [(since, until)]
 
 
@@ -174,7 +175,7 @@ class Pages:
     def clock(self) -> float:
         return self.t
 
-    async def purchases(self, **kw: Any) -> Page[Purchase]:
+    async def recent_purchases(self, **kw: Any) -> Page[Purchase]:
         self.asked.append(kw)
         self.t += self.tick
         start, size = int(kw["cursor"] or 0), kw["limit"]
@@ -185,7 +186,7 @@ class Pages:
 async def test_a_read_stops_at_its_ceiling_of_deals_or_of_seconds() -> None:
     whole = Pages(120)
     got = await read_account(whole, "odoo", DAY, cap=2000, seconds=60, clock=whole.clock)  # type: ignore[arg-type]
-    assert got.cut is None and len(got.purchases) == 120 and all(not kw["lines"] for kw in whole.asked)
+    assert got.cut is None and len(got.purchases) == 120 and "lines" not in whole.asked[0]
     capped = Pages(5000)
     got = await read_account(capped, "amocrm", DAY, cap=2000, seconds=60, clock=capped.clock)  # type: ignore[arg-type]
     assert got.cut == "cap" and len(got.purchases) == 2000 and capped.asked[0]["limit"] == 250
@@ -247,3 +248,20 @@ async def test_the_seed_writes_only_what_the_account_lacks() -> None:
     assert all(t.startswith(plan.PREFIX) and n >= 2 for t, _d, n in crm.made)
     assert all(d <= DAY for _t, d, _n in crm.made)
     assert not any(t.endswith(plan.BUYERS[0].first.isoformat()) for t, _d, _n in crm.made)
+
+
+class Quarters:
+    """A Zoho account: one purchase a month for two years, its search answering one window at a time."""
+
+    def __init__(self) -> None:
+        self.items = [buy(DAY - timedelta(days=30 * k), n=k) for k in range(24)]
+
+    async def recent_purchases(self, **kw: Any) -> Page[Purchase]:
+        return Page(tuple(p for p in self.items if kw["since"] <= p.closed_at < kw["until"]))
+
+
+async def test_a_capped_read_keeps_the_newest_purchases() -> None:
+    got = await read_account(Quarters(), "zoho", DAY, cap=5, seconds=60)  # type: ignore[arg-type]
+    assert got.cut == "cap"
+    assert max(p.closed_at for p in got.purchases).date() == DAY  # the client buying now stays on its cycle
+    assert min(p.closed_at for p in got.purchases).date() >= DAY - timedelta(days=200)
