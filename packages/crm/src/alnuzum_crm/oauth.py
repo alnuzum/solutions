@@ -43,6 +43,8 @@ ZOHO_API_HOSTS = frozenset(
         "www.zohoapis.sa",
         "www.zohoapis.uk",
         "www.zohoapis.ca",
+        # the Developer Edition (US): a token issued for it answers only here
+        "developer.zohoapis.com",
     }
 )
 
@@ -58,6 +60,7 @@ ZOHO_WEB_HOSTS = {
     "www.zohoapis.sa": "crm.zoho.sa",
     "www.zohoapis.uk": "crm.zoho.uk",
     "www.zohoapis.ca": "crm.zohocloud.ca",
+    "developer.zohoapis.com": "developer.zoho.com",
 }
 
 

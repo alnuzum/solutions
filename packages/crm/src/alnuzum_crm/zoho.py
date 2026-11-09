@@ -147,7 +147,9 @@ class ZohoCRM(CRM):
         data = await self._request("GET", "/org")
         orgs = data.get("org") if isinstance(data, dict) else None
         org = orgs[0] if isinstance(orgs, list) and orgs and isinstance(orgs[0], dict) else {}
-        web = f"https://{ZOHO_WEB_HOSTS.get(self.api_host, 'crm.zoho.com')}/crm/{org.get('domain_name', '')}"
+        web = f"https://{ZOHO_WEB_HOSTS.get(self.api_host, 'crm.zoho.com')}/crm"
+        if org.get("domain_name"):  # the Developer Edition has none: its pages live under /crm itself
+            web += f"/{org['domain_name']}"
         name = org.get("company_name") or org.get("domain_name") or ""
         return AccountInfo(str(org.get("id", "")), str(name), web)
 

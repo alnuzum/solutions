@@ -79,7 +79,10 @@ pool and delete them (the integration token gets 403 there); the CRM recounts it
 
 Live E2E reads credentials from the environment (`AMOCRM_DOMAIN`, `AMOCRM_TOKEN`, `KOMMO_DOMAIN`, `KOMMO_TOKEN`,
 `B24_WEBHOOK`, `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN`,
-`ODOO_PASSWORD`); a CRM without them is skipped. Local Odoo:
+`ODOO_PASSWORD`); a CRM without them is skipped. The test Zoho is a free Zoho CRM Developer Edition: its
+refresh token is issued with the developer organisation picked on the consent page and answers only on
+`https://developer.zohoapis.com` (`ZOHO_API_DOMAIN`, the default; the token endpoint names `www.zohoapis.com`
+all the same). The demo Zoho is the same edition (`DEMO_ZOHO_API_DOMAIN`). Local Odoo:
 
 ```bash
 docker compose --profile odoo up -d odoo

@@ -97,6 +97,21 @@ async def test_zoho_account_and_link_per_data_centre(api: str, web: str) -> None
     assert crm.deal_link(info, "123") == f"https://{web}/crm/org9001/tab/Potentials/123"
 
 
+async def test_zoho_developer_edition_account_and_link() -> None:
+    # the Developer Edition answers "domain_name": null and serves its pages under /crm itself
+    seen: list[httpx.Request] = []
+    org = {"org": [{"id": "4607570000000025312", "domain_name": None, "company_name": "AlNuzum"}]}
+    crm = ZohoCRM(
+        "https://developer.zohoapis.com",
+        StaticToken("t", crm="zoho"),
+        transport=transport(httpx.Response(200, json=org), seen),
+    )
+    info = await crm.account()
+    assert info == AccountInfo("4607570000000025312", "AlNuzum", "https://developer.zoho.com/crm")
+    assert seen[0].url.host == "developer.zohoapis.com"
+    assert crm.deal_link(info, "123") == "https://developer.zoho.com/crm/tab/Potentials/123"
+
+
 async def test_zoho_account_survives_an_odd_answer() -> None:
     crm = ZohoCRM(
         "www.zohoapis.com",

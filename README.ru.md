@@ -79,7 +79,10 @@ and companies N/100`) и на 90 останавливается с `account near
 
 Живые E2E берут доступы из окружения (`AMOCRM_DOMAIN`, `AMOCRM_TOKEN`, `KOMMO_DOMAIN`, `KOMMO_TOKEN`,
 `B24_WEBHOOK`, `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ODOO_URL`, `ODOO_DB`, `ODOO_LOGIN`,
-`ODOO_PASSWORD`); CRM без них пропускается. Odoo локально:
+`ODOO_PASSWORD`); CRM без них пропускается. Тестовый Zoho это бесплатная Zoho CRM Developer Edition: её
+refresh token выдаётся с выбором организации разработчика в окне согласия и отвечает только на
+`https://developer.zohoapis.com` (`ZOHO_API_DOMAIN`, по умолчанию; сервер токенов при этом называет
+`www.zohoapis.com`). Демо Zoho на той же редакции (`DEMO_ZOHO_API_DOMAIN`). Odoo локально:
 
 ```bash
 docker compose --profile odoo up -d odoo

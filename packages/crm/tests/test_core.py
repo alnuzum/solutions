@@ -145,6 +145,26 @@ def test_zoho_hosts() -> None:
             oauth.zoho_host(bad, oauth.ZOHO_ACCOUNTS_HOSTS)
 
 
+def test_zoho_developer_edition_host_is_exact() -> None:
+    # a token issued for the Developer Edition answers only on its own host
+    assert oauth.zoho_host("https://developer.zohoapis.com", oauth.ZOHO_API_HOSTS) == "developer.zohoapis.com"
+    for bad in (
+        "https://developer.zohoapis.com.evil.io",
+        "https://evil.developer.zohoapis.com",
+        "https://xdeveloper.zohoapis.com",
+        "https://developer.zohoapis.eu",
+        "https://sandbox.zohoapis.com",
+        "http://developer.zohoapis.com",
+        "https://developer.zohoapis.com:8443",
+        "https://developer.zoho.com",
+    ):
+        with pytest.raises(ValueError, match="Zoho"):
+            oauth.zoho_host(bad, oauth.ZOHO_API_HOSTS)
+    # the API host never doubles as an accounts server
+    with pytest.raises(ValueError, match="Zoho"):
+        oauth.zoho_host("https://developer.zohoapis.com", oauth.ZOHO_ACCOUNTS_HOSTS)
+
+
 def test_authorize_urls() -> None:
     assert oauth.amo_authorize_url(CrmKind.KOMMO, "cid", "st").startswith(
         "https://www.kommo.com/oauth?client_id=cid"
