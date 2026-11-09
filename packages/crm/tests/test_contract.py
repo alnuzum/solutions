@@ -15,7 +15,7 @@ from alnuzum_crm.amocrm import AmoCRM, Kommo
 from alnuzum_crm.base import CRM
 from alnuzum_crm.bitrix24 import Bitrix24
 from alnuzum_crm.odoo import Odoo
-from alnuzum_crm.testing import Replayer, describe_jsonrpc, run_conformance
+from alnuzum_crm.testing import ConformanceError, Replayer, describe_jsonrpc, run_conformance
 from alnuzum_crm.tokens import StaticToken
 from alnuzum_crm.zoho import ZohoCRM
 
@@ -57,5 +57,40 @@ async def test_replay_conformance(name: str) -> None:
     assert replay.exhausted, f"{len(replay.calls) - replay.position} recorded calls were not made"
 
 
+#: the CRMs whose live E2E runs on a pool of records kept between runs (technical accounts)
+POOLED = ("amocrm", "kommo")
+
+
+@pytest.mark.parametrize("name", POOLED)
+async def test_replay_on_the_pool(name: str) -> None:
+    """A run on the pool finds the company and contacts, frees them and creates none."""
+    replay = Replayer(CASSETTES / f"{name}-pool.json")
+    async with BUILD[name](replay) as crm:
+        steps = await run_conformance(
+            crm, replay.meta["run_id"], sleep=_no_sleep, now=datetime(2026, 11, 9, tzinfo=UTC), pool=True
+        )
+    assert steps[0] == "company found in the pool"
+    assert "found contact linked to the company" in steps
+    assert "test records removed" in steps
+    assert replay.exhausted, f"{len(replay.calls) - replay.position} recorded calls were not made"
+    creates = [
+        c["url"]
+        for c in replay.calls
+        if c["method"] == "POST" and c["url"].endswith(("/api/v4/companies", "/api/v4/contacts"))
+    ]
+    assert creates == []
+    unlinked = [c["url"].rsplit("/", 3)[-3] for c in replay.calls if c["url"].endswith("/unlink")]
+    assert sorted(unlinked) == ["companies", "contacts", "contacts"], unlinked
+
+
+async def test_the_pool_is_for_the_amocrm_family() -> None:
+    replay = Replayer(CASSETTES / "bitrix24.json")
+    async with BUILD["bitrix24"](replay) as crm:
+        with pytest.raises(ConformanceError, match="amoCRM family"):
+            await run_conformance(crm, replay.meta["run_id"], sleep=_no_sleep, pool=True)
+    assert replay.position == 0
+
+
 def test_every_adapter_has_a_recording() -> None:
-    assert sorted(p.stem for p in CASSETTES.glob("*.json")) == sorted(BUILD)
+    want = [*BUILD, *(f"{name}-pool" for name in POOLED)]
+    assert sorted(p.stem for p in CASSETTES.glob("*.json")) == sorted(want)

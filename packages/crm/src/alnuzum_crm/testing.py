@@ -18,6 +18,7 @@ from typing import Any
 
 import httpx
 
+from alnuzum_crm.amocrm import AmoCRM
 from alnuzum_crm.base import CRM
 from alnuzum_crm.errors import CrmNotFound
 from alnuzum_crm.types import (
@@ -200,6 +201,29 @@ def run_numbers(run_id: str) -> tuple[str, str]:
     return f"3{n % 10**8:08d}", f"{n % 10**7:07d}"
 
 
+#: A technical amoCRM or Kommo account keeps 100 contacts and companies in all, and its API deletes
+#: none (405): the amoCRM family runs on a pool, one company and two contacts with fixed details that
+#: every run finds instead of creating its own.
+POOL_KEY = "pool"
+POOL_NUMBERS = ("390000001", "9000001")
+
+
+def _amo(crm: CRM) -> AmoCRM:
+    if not isinstance(crm, AmoCRM):
+        raise ConformanceError(f"the pool is for the amoCRM family, not {crm.kind.value}")
+    return crm
+
+
+async def _unlink(crm: AmoCRM, owner: str, owner_id: str, key: str) -> None:
+    """Unlink every company or deal (``key``) from a pooled contact or company."""
+    params = {"with": "leads"} if key == "leads" else None
+    found = await crm._request("GET", f"/api/v4/{owner}/{int(owner_id)}", params=params)
+    ids = [int(x["id"]) for x in (found or {}).get("_embedded", {}).get(key, [])]
+    if ids:
+        body = [{"to_entity_id": i, "to_entity_type": key} for i in ids]
+        await crm._request("POST", f"/api/v4/{owner}/{int(owner_id)}/unlink", json=body)
+
+
 async def _found(crm: CRM, text: str, deal_id: str) -> DealHit | None:
     return next((h for h in await crm.find_deals(text) if h.id == deal_id), None)
 
@@ -211,19 +235,29 @@ async def run_conformance(
     sleep: Sleep = asyncio.sleep,
     now: datetime | None = None,
     keep: bool = False,
+    pool: bool = False,
 ) -> list[str]:
-    """Create everything, read it back, remove it. Returns the names of the passed steps."""
+    """Create everything, read it back, remove it. Returns the names of the passed steps.
+
+    With ``pool`` (the amoCRM family) the company and the contacts are the pool's: found, created only
+    when they are gone, never discarded; deals, products, files, notes and tasks are the run's own."""
     done: list[str] = []
     got = Collected()
-    inn, tail = run_numbers(run_id)
+    amo = _amo(crm) if pool else None
+    key = POOL_KEY if pool else run_id
+    inn, tail = POOL_NUMBERS if pool else run_numbers(run_id)
     phone = f"+998 {PHONE_CODE} {tail[:3]} {tail[3:5]} {tail[5:]}"
-    name = f"E2E Co {run_id}"
-    email = f"e2e-{run_id}@example.com"
+    name = f"E2E Co {key}"
+    email = f"e2e-{key}@example.com"
     try:
         co = await crm.find_or_create_company(CompanyIn(name=name, inn=inn, phone=phone))
-        _check(co.created, "a new company is created")
-        got.company_ids.append(co.id)
-        done.append("company created")
+        if pool and not co.created:
+            done.append("company found in the pool")
+        else:
+            _check(co.created, "a new company is created")
+            done.append("company created")
+        if not pool:
+            got.company_ids.append(co.id)
 
         found = await _poll(lambda: crm.find_company(CompanyIn(name=name.upper())), sleep)
         _check(found == co.id, f"company found by name in another case ({found!r} != {co.id!r})")
@@ -242,10 +276,11 @@ async def run_conformance(
             done.append("company deduplicated by INN")
 
         ct = await crm.find_or_create_contact(
-            ContactIn(name=f"E2E Person {run_id}", email=email, phone=phone), company_id=co.id
+            ContactIn(name=f"E2E Person {key}", email=email, phone=phone), company_id=co.id
         )
-        _check(ct.created, "a new contact is created")
-        got.contact_ids.append(ct.id)
+        _check(ct.created or pool, "a new contact is created")
+        if not pool:
+            got.contact_ids.append(ct.id)
         found = await _poll(lambda: crm.find_contact(ContactIn(name="x", email=email.upper())), sleep)
         _check(found == ct.id, "contact found by e-mail in another case")
         other_format = f"998{PHONE_CODE}{tail}"
@@ -255,14 +290,25 @@ async def run_conformance(
         _check(again == Ref(ct.id, False), "find_or_create reuses the contact")
         done.append("contact deduplicated by e-mail and phone")
 
-        lone_email = f"e2e-lone-{run_id}@example.com"
-        lone = await crm.create_contact(ContactIn(name=f"E2E Lone {run_id}", email=lone_email))
-        got.contact_ids.append(lone)
-        await _poll(lambda: crm.find_contact(ContactIn(name="x", email=lone_email)), sleep)
+        lone_email = f"e2e-lone-{key}@example.com"
+        lone_in = ContactIn(name=f"E2E Lone {key}", email=lone_email)
+        lone = await crm.find_contact(lone_in) if amo else None
+        if amo and lone:
+            # the pool's lone contact keeps the company of the last run: free it to check the link again
+            await _unlink(amo, "contacts", lone, "companies")
+        else:
+            lone = await crm.create_contact(lone_in)
+            if not pool:
+                got.contact_ids.append(lone)
+            await _poll(lambda: crm.find_contact(ContactIn(name="x", email=lone_email)), sleep)
         linked = await crm.find_or_create_contact(ContactIn(name="x", email=lone_email), company_id=co.id)
         _check(linked == Ref(lone, False), "the contact without a company is found")
         _check(not await crm.link_contact(lone, co.id), "the found contact is now linked to the company")
         done.append("found contact linked to the company")
+        if amo:
+            # find_deals reads 16 deals of a company or a contact: the pool's deals of earlier runs go
+            for owner, owner_id in (("companies", co.id), ("contacts", ct.id)):
+                await _unlink(amo, owner, owner_id, "leads")
 
         about = f"Категория: E2E\nСинонимы: e2e {run_id}"
         product_id = await crm.create_product(
@@ -321,7 +367,7 @@ async def run_conformance(
             f"stages read: {stages!r}",
         )
         done.append("stages read")
-        for text in (deal_in.title, name, f"E2E Person {run_id}"):
+        for text in (deal_in.title, name, f"E2E Person {key}"):
             found_deal = await _poll(lambda text=text: _found(crm, text, created.id), sleep)  # type: ignore[misc]
             _check(found_deal is not None, f"deal found by {text!r}")
         done.append("deal found by title, company and contact")

@@ -39,22 +39,27 @@ FULL_RUN = [
     "missing deal is CrmNotFound",
     "test records removed",
 ]
+#: the amoCRM family on its pool: the company was found, not created
+POOL_RUN = ["company found in the pool", *FULL_RUN[1:]]
 
 
 @pytest.mark.parametrize(("cls", "prefix"), [(AmoCRM, "AMOCRM"), (Kommo, "KOMMO")])
 async def test_amocrm_family(
-    cls: type[AmoCRM], prefix: str, run_id: str, recording: Callable[..., Recording]
+    cls: type[AmoCRM],
+    prefix: str,
+    run_id: str,
+    recording: Callable[..., Recording],
 ) -> None:
+    """On the pool (a technical account keeps 100 contacts and companies); E2E_CREATE=1 creates its
+    own company and contacts as the other CRMs do, three records that stay in the account."""
     env = need(f"{prefix}_DOMAIN", f"{prefix}_TOKEN")
-    rec = recording(cls.kind.value)
-    crm = cls(
-        env[f"{prefix}_DOMAIN"],
-        StaticToken(env[f"{prefix}_TOKEN"], crm=cls.kind.value),
-        transport=rec.recorder,
-    )
+    token = StaticToken(env[f"{prefix}_TOKEN"], crm=cls.kind.value)
+    pool = os.environ.get("E2E_CREATE") != "1"
+    rec = recording(f"{cls.kind.value}-pool" if pool else cls.kind.value)
+    crm = cls(env[f"{prefix}_DOMAIN"], token, transport=rec.recorder)
     async with crm:
-        steps = await run_conformance(crm, run_id)
-    assert steps == FULL_RUN
+        steps = await run_conformance(crm, run_id, pool=pool)
+    assert steps in ((FULL_RUN, POOL_RUN) if pool else (FULL_RUN,))
     sub = crm.domain.split(".")[0]
     placeholder = "example.amocrm.ru" if cls is AmoCRM else "example.kommo.com"
     rec.save(
