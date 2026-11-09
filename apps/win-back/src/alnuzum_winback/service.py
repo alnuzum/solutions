@@ -40,6 +40,7 @@ from alnuzum_winback.store import DEMO_TASK_TTL, Limits, ScanInfo, WinbackStore
 log = logging.getLogger("alnuzum_winback")
 MAX_TEXT = 500
 CLIENT_PURCHASES = 300  # newest purchases of one client on its screen
+ZOHO_LINED = 24  # of them with their products in Zoho (two requests a deal)
 
 
 class WinbackSettings(BaseSettings):
@@ -205,10 +206,18 @@ class Winback:
             since, _ = period(today(self.now()))
             async with await self.adapter(app, info) as crm:
                 company, contact = client_ref(row["key"])
+                lined = scan.crm != "zoho"
                 page = await crm.purchases(
-                    company_id=company, contact_id=contact, since=since, limit=CLIENT_PURCHASES
+                    company_id=company, contact_id=contact, since=since, lines=lined, limit=CLIENT_PURCHASES
                 )
-            shown = await asyncio.to_thread(detail, list(page.items), today(self.now()), demo=scan.demo)
+                items = list(page.items)
+                if not lined:  # Zoho reads the products of a deal with two requests: the newest only
+                    newest = await crm.purchases(
+                        company_id=company, contact_id=contact, since=since, limit=ZOHO_LINED
+                    )
+                    have = {p.deal_id: p for p in newest.items}
+                    items = [have.get(p.deal_id, p) for p in items]
+            shown = await asyncio.to_thread(detail, items, today(self.now()), demo=scan.demo)
             if scan.demo:
                 self._cache[key] = (self.clock(), shown)
         await self.store(app).put_detail(scan.id, scan.owner, n, shown)

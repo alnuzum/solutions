@@ -161,15 +161,16 @@ def reasons(orders: Sequence[Order], seen: Verdict) -> list[Reason]:
         )
     ]
     before, last = orders[:-1], orders[-1]
-    if any(o.lines for o in orders):
+    lined = [i for i, o in enumerate(before) if o.lines]  # orders whose products were read
+    if last.lines and lined:
         counted: dict[str, list[int]] = {}
         names: dict[str, str] = {}
-        for i, o in enumerate(before):
-            for x in o.lines:
+        for i in lined:
+            for x in before[i].lines:
                 counted.setdefault(x.key, []).append(i)
                 names.setdefault(x.key, x.name)
         in_last = {x.key for x in last.lines}
-        need = max(HABIT_MIN, math.ceil(HABIT_SHARE * len(before)))
+        need = max(HABIT_MIN, math.ceil(HABIT_SHARE * len(lined)))
         habits = sorted(
             ((k, ix) for k, ix in counted.items() if k not in in_last and len(ix) >= need),
             key=lambda kv: (-len(kv[1]), names[kv[0]]),
@@ -179,7 +180,7 @@ def reasons(orders: Sequence[Order], seen: Verdict) -> list[Reason]:
                 Reason(
                     "gone",
                     (*ix, len(orders) - 1),
-                    {"name": names[k], "had": len(ix), "of": len(before)},
+                    {"name": names[k], "had": len(ix), "of": len(lined)},
                 )
             )
     usual = Decimal(statistics.median(o.amount for o in before)) if before else Decimal(0)

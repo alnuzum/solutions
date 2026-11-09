@@ -325,3 +325,27 @@ async def test_english_pages(make: Any) -> None:
     page = await b.http.get(f"/en/winback/{scan}/{n}")
     assert "Ordered every ~31 days" in page.text and "Set the task" in page.text
     assert isinstance(page, httpx.Response)
+
+
+async def test_zoho_reads_the_products_of_the_newest_purchases_only(make: Any) -> None:
+    h = await make()
+    sid = "s" * 43
+    info = await h.app.state.store.create(
+        Sessions.owner(sid),
+        CrmKind.ZOHO,
+        "https://www.zohoapis.com",
+        {
+            "access_token": "a",
+            "refresh_token": "r",
+            "accounts_server": "https://accounts.zoho.com",
+            "expires_at": "2030-01-01T00:00:00+00:00",
+        },
+        label="z",
+        account="z",
+    )
+    h.own.kind = CrmKind.ZOHO
+    b = own_browser(h, sid)
+    scan = await b.scan_id(f"conn:{info.id}")
+    page = (await b.http.get(f"/ru/winback/{scan}/1")).text
+    assert h.own.calls.count("purchases:500:False") == 1 and h.own.calls.count("purchases:500:True") == 1
+    assert "в последнем его нет" in page and "Розетка" in page

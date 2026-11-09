@@ -192,3 +192,20 @@ async def test_a_read_stops_at_its_ceiling_of_deals_or_of_seconds() -> None:
     slow = Pages(5000, tick=25)
     got = await read_account(slow, "bitrix24", DAY, cap=2000, seconds=60, clock=slow.clock)  # type: ignore[arg-type]
     assert got.cut == "time" and len(got.purchases) == 150
+
+
+def test_orders_whose_products_were_not_read_do_not_count_for_a_habit() -> None:
+    habit = DealLine("Кабель", Decimal(1), Decimal(100), product_id="7")
+    other = DealLine("Розетка", Decimal(1), Decimal(100), product_id="9")
+    lined = orders_of([buy(DAY, lines=(habit,)), buy(DAY, lines=(habit,), n=1)])[0].lines
+    history = [
+        Order(DAY - timedelta(days=200), Decimal(100), ()),  # older than the newest read with products
+        Order(DAY - timedelta(days=170), Decimal(100), ()),
+        Order(DAY - timedelta(days=140), Decimal(100), (), lined),
+        Order(DAY - timedelta(days=110), Decimal(100), (), lined),
+        Order(DAY - timedelta(days=80), Decimal(100), (), orders_of([buy(DAY, lines=(other,))])[0].lines),
+    ]
+    why = reasons(history, verdict(history, DAY))
+    assert [(r.kind, r.refs, r.data.get("of")) for r in why][1] == ("gone", (2, 3, 4), 2)
+    unread_last = [*history[:4], Order(DAY - timedelta(days=80), Decimal(100), ())]
+    assert [r.kind for r in reasons(unread_last, verdict(unread_last, DAY))] == ["cycle"]
