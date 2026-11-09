@@ -1,0 +1,29 @@
+/* Additions to the order page's style for the contract check (dark room, document beside). */
+.head .keep{color:var(--on-deep-3)}
+.samples .pick span{display:block;white-space:normal;line-height:1.35}
+.links .row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;padding:.6rem 0;border-top:1px solid var(--line,rgba(255,255,255,.08))}
+.links .row:first-of-type{border-top:0}
+.links .row>span{flex:1 1 18rem}
+.doc{padding:22px 24px 26px}
+.doc .cl{margin:0 0 .55em;padding:1px 6px;margin-left:-6px;margin-right:-6px;border-radius:3px;line-height:1.5;overflow-wrap:anywhere;transition:background-color .15s,box-shadow .15s}
+.doc .cl .lb{font-variant-numeric:tabular-nums;opacity:.7}
+.doc .cl.r-high,.doc .cl.r-medium,.doc .cl.r-low{box-shadow:inset 2px 0 0 var(--hl-edge)}
+.doc .cl.del{color:#7a2a2a;text-decoration:line-through;text-decoration-thickness:1px;background:rgb(200 60 60 / .06)}
+.doc .cl.del small{text-decoration:none;display:inline-block}
+.doc mark{color:inherit;padding:0 1px;border-radius:2px;background:rgb(43 87 212 / .12)}
+.doc mark.r-high{background:rgb(214 64 64 / .2)}
+.doc mark.r-medium{background:rgb(217 164 65 / .24)}
+.doc mark.r-low{background:rgb(43 87 212 / .1)}
+.it .risk{display:inline-block;margin-right:6px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;vertical-align:1px}
+.it .risk.r-high{background:rgb(214 64 64 / .22);color:#ffb4b4}
+.it .risk.r-medium{background:rgb(217 164 65 / .22);color:#f3cf86}
+.it .risk.r-low{background:rgb(143 178 255 / .16);color:var(--ac-lite)}
+.it.r-high{box-shadow:inset 3px 0 0 #d64040}
+.it.r-medium{box-shadow:inset 3px 0 0 #d9a441}
+.it .quote{overflow-wrap:anywhere}
+.it .quote em{font-style:normal;color:var(--on-deep-3)}
+.it.unrated{outline:1px dashed var(--warn,#d9a441);outline-offset:-1px}
+.deal{margin-top:14px}
+.deal .row{display:flex;gap:.6rem;flex-wrap:wrap;margin:.4rem 0 .6rem}
+.deal input[type=search]{flex:1 1 14rem;min-width:0}
+@media (max-width:640px){.links .row{flex-direction:column;align-items:stretch}}

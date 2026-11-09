@@ -430,19 +430,22 @@ class ConnectionStore:
 
     # --- journal of CRM writes and the daily quota ---
 
-    async def start_write(self, conn_id: uuid.UUID, owner: str, action: str, quota: int) -> uuid.UUID:
+    async def start_write(
+        self, conn_id: uuid.UUID, owner: str, action: str, quota: int, *, scope: str | None = None
+    ) -> uuid.UUID:
         """Reserve one write of the daily quota (the connection row is locked while counting, so two
-        parallel checks cannot both take the last one)."""
+        parallel checks cannot both take the last one). ``scope``: only writes whose action starts with it
+        count, so solutions sharing a demo connection each keep a reserve of their own."""
         async with self._sessions.begin() as session:
             row = await self._row(session, conn_id, owner, lock=True)
             if row.status != "active":
                 raise ConnectionDisabled(f"connection {row.id} is {row.status}")
             since = datetime.now(UTC) - timedelta(days=1)
-            used = await session.scalar(
-                select(func.count())
-                .select_from(CrmWrite)
-                .where(CrmWrite.connection_id == conn_id, CrmWrite.created_at > since)
-            )
+            counted = select(func.count()).select_from(CrmWrite)
+            counted = counted.where(CrmWrite.connection_id == conn_id, CrmWrite.created_at > since)
+            if scope:
+                counted = counted.where(CrmWrite.action.startswith(scope, autoescape=True))
+            used = await session.scalar(counted)
             if (used or 0) >= quota:
                 raise QuotaExceeded(f"{quota} writes per day")
             write = CrmWrite(id=uuid.uuid4(), connection_id=conn_id, owner=owner, crm=row.crm, action=action)

@@ -608,7 +608,9 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         quota = max(kit.quota, 2 * s.orders_demo_writes_per_crm) if item.demo else kit.quota
         try:
             info = await st.get(item.connection_id, conn_owner)
-            write_id = await st.start_write(info.id, conn_owner, "order_deal", quota)
+            write_id = await st.start_write(
+                info.id, conn_owner, "order_deal", quota, scope="order_" if item.demo else None
+            )
         except (QuotaExceeded, ConnectionDisabled) as exc:
             await ost.finish_writing(
                 item.id, ok=False, error="quota" if isinstance(exc, QuotaExceeded) else "auth"

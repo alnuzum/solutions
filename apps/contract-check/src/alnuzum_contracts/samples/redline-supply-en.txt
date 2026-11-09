@@ -1,0 +1,29 @@
+Supply Agreement No. 21-E
+Tashkent, 2 November 2026
+Gamma Trade LLC (the Supplier) and the Buyer named in the Order (the Buyer) agree as follows.
+1. SUBJECT
+1.1. The Supplier shall supply and deliver the Goods listed in each Order, and the Buyer shall accept and pay for them.
+1.2. Each Order states the Goods, their quantity, price and the date of delivery.
+2. DELIVERY
+2.1. The Goods are delivered DDP the Buyer's warehouse (Incoterms 2020).
+2.2. Title and risk in the Goods pass to the Buyer on delivery to the carrier.
+3. PRICE AND PAYMENT
+3.1. The Buyer shall pay each invoice within ninety (90) days of the invoice date.
+3.2. The Buyer shall pay a late payment interest of 0.1% of the overdue amount per day.
+3.3. All payments are made in US dollars to the account stated in the invoice.
+3.4. The Buyer may set off any amount the Supplier owes it against any payment due to the Supplier.
+4. ACCEPTANCE
+4.1. The Buyer shall inspect the Goods on delivery and notify the Supplier of any defects within sixty (60) days.
+5. WARRANTY
+5.1. The Supplier warrants that the Goods are free from defects in materials and workmanship for twelve (12) months from installation.
+5.2. The warranty does not cover wear and tear or damage caused by improper use.
+6. LIABILITY
+6.1. Neither party is liable for indirect or consequential losses, including loss of profit.
+7. TERM AND TERMINATION
+7.1. This Agreement remains in force until 31 December 2027.
+7.2. Either party may terminate this Agreement for material breach that is not remedied within thirty (30) days of notice.
+8. GOVERNING LAW AND DISPUTES
+8.1. This Agreement is governed by the laws of England and Wales.
+8.2. Disputes are finally settled by arbitration at the London Court of International Arbitration.
+9. DETAILS OF THE SUPPLIER
+Gamma Trade LLC, TIN 307 111 222, Bank: Hamkorbank, account 2020 8840 0000 3333 4444.

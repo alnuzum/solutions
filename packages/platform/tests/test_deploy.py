@@ -146,3 +146,31 @@ def test_the_paid_voice_job_does_not_run_on_a_push_of_documents() -> None:
     push = e2e[True]["push"]  # YAML 1.1 reads «on» as true
     assert {"docs/**", "**/*.md"} <= set(push["paths-ignore"])
     assert "push" in e2e["jobs"]["voice-quality"]["if"]  # on a push of code it still runs
+
+
+def test_the_contract_set_runs_on_a_push_of_code_by_hand_and_not_on_documents() -> None:
+    e2e = yaml.safe_load((ROOT / ".github" / "workflows" / "e2e.yml").read_text())
+    job = e2e["jobs"]["contracts-quality"]
+    assert "push" in job["if"] and "workflow_dispatch" in job["if"] and "schedule" not in job["if"]
+    assert {"docs/**", "**/*.md"} <= set(e2e[True]["push"]["paths-ignore"])
+    assert "apps/contract-check/tests/test_quality.py" in job["steps"][-1]["run"]
+
+
+def test_a_contract_and_a_standard_get_the_9_mb_rule_and_the_ceiling_is_sent() -> None:
+    """Solution 3 takes drafts up to 8 MB at /{lang}/contracts and standards at /{lang}/contracts/standard/<id>;
+    every other POST stays at 1 MB."""
+    caddy = (DEPLOY / "server" / "Caddyfile").read_text()
+    found = re.findall(r"path_regexp (\S+)", caddy)
+    assert len(found) == 2 and found[0] == found[1], found  # @order and the exception in @other
+    rule = re.compile(found[0])
+    for path in ("/ru/contracts", "/en/contracts", "/ru/contracts/standard/3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e",
+                 "/ru/orders", "/en/voice"):  # fmt: skip
+        assert rule.match(path), path
+    for path in ("/ru/contracts/3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e", "/ru/contracts/standard/x",
+                 "/ru/contracts/standard/3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e/x", "/de/contracts"):  # fmt: skip
+        assert not rule.match(path), path
+    assert "CONTRACTS_USD_PER_DAY" in _sent_names()
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    for job in ("deploy-stand", "deploy-prod"):
+        step = next(s for s in ci["jobs"][job]["steps"] if s.get("name") == "Build, ship, start")
+        assert step["env"]["CONTRACTS_USD_PER_DAY"] == "${{ vars.CONTRACTS_USD_PER_DAY }}"

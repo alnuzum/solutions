@@ -1,0 +1,14 @@
+{
+ "pairs": 4,
+ "changes": 44,
+ "found": 44,
+ "false": 0,
+ "risk_match": 42,
+ "cosmetic_high": 0,
+ "quotes": 1.0,
+ "quotes_scan": 1.0,
+ "usd": "0.1691",
+ "calls": 5,
+ "model": "claude-opus-5-5",
+ "date": "2026-11-09"
+}

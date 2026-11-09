@@ -7,6 +7,7 @@ license = "MIT"
 dependencies = [
     "alnuzum-crm",
     "alnuzum-platform",
+    "alnuzum-files",
     "anthropic>=2.6",
     "pypdf>=6.0",
     "openpyxl>=3.1.5",
@@ -20,6 +21,7 @@ orders = "alnuzum_orders.web:solution"
 [tool.uv.sources]
 alnuzum-crm = { workspace = true }
 alnuzum-platform = { workspace = true }
+alnuzum-files = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]
