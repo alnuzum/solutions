@@ -1,4 +1,4 @@
-"""Command line: migrate, serve."""
+"""Command line: migrate, serve; head and downgrade for a rollback to an older image."""
 
 import argparse
 import asyncio
@@ -9,7 +9,7 @@ import uvicorn
 from alnuzum_platform.config import get_settings
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import make_engine, make_sessionmaker
-from alnuzum_platform.migrate import upgrade
+from alnuzum_platform.migrate import downgrade, head, upgrade
 from alnuzum_platform.store import ConnectionStore
 
 
@@ -29,8 +29,20 @@ def main(argv: list[str] | None = None) -> int:
     serve = sub.add_parser("serve", help="migrate, then run the HTTP API")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
+    sub.add_parser("head", help="print the newest migration this code knows (no database is asked)")
+    down = sub.add_parser(
+        "downgrade", help="take the database back to a revision, before an older image runs"
+    )
+    down.add_argument("revision")
     args = parser.parse_args(argv)
+    if args.cmd == "head":
+        print(head())
+        return 0
     settings = get_settings()
+    if args.cmd == "downgrade":
+        downgrade(settings.database_url, args.revision)
+        print(f"downgraded to {args.revision}")
+        return 0
     upgrade(settings.database_url)
     if args.cmd == "rotate-keys":
         count = asyncio.run(rotate(settings.database_url, settings.secret_keys.get_secret_value()))

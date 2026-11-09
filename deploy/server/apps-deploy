@@ -86,9 +86,25 @@ deploy)
   [ -f "$DIR/.env" ] && cp -p "$DIR/.env" "$DIR/.env.prev"
   install -m 0600 "$TMP/next" "$DIR/.env"
 
+  # The older image migrates to its own head when it starts, and a revision it does not know stops it. So a
+  # rollback first takes the database back with the new image (only it knows how) to the head the older image
+  # names itself (asked with no network and no database). By hand, before `deploy <older sha>` after a migration:
+  #   docker compose -p apps-<env> -f /srv/apps/compose.app.yml --env-file /srv/apps/<env>/.env run --rm --no-deps platform alnuzum-platform downgrade <head of the older image>
   rollback() {
     echo "deploy of $SHA failed: $1" >&2
     if [ -f "$DIR/.env.prev" ]; then
+      prev_tag="$(grep -s '^IMAGE_TAG=' "$DIR/.env.prev" | cut -d= -f2 || true)"
+      if [ -n "$prev_tag" ] && [ "$prev_tag" != "$SHA" ]; then
+        old_head="$(docker run --rm --network none --entrypoint python "$REPO:$prev_tag" -c \
+          'from alembic.script import ScriptDirectory as S; from alnuzum_platform.migrate import alembic_config as c; print(S.from_config(c("postgresql://")).get_current_head())' \
+          2>/dev/null || true)"
+        if [[ "$old_head" =~ ^[0-9a-z_]{1,32}$ ]]; then
+          "${COMPOSE[@]}" run --rm --no-deps platform alnuzum-platform downgrade "$old_head" >&2 \
+            || echo "database not taken back to $old_head" >&2
+        else
+          echo "the head of $prev_tag is unknown: the database stays as it is" >&2
+        fi
+      fi
       cp -p "$DIR/.env.prev" "$DIR/.env"
       "${COMPOSE[@]}" up -d --wait --wait-timeout 180 >&2 || true
       echo "rolled back to $(cat "$DIR/current" 2>/dev/null)" >&2
