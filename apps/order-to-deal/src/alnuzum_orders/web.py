@@ -656,10 +656,24 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         )
         the_plan = plan(result, rules, line_prices=bool(result.catalog.get("line_prices")), lang=lang)
         tags = ("al-nuzum", "demo") if item.demo else ("al-nuzum",)
+        steps, made = await ost.steps_done(item.id)  # read while "writing" is ours alone
+
+        async def mark(step: str, deal_id: str | None) -> None:
+            await ost.step_done(item.id, step, deal_id)
+
         try:
             secrets = await st.secrets(info.id)
             async with kit.connectors.adapter(info, secrets, st) as crm:
-                done = await write(crm, the_plan, clean_customer(result.customer), lang=lang, tags=tags)
+                done = await write(
+                    crm,
+                    the_plan,
+                    clean_customer(result.customer),
+                    lang=lang,
+                    tags=tags,
+                    done=steps,
+                    deal_id=made,
+                    mark=mark,
+                )
                 url = None if item.demo else crm.deal_link(kit.connectors.account_of(info), done.deal_id)
         except CrmError as exc:
             code = _crm_error(exc)

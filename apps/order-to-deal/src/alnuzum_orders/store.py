@@ -20,6 +20,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Uuid,
+    cast,
     delete,
     func,
     or_,
@@ -74,6 +75,9 @@ class OrderRun(Base):
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # when the write began: a run a stopped process left "writing" is released after ``STUCK``
     writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the steps of the write already done ("deal", "note", "task"); with ``deal_id`` a retry goes on in
+    # the deal it made
+    steps: Mapped[list[str] | None] = mapped_column(JSONB)
 
 
 class OrderRules(Base):
@@ -265,6 +269,27 @@ class OrderStore:
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
 
+    async def step_done(self, run_id: uuid.UUID, step: str, deal_id: str | None = None) -> None:
+        """Kept before the next step begins: a retry skips it (and writes into this deal)."""
+        values: dict[str, Any] = {
+            "steps": func.coalesce(OrderRun.steps, text("'[]'::jsonb")).op("||")(
+                func.jsonb_build_array(cast(step, String))
+            )
+        }
+        if deal_id is not None:
+            values["deal_id"] = deal_id
+        async with self._sessions.begin() as session:
+            await session.execute(
+                update(OrderRun).where(OrderRun.id == run_id, OrderRun.status == "writing").values(**values)
+            )
+
+    async def steps_done(self, run_id: uuid.UUID) -> tuple[frozenset[str], str | None]:
+        async with self._sessions() as session:
+            row = (
+                await session.execute(select(OrderRun.steps, OrderRun.deal_id).where(OrderRun.id == run_id))
+            ).one_or_none()
+        return (frozenset(row[0] or ()), row[1]) if row else (frozenset(), None)
+
     async def finish_writing(
         self,
         run_id: uuid.UUID,
@@ -275,19 +300,17 @@ class OrderStore:
         readback: dict[str, Any] | None = None,
         error: str | None = None,
     ) -> None:
+        """A failed write keeps the deal it made (``step_done``): the retry goes on in it."""
+        values: dict[str, Any] = {"status": "written" if ok else "failed", "error": error}
+        if ok:
+            values |= {
+                "deal_id": deal_id,
+                "deal_url": deal_url,
+                "readback": readback,
+                "written_at": datetime.now(UTC),
+            }
         async with self._sessions.begin() as session:
-            await session.execute(
-                update(OrderRun)
-                .where(OrderRun.id == run_id)
-                .values(
-                    status="written" if ok else "failed",
-                    deal_id=deal_id,
-                    deal_url=deal_url,
-                    readback=readback,
-                    error=error,
-                    written_at=datetime.now(UTC) if ok else None,
-                )
-            )
+            await session.execute(update(OrderRun).where(OrderRun.id == run_id).values(**values))
 
     async def release_stuck(self) -> tuple[int, int]:
         """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (the visitor may

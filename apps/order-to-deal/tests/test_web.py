@@ -760,3 +760,29 @@ async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_st
         read: ("rejected", "interrupted"),
     }
     assert (await b.decide(old, {"action": "write"})).headers["location"].endswith("?n=written")
+
+
+@pytest.mark.parametrize("breaks", ["add_note", "add_task"])
+async def test_a_retry_after_the_deal_was_created_writes_into_that_deal(
+    make: Any, engine: AsyncEngine, breaks: str
+) -> None:
+    """The note or the task failed after the deal was made: the retry adds what is missing to that deal."""
+    h = await make(choose_first())
+    b = Browser(h.app)
+    rid = run_id(await b.order(sample="order-ru.xlsx"))
+    real = getattr(h.crm, breaks)
+
+    async def down(*_a: Any, **_k: Any) -> Any:
+        raise CrmUnavailable("down", crm="bitrix24")
+
+    setattr(h.crm, breaks, down)
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=failed")
+    setattr(h.crm, breaks, real)
+    clients = (len(h.crm.companies), len(h.crm.contacts))
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=written")
+    assert list(h.crm.deals) == ["500"]
+    assert [d for d, _ in h.crm.notes] == ["500"]
+    assert [d for d, _ in h.crm.tasks] == ["500"]
+    assert (len(h.crm.companies), len(h.crm.contacts)) == clients  # the client is not looked up again
+    ((deal, status),) = await rows(engine, "SELECT deal_id, status FROM orders_runs")
+    assert (deal, status) == ("500", "written")
