@@ -257,7 +257,10 @@ def build(kit: Kit, mail: Mail) -> APIRouter:
         try:
             async with await mail.adapter(request.app, kit, info) as crm:
                 stages = await crm.stages()
-                users = [] if demo else await crm.users()
+                try:  # amoCRM shows its users to an administrator only: then rules route by stage alone
+                    users = [] if demo else await crm.users()
+                except CrmError:
+                    users = []
         except (ConnectionDisabled, ConnectionNotFound):
             return [], [], "auth"
         except CrmError as exc:

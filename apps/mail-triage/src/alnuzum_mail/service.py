@@ -281,6 +281,9 @@ class Mail:
             error = "auth" if crm_error(exc) == "auth" else "unavailable"
         except TimeoutError:
             error = "slow"
+        except Exception as exc:  # an answer the adapter could not read: the letter stays unbound, as said
+            log.warning("mail binding failed: %s", type(exc).__name__)
+            error = "unavailable"
         return {
             "checked": False,
             "error": error,
@@ -343,23 +346,27 @@ class Mail:
         except Exception:  # anything else must not leave the run "reading"
             await ms.reject_run(run_id, "error")
             raise
-        binding = await self.bind(app, kit, info, letter, reading, demo=demo)
-        if demo:
-            binding["allow_new"] = await self.may_create(app, kit, ms, info, ip_key)
-        result = {
-            "letter": letter.to_json(),
-            "reading": reading.to_json(),
-            "usage": {
-                "calls": reading.usage.calls,
-                "usd": str(reading.usage.usd.quantize(Decimal("0.0001"))),
-            },
-            "binding": binding,
-            "route": await self.route_of(ms, owner, target_key(info, demo), letter, reading),
-            "choice": {"cls": reading.cls},
-            "looks": 0,
-            "lang": lang,
-        }
-        await ms.fill_run(run_id, result, summary(reading, letter))
+        try:
+            binding = await self.bind(app, kit, info, letter, reading, demo=demo)
+            if demo:
+                binding["allow_new"] = await self.may_create(app, kit, ms, info, ip_key)
+            result = {
+                "letter": letter.to_json(),
+                "reading": reading.to_json(),
+                "usage": {
+                    "calls": reading.usage.calls,
+                    "usd": str(reading.usage.usd.quantize(Decimal("0.0001"))),
+                },
+                "binding": binding,
+                "route": await self.route_of(ms, owner, target_key(info, demo), letter, reading),
+                "choice": {"cls": reading.cls},
+                "looks": 0,
+                "lang": lang,
+            }
+            await ms.fill_run(run_id, result, summary(reading, letter))
+        except Exception:  # nothing after the paid reading may leave the run "reading"
+            await ms.reject_run(run_id, "error")
+            raise
 
     async def look_again(
         self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, query: str | None

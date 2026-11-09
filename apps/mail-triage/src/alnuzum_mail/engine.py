@@ -20,6 +20,8 @@ DEMO_NEW = "Демо-письмо · "  # deals the demo makes: not «Демо �
 NOTE_MAX = 3500
 VALUE_MAX = 160
 EXCERPT = 300
+# what the model wrote goes into a task and a title as text: no tag of Odoo's HTML, no BBCode of Bitrix24
+NO_MARKUP = str.maketrans({"<": "‹", ">": "›", "[": "［", "]": "］"})
 
 LABELS: dict[str, dict[str, Any]] = {
     "ru": {
@@ -156,7 +158,7 @@ def note_text(
 def deal_title(reading: Reading, letter: Letter, *, demo: bool) -> str:
     v = values(reading)
     who = v.get("company") or v.get("person") or v.get("email") or letter.from_email or "—"
-    title = f"{crm_text(who, 80)}: {crm_text(reading.request or letter.subject, 100)}"
+    title = f"{crm_text(who, 80)}: {crm_text(reading.request or letter.subject, 100)}".translate(NO_MARKUP)
     return (DEMO_NEW + title if demo else title)[:250]
 
 
@@ -176,7 +178,7 @@ def plan_of(
         return Plan("junk")
     note = for_crm(note_text(letter, reading, binding, choice, lang), crm)
     t = LABELS["en" if lang == "en" else "ru"]
-    request = crm_text(reading.request or letter.subject, 120)
+    request = crm_text(reading.request or letter.subject, 120).translate(NO_MARKUP)
     user = route.get("user") if not demo else None
     if kind == "reply":
         task = TaskIn(t["task_reply"].format(request=request), task_due(), responsible_id=user)

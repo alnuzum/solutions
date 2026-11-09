@@ -92,6 +92,7 @@
 
    <p class="muted small for-junk">{{ t.m_junk_hint }}</p>
    {% if run.steps %}<p class="muted small">{{ t.m_steps.format(done=run.steps|length) }}</p>{% endif %}
+   {% if open_run and run.demo %}<p class="muted small">{{ t.m_demo_keeps }}</p>{% endif %}
    {% if open_run %}
    <div class="acts">
     <button class="btn" type="submit" name="action" value="write">{% if run.steps %}{{ t.m_retry }}{% else %}<span class="for-new">{{ t.m_write_new.format(crm=crm_name) }}</span><span class="for-reply">{{ t.m_write_reply.format(crm=crm_name) }}</span><span class="for-junk">{{ t.m_write_junk }}</span>{% endif %}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>

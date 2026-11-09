@@ -668,3 +668,63 @@ async def test_the_demo_quota_of_a_connection_refuses_and_closes_the_adapter(
     run = run_id(await b.send())
     assert await b.write(run, cls="new", company="1") == "quota"
     assert closed == [True] and h.crm.writes == []
+
+
+# --- what the narrow check found small ---
+
+
+async def test_a_crm_answer_the_binding_cannot_read_leaves_the_letter_unbound(make: Any, engine: Any) -> None:
+    h: Harness = await make()
+
+    async def odd(**_k: Any) -> Any:
+        raise KeyError("ENTITY_ID")  # an answer of the CRM in a shape the adapter did not expect
+
+    h.crm.find_companies = odd  # type: ignore[method-assign]
+    b = Browser(h.app)
+    run = run_id(await b.send())
+    page = html.unescape((await b.http.get(f"/ru/mail/{run}")).text)
+    assert "привязка не проверена" in page
+    assert await rows(engine, "SELECT status FROM mail_runs") == [("ready",)]
+
+
+async def test_an_own_crm_that_hides_its_users_still_routes_by_stage(make: Any, engine: Any) -> None:
+    from alnuzum_crm.errors import CrmPermissionError
+
+    h: Harness = await make()
+
+    async def admins_only() -> Any:
+        raise CrmPermissionError("only an administrator", crm="bitrix24", status=403)
+
+    h.crm.users = admins_only  # type: ignore[method-assign]
+    b, info = await own(h)
+    page = await b.http.get(f"/ru/mail/rules/{info.id}")
+    assert page.status_code == 200 and "КП · Продажи" in page.text
+    token = __import__("re").search(r'name="csrf" value="([^"]+)"', page.text).group(1)
+    saved = await b.http.post(
+        f"/ru/mail/rules/{info.id}",
+        data={"csrf": token, "when0": "keyword", "value0": "щиты", "stage0": "C0:QUOTE"},
+        headers={"origin": ORIGIN},
+    )
+    assert saved.status_code == 303
+
+
+@pytest.mark.parametrize(
+    ("lang", "said"),
+    [("ru", "остаются в тестовой CRM и видны другим посетителям"), ("en", "stay in the test CRM")],
+)
+async def test_the_demo_says_its_records_stay_and_others_see_them(make: Any, lang: str, said: str) -> None:
+    h: Harness = await make()
+    b = Browser(h.app)
+    run = run_id(await b.send(lang=lang))
+    assert said in html.unescape((await b.http.get(f"/{lang}/mail/{run}")).text)
+
+
+async def test_the_request_reaches_a_task_with_no_markup(make: Any, engine: Any) -> None:
+    h: Harness = await make(answer(request="Нужен КП [url=https://evil.example]тут[/url] <a href=x>да</a>"))
+    b = Browser(h.app)
+    run = run_id(await b.send())
+    assert await b.write(run, cls="new", company="1") == "written"
+    task = next(w[2] for w in h.crm.writes if w[0] == "task")
+    deal = next(w[2] for w in h.crm.writes if w[0] == "deal")
+    for text_ in (task.text, deal.title):
+        assert not set("<>[]") & set(text_), text_
