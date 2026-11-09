@@ -72,7 +72,7 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests"]
+testpaths = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests"]
 addopts = "--import-mode=importlib -m 'not e2e and not quality'"
 markers = [
     "e2e: live calls into real CRM accounts (needs secrets)",
@@ -80,7 +80,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders"]
+source = ["alnuzum_crm", "alnuzum_platform", "alnuzum_orders", "alnuzum_voice"]
 branch = true
 
 [tool.coverage.report]
@@ -89,4 +89,4 @@ skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
 
 [tool.bandit]
-exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", ".venv"]
+exclude_dirs = ["packages/crm/tests", "packages/platform/tests", "apps/order-to-deal/tests", "apps/voice-to-crm/tests", ".venv"]

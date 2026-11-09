@@ -15,6 +15,7 @@ import wave
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from importlib import resources
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -429,3 +430,95 @@ def test_mp3_m4a_and_webm_decode(form: str, codec: str, head: str) -> None:
 
 def test_the_demo_origin_is_https() -> None:
     assert ORIGIN.startswith("https://") and datetime.now(UTC) - timedelta(seconds=1) < datetime.now(UTC)
+
+
+def test_the_decoder_itself_in_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    wav, seconds = audio.decode(SAMPLE)
+    assert wav.startswith(b"RIFF") and 7 < seconds <= 8
+    with pytest.raises(audio.AudioError, match="e_too_long"):
+        audio.decode(_wav(125))
+    with pytest.raises(audio.AudioError, match="e_no_audio"):
+        audio.decode(_wav(0.1))
+    sealed: list[int] = []
+    monkeypatch.setattr(audio, "_seal", lambda: sealed.append(1))  # the test process keeps its descriptors
+    monkeypatch.setattr(audio.resource, "setrlimit", lambda *_: None)
+
+    def child(data: bytes) -> tuple[int, bytes]:
+        out = io.BytesIO()
+        monkeypatch.setattr(audio.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(data)))
+        monkeypatch.setattr(audio.sys, "stdout", SimpleNamespace(buffer=out))
+        return audio.main(["audio", str(audio.MEMORY)]), out.getvalue()
+
+    code, out = child(SAMPLE)
+    assert code == 0 and out.startswith(b"RIFF") and sealed == [1]
+    assert child(_wav(125))[0] == 3
+    assert child(_wav(0.1))[0] == 4
+    assert child(b"OggS" + b"\x00" * 400)[0] == 5  # a signature of Ogg, not an Ogg file
+    assert child(b"#EXTM3U\nhttp://127.0.0.1:9/x.ts\n")[0] == 6
+    assert child(b"OggS" + b"\x00" * (audio.MAX_BYTES + 1))[0] == 5
+    assert sealed == [1, 1, 1, 1]  # sealed before every decode, never before a refusal
+
+
+async def test_the_page_takes_an_audio_file_and_refuses_a_playlist(make: Any) -> None:
+    h: Harness = await make(intent(stage={"id": "1:20", "phrases": [1]}))
+    async with h.client() as c:
+        token = csrf_of((await c.get("/ru/voice")).text)
+        sent = await c.post(
+            "/ru/voice",
+            data={"csrf": token, "target": "demo:bitrix24"},
+            files={"audio": ("note.ogg", SAMPLE, "audio/ogg")},
+        )
+        assert sent.status_code == 303 and h.speech.calls == 1
+        shown = await c.get(sent.headers["location"])
+        assert "Переговоры" in shown.text and h.crm.writes == []
+        playlist = await c.post(
+            "/ru/voice",
+            data={"csrf": token, "target": "demo:bitrix24"},
+            files={"audio": ("x.m3u8", b"#EXTM3U\nhttp://127.0.0.1:9/x.ts\n", "audio/x-mpegurl")},
+        )
+        assert playlist.status_code == 422 and "Формат не поддерживается" in playlist.text
+        big = await c.post(
+            "/ru/voice",
+            data={"csrf": token, "target": "demo:bitrix24"},
+            files={"audio": ("big.ogg", b"OggS" + b"\x00" * audio.MAX_BYTES, "audio/ogg")},
+        )
+        assert big.status_code == 413
+        empty = await c.post("/ru/voice", data={"csrf": token, "target": "demo:bitrix24"})
+        assert empty.status_code == 400
+    assert h.speech.calls == 1  # neither the playlist nor the big file reached the speech service
+
+
+async def test_a_crm_that_fails_while_reading_or_writing_writes_nothing_and_says_so(make: Any) -> None:
+    from alnuzum_crm.errors import CrmUnavailable
+
+    h: Harness = await make(
+        intent(stage={"id": "1:20", "phrases": [1]}), intent(stage={"id": "1:20", "phrases": [1]})
+    )
+    calls = {"n": 0}
+    found = h.crm.find_deals
+
+    async def flaky(query: str, *, limit: int = 8) -> Any:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise CrmUnavailable("down", crm="bitrix24")
+        return await found(query, limit=limit)
+
+    async def down(*_a: Any, **_k: Any) -> None:
+        raise CrmUnavailable("down", crm="bitrix24")
+
+    h.crm.find_deals = flaky  # type: ignore[method-assign]
+    async with h.client() as c:
+        token = csrf_of((await c.get("/ru/voice")).text)
+        form = {"csrf": token, "target": "demo:bitrix24", "text": "По сделке Ромашка переведи на переговоры."}
+        first = await c.post("/ru/voice", data=form)
+        assert first.status_code == 422 and "CRM не ответила" in first.text
+        sent = await c.post("/ru/voice", data=form)
+        assert sent.status_code == 303
+        h.crm.update_deal = down  # type: ignore[method-assign]
+        done = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
+        assert done.headers["location"].endswith("?n=failed")
+        again = await c.post(sent.headers["location"], data={"csrf": token, "action": "write"})
+        assert not again.headers["location"].endswith(
+            "?n=written"
+        )  # a failed write is not retried by a click
+    assert [k for k, _ in h.crm.writes] == []
