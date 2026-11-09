@@ -389,6 +389,42 @@ async def test_demo_secrets_are_kept_encrypted_and_reused_on_restart(make: Any, 
     assert repr(h.orders.reader()).startswith("ClaudeReader(") and "sk-ant" not in repr(h.orders.reader())
 
 
+async def test_demo_zoho_is_the_developer_edition_and_follows_its_token(make: Any) -> None:
+    h = await make()
+    first = dict(h.app.state.orders_demo)
+    store = h.app.state.store
+    assert (await store.get(first["zoho"], "demo")).endpoint == "developer.zohoapis.com"
+    # a new refresh token is a new demo connection; the rest stay
+    moved = await make(demo_zoho_refresh_token="1000.demo-zoho-refresh.other")
+    second = dict(moved.app.state.orders_demo)
+    assert second["zoho"] != first["zoho"]
+    assert {k: v for k, v in second.items() if k != "zoho"} == {k: v for k, v in first.items() if k != "zoho"}
+    assert (await store.secrets(second["zoho"]))["refresh_token"] == "1000.demo-zoho-refresh.other"
+    # another environment with the same token is a new connection too
+    prod = await make(
+        demo_zoho_refresh_token="1000.demo-zoho-refresh.other",
+        demo_zoho_api_domain="https://www.zohoapis.com",
+    )
+    third = prod.app.state.orders_demo["zoho"]
+    assert third != second["zoho"]
+    assert (await store.get(third, "demo")).endpoint == "www.zohoapis.com"
+    # the same token and host again: the connection is reused
+    again = await make(
+        demo_zoho_refresh_token="1000.demo-zoho-refresh.other",
+        demo_zoho_api_domain="https://www.zohoapis.com",
+    )
+    assert again.app.state.orders_demo["zoho"] == third
+
+
+@pytest.mark.parametrize(
+    "domain",
+    ["https://evil.example", "https://developer.zohoapis.com.evil.io", "http://developer.zohoapis.com"],
+)
+async def test_demo_zoho_outside_zoho_is_not_set_up(make: Any, domain: str) -> None:
+    h = await make(demo_zoho_api_domain=domain)
+    assert sorted(h.app.state.orders_demo) == ["amocrm", "bitrix24"]
+
+
 def test_intake_bound_matches_the_body_bound() -> None:
     assert intake.MAX_BYTES < MAX_BODY <= intake.MAX_BYTES + 512 * 1024
 

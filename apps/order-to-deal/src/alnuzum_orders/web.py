@@ -91,6 +91,9 @@ class OrderSettings(BaseSettings):
     demo_kommo_token: SecretStr = SecretStr("")
     demo_b24_webhook: SecretStr = SecretStr("")
     demo_zoho_refresh_token: SecretStr = SecretStr("")
+    # the demo Zoho is the Developer Edition: its token answers only on this host, while the token
+    # endpoint names www.zohoapis.com for it all the same
+    demo_zoho_api_domain: str = "https://developer.zohoapis.com"
     demo_odoo_url: str = ""
     demo_odoo_db: str = ""
     demo_odoo_login: str = ""
@@ -111,15 +114,20 @@ class OrderSettings(BaseSettings):
         if hook := self.demo_b24_webhook.get_secret_value():
             out[CrmKind.BITRIX24] = ("", {"webhook_url": hook})
         if refresh := self.demo_zoho_refresh_token.get_secret_value():
-            out[CrmKind.ZOHO] = (
-                zoho_host("https://www.zohoapis.com", ZOHO_API_HOSTS),
-                {
-                    "access_token": "expired",  # nosec B105: a placeholder, refreshed on first use
-                    "refresh_token": refresh,
-                    "expires_at": "2000-01-01T00:00:00+00:00",
-                    "accounts_server": zoho_host("https://accounts.zoho.com", ZOHO_ACCOUNTS_HOSTS),
-                },
-            )
+            try:
+                api = zoho_host(self.demo_zoho_api_domain, ZOHO_API_HOSTS)
+            except ValueError:
+                log.warning("demo zoho not set up: DEMO_ZOHO_API_DOMAIN is not a Zoho API host")
+            else:
+                out[CrmKind.ZOHO] = (
+                    api,
+                    {
+                        "access_token": "expired",  # nosec B105: a placeholder, refreshed on first use
+                        "refresh_token": refresh,
+                        "expires_at": "2000-01-01T00:00:00+00:00",
+                        "accounts_server": zoho_host("https://accounts.zoho.com", ZOHO_ACCOUNTS_HOSTS),
+                    },
+                )
         if self.demo_odoo_url and self.demo_odoo_key.get_secret_value():
             out[CrmKind.ODOO] = (
                 self.demo_odoo_url,
@@ -280,10 +288,18 @@ class Orders:
             current = have.get(crm)
             if current is not None:
                 kept = await store.secrets(current.id)
-                key = next(
-                    k for k in ("access_token", "webhook_url", "refresh_token", "api_key") if k in secrets
-                )
-                if crm is CrmKind.ZOHO or kept.get(key) == secrets[key]:
+                # Zoho refreshes its access token in place: the refresh token and the API host name the
+                # account, so a new token or another environment (the Developer Edition) is a new connection
+                if crm is CrmKind.ZOHO:
+                    same = (
+                        kept.get("refresh_token") == secrets["refresh_token"] and current.endpoint == endpoint
+                    )
+                else:
+                    key = next(
+                        k for k in ("access_token", "webhook_url", "refresh_token", "api_key") if k in secrets
+                    )
+                    same = kept.get(key) == secrets[key]
+                if same:
                     app.state.orders_demo[crm.value] = current.id
                     continue
             try:
