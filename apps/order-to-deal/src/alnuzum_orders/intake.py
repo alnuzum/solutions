@@ -7,9 +7,9 @@ in memory for the length of the request and is never written anywhere.
 import csv
 import io
 import re
+import threading
 import zipfile
 from dataclasses import dataclass, field
-from typing import Any
 
 MAX_BYTES = 8 * 1024 * 1024
 MAX_PAGES = 10
@@ -41,8 +41,8 @@ class Source:
     kind: str
     name: str
     lines: list[str] = field(default_factory=list)
-    # for the model: a re-encoded JPEG, or the PDF as it came
-    blob: bytes | None = None
+    # for the model: re-encoded JPEGs (a photo, or each page of a scan)
+    images: list[bytes] = field(default_factory=list)
     media_type: str | None = None
     pages: int = 0
     # a table whose header is recognised: column positions of name, quantity, unit, article
@@ -183,27 +183,49 @@ def _pdf(name: str, data: bytes) -> Source:
         raise IntakeError("e_damaged") from None
     lines = _clean(text.splitlines())
     if sum(len(ln) for ln in lines) < 40:
-        # a scan: the model reads the pages themselves. It gets a PDF written anew with exactly the pages
-        # counted here, so no other reader can find more pages in it than were bounded and booked
-        return Source("image", name, [], blob=_pages_only(reader), media_type="application/pdf", pages=pages)
+        # a scan: the model gets its pages as pictures, never the PDF. What one reader of PDF sees as no
+        # text another may read as pages of it (a font without ToUnicode, a hidden layer, annotations);
+        # a picture's price is known before the call
+        pictures = _rasterize(data)
+        return Source("image", name, [], images=pictures, media_type="image/jpeg", pages=len(pictures))
     return Source("pdf", name, lines, pages=pages)
 
 
-def _pages_only(reader: Any) -> bytes:
-    from pypdf import PdfWriter
-    from pypdf.errors import PyPdfError
+_PDFIUM = threading.Lock()  # PDFium is not thread-safe: one page is drawn at a time in the process
 
-    writer = PdfWriter()
-    out = io.BytesIO()
-    try:
-        for page in reader.pages:
-            writer.add_page(page)
-        writer.write(out)
-    except (PyPdfError, ValueError, KeyError, TypeError, RecursionError, OSError):
-        raise IntakeError("e_damaged") from None
-    if out.tell() > MAX_BYTES:
-        raise IntakeError("e_size")
-    return out.getvalue()
+
+def _rasterize(data: bytes) -> list[bytes]:
+    """Each page of a scan as a JPEG of at most MAX_SIDE a side, as a photo is."""
+    import pypdfium2 as pdfium
+    from PIL import Image
+
+    out: list[bytes] = []
+    with _PDFIUM:
+        try:
+            doc = pdfium.PdfDocument(data)
+        except (pdfium.PdfiumError, ValueError, OSError):
+            raise IntakeError("e_damaged") from None
+        try:
+            if not 1 <= len(doc) <= MAX_PAGES:
+                raise IntakeError("e_pages" if len(doc) > MAX_PAGES else "e_damaged")
+            for n in range(len(doc)):
+                page = doc[n]
+                try:
+                    w, h = page.get_size()
+                    if min(w, h) <= 0:
+                        raise IntakeError("e_damaged")
+                    picture = page.render(scale=MAX_SIDE / max(w, h)).to_pil().convert("RGB")
+                    picture.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
+                    buf = io.BytesIO()
+                    picture.save(buf, "JPEG", quality=85)
+                    out.append(buf.getvalue())
+                finally:
+                    page.close()
+        except (pdfium.PdfiumError, ValueError, OSError):
+            raise IntakeError("e_damaged") from None
+        finally:
+            doc.close()
+    return out
 
 
 def _image(name: str, data: bytes) -> Source:
@@ -225,7 +247,7 @@ def _image(name: str, data: bytes) -> Source:
         if isinstance(exc, IntakeError):
             raise
         raise IntakeError("e_damaged") from None
-    return Source("image", name, [], blob=out.getvalue(), media_type="image/jpeg", pages=1)
+    return Source("image", name, [], images=[out.getvalue()], media_type="image/jpeg", pages=1)
 
 
 def read(name: str, data: bytes) -> Source:

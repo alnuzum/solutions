@@ -17,7 +17,7 @@ from typing import Any, Protocol
 
 import anthropic
 
-from alnuzum_orders.intake import MAX_PAGES, Source
+from alnuzum_orders.intake import Source
 from alnuzum_orders.text import plain
 
 log = logging.getLogger("alnuzum_orders.model")
@@ -29,10 +29,9 @@ PRICE = (Decimal(4), Decimal(20))
 EXTRACT_MAX_TOKENS = 12000
 CHOOSE_MAX_TOKENS = 6000
 # the most a call can read, for the reservation: a text is never more tokens than its UTF-8 bytes; a
-# picture (re-encoded by intake to at most 1568 px a side) is (w*h)/750 = 3 278 tokens; a PDF page goes as a
-# picture and its text, and a PDF is booked at MAX_PAGES whatever its own count says
+# picture (a photo or a page of a scan, re-encoded by intake to at most 1568 px a side) is (w*h)/750 =
+# 3 278 tokens. A PDF never goes to the model as a PDF: its cost would depend on how the model reads it
 IMAGE_TOKENS = 4000
-PDF_PAGE_TOKENS = 5000
 REQUEST_TOKENS = 600  # the framing of a request around its blocks
 MAX_INPUT_BYTES = 12 * 1024 * 1024  # what one request may carry at all, base64 included
 # a call that got no answer (rate limit, a broken connection, 5xx, a time-out) keeps its booking and is
@@ -123,8 +122,8 @@ def worst_input(system: str, content: list[dict[str, Any]], schema: dict[str, An
             tokens += len(block["text"].encode())
         elif block["type"] == "image":
             tokens += IMAGE_TOKENS
-        else:  # a PDF: intake hands over only the pages it counted, at most MAX_PAGES
-            tokens += PDF_PAGE_TOKENS * MAX_PAGES
+        else:
+            raise ValueError(f"no bound for a {block['type']} block")
     return tokens
 
 
@@ -371,26 +370,20 @@ class ClaudeReader:
 
     async def extract(self, source: Source, gate: Gate) -> Extraction:
         content: list[dict[str, Any]] = []
-        if source.blob is not None:
-            encoded = base64.standard_b64encode(source.blob).decode()
-            if source.media_type == "application/pdf":
-                content.append(
-                    {
-                        "type": "document",
-                        "source": {"type": "base64", "media_type": "application/pdf", "data": encoded},
-                    }
-                )
-            else:
+        if source.images:
+            for picture in source.images:
+                encoded = base64.standard_b64encode(picture).decode()
                 content.append(
                     {
                         "type": "image",
-                        "source": {"type": "base64", "media_type": source.media_type, "data": encoded},
+                        "source": {"type": "base64", "media_type": "image/jpeg", "data": encoded},
                     }
                 )
             content.append(
                 {
                     "type": "text",
-                    "text": "The document is the attached file. Read it, write the transcript, then the items.",
+                    "text": "The document is in the attached pictures, one per page, in order. Read it, write "
+                    "the transcript, then the items.",
                 }
             )
         else:

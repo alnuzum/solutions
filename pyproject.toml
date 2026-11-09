@@ -56,6 +56,11 @@ plugins = ["pydantic.mypy"]
 mypy_path = ["packages/crm/src", "packages/platform/src", "apps/order-to-deal/src"]
 explicit_package_bases = true
 
+[[tool.mypy.overrides]]
+# PDFium's binding ships no types; only intake draws pages with it
+module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"

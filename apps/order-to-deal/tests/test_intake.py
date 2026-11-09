@@ -78,8 +78,12 @@ def test_pdf_over_ten_pages_is_refused_and_a_scan_goes_to_the_model() -> None:
         intake.read("big.pdf", pdf(intake.MAX_PAGES + 1))
     assert caught.value.code == "e_pages"
     scan = intake.read("scan.pdf", pdf(2))
-    assert (scan.kind, scan.media_type, scan.pages, scan.lines) == ("image", "application/pdf", 2, [])
-    assert scan.blob is not None and scan.blob.startswith(b"%PDF-")
+    # a scan goes to the model as one picture a page, never as the PDF
+    assert (scan.kind, scan.media_type, scan.pages, scan.lines) == ("image", "image/jpeg", 2, [])
+    assert len(scan.images) == 2
+    for page in scan.images:
+        with Image.open(io.BytesIO(page)) as img:
+            assert img.format == "JPEG" and max(img.size) == intake.MAX_SIDE
 
 
 def test_picture_over_the_pixel_bound_is_refused_and_a_big_one_is_shrunk() -> None:
@@ -88,8 +92,8 @@ def test_picture_over_the_pixel_bound_is_refused_and_a_big_one_is_shrunk() -> No
     assert caught.value.code == "e_image_size"
     src = intake.read("photo.webp", image(3000, 1000, "WEBP"))
     assert (src.kind, src.media_type) == ("image", "image/jpeg")
-    assert src.blob is not None
-    with Image.open(io.BytesIO(src.blob)) as img:
+    assert len(src.images) == 1
+    with Image.open(io.BytesIO(src.images[0])) as img:
         assert max(img.size) == intake.MAX_SIDE
 
 

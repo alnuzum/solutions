@@ -209,10 +209,10 @@ async def test_a_photo_goes_as_an_image_and_its_transcript_is_the_source() -> No
     assert result.customer["person"] == "Алишер"
 
     def pdf_answer(request: dict[str, Any]) -> dict[str, Any]:
-        assert request["messages"][0]["content"][0]["type"] == "document"
+        assert [b["type"] for b in request["messages"][0]["content"]] == ["image", "image", "text"]
         return {"items": [], "customer": {}, "transcript": []}
 
-    scan = intake.Source("image", "scan.pdf", [], blob=b"%PDF-1.4", media_type="application/pdf", pages=1)
+    scan = intake.Source("image", "scan.pdf", [], images=[b"\xff\xd8\xff1", b"\xff\xd8\xff2"], pages=2)
     reader, _ = reader_with(pdf_answer)
     assert (await run(scan, CAT, reader, gate)).lines == []
 
@@ -267,24 +267,46 @@ def booking_gate(seen: list[Any]) -> Any:
     return gate
 
 
-async def test_a_pdf_is_booked_at_max_pages_and_handed_over_with_only_its_counted_pages() -> None:
+async def test_a_pdf_without_a_text_layer_for_pypdf_goes_as_pictures_booked_by_the_pictures() -> None:
+    """Text pypdf does not see (here a long annotation; equally a font without ToUnicode or a hidden
+    layer) could make the PDF dear for the model: the model never gets the PDF, only its pages drawn."""
     import io
 
-    from pypdf import PdfReader, PdfWriter
+    from pypdf import PdfWriter
+    from pypdf.annotations import FreeText
 
-    from alnuzum_orders.model import EXTRACT_MAX_TOKENS, PDF_PAGE_TOKENS, cost
+    from alnuzum_orders.model import (
+        EXTRACT_MAX_TOKENS,
+        EXTRACT_SCHEMA,
+        EXTRACT_SYSTEM,
+        IMAGE_TOKENS,
+        cost,
+        worst_input,
+    )
 
     writer = PdfWriter()
-    writer.add_blank_page(width=200, height=200)
+    for _ in range(2):
+        writer.add_blank_page(width=595, height=842)
+    for n in range(2):
+        writer.add_annotation(
+            n, FreeText(text="Кабель силовой медный 100 м. " * 2000, rect=(50, 50, 545, 792))
+        )
     out = io.BytesIO()
     writer.write(out)
     src = intake.read("scan.pdf", out.getvalue())
-    assert src.kind == "image" and src.pages == 1
-    assert src.blob is not None and len(PdfReader(io.BytesIO(src.blob)).pages) == 1
+    assert (src.kind, src.pages, len(src.images), src.lines) == ("image", 2, 2, [])
     seen: list[Any] = []
-    reader, _ = reader_with({"items": [], "customer": {}, "transcript": []})
+    reader, messages = reader_with({"items": [], "customer": {}, "transcript": []})
     await reader.extract(src, booking_gate(seen))
-    assert seen[0] >= cost(intake.MAX_PAGES * PDF_PAGE_TOKENS, EXTRACT_MAX_TOKENS)
+    content = messages.requests[0]["messages"][0]["content"]
+    assert [b["type"] for b in content] == ["image", "image", "text"]
+    assert seen[0] == cost(worst_input(EXTRACT_SYSTEM, content, EXTRACT_SCHEMA), EXTRACT_MAX_TOKENS)
+    text_only = [b for b in content if b["type"] == "text"]
+    assert seen[0] == cost(
+        worst_input(EXTRACT_SYSTEM, text_only, EXTRACT_SCHEMA) + 2 * IMAGE_TOKENS, EXTRACT_MAX_TOKENS
+    )
+    with pytest.raises(ValueError, match="no bound"):
+        worst_input("", [{"type": "document"}], {})
 
 
 async def test_a_text_is_booked_by_its_bytes_and_an_oversized_request_is_never_sent(
