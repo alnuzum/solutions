@@ -20,6 +20,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Uuid,
+    cast,
     delete,
     func,
     or_,
@@ -45,6 +46,9 @@ LOCK_WRITES_IP, LOCK_WRITES_CRM = 0x4F58, 0x4F59
 # a run is "reading" while the system reads it and "rejected" when that failed: neither is shown,
 # both count against the quotas
 HIDDEN = ("reading", "rejected")
+# a write or a reading takes minutes at most (every call to the CRM and to the model has its time-out);
+# one still going after this was left by a stopped process (a deploy, a crash)
+STUCK = timedelta(minutes=30)
 
 
 class OrderRun(Base):
@@ -69,6 +73,11 @@ class OrderRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # when the write began: a run a stopped process left "writing" is released after ``STUCK``
+    writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the steps of the write already done ("deal", "note", "task"); with ``deal_id`` a retry goes on in
+    # the deal it made
+    steps: Mapped[list[str] | None] = mapped_column(JSONB)
 
 
 class OrderRules(Base):
@@ -256,9 +265,30 @@ class OrderStore:
                 .where(
                     OrderRun.id == run_id, OrderRun.owner == owner, OrderRun.status.in_(("ready", "failed"))
                 )
-                .values(status="writing", write_ip_key=ip_key[:64])
+                .values(status="writing", write_ip_key=ip_key[:64], writing_at=func.now())
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
+
+    async def step_done(self, run_id: uuid.UUID, step: str, deal_id: str | None = None) -> None:
+        """Kept before the next step begins: a retry skips it (and writes into this deal)."""
+        values: dict[str, Any] = {
+            "steps": func.coalesce(OrderRun.steps, text("'[]'::jsonb")).op("||")(
+                func.jsonb_build_array(cast(step, String))
+            )
+        }
+        if deal_id is not None:
+            values["deal_id"] = deal_id
+        async with self._sessions.begin() as session:
+            await session.execute(
+                update(OrderRun).where(OrderRun.id == run_id, OrderRun.status == "writing").values(**values)
+            )
+
+    async def steps_done(self, run_id: uuid.UUID) -> tuple[frozenset[str], str | None]:
+        async with self._sessions() as session:
+            row = (
+                await session.execute(select(OrderRun.steps, OrderRun.deal_id).where(OrderRun.id == run_id))
+            ).one_or_none()
+        return (frozenset(row[0] or ()), row[1]) if row else (frozenset(), None)
 
     async def finish_writing(
         self,
@@ -270,19 +300,37 @@ class OrderStore:
         readback: dict[str, Any] | None = None,
         error: str | None = None,
     ) -> None:
+        """A failed write keeps the deal it made (``step_done``): the retry goes on in it."""
+        values: dict[str, Any] = {"status": "written" if ok else "failed", "error": error}
+        if ok:
+            values |= {
+                "deal_id": deal_id,
+                "deal_url": deal_url,
+                "readback": readback,
+                "written_at": datetime.now(UTC),
+            }
         async with self._sessions.begin() as session:
-            await session.execute(
+            await session.execute(update(OrderRun).where(OrderRun.id == run_id).values(**values))
+
+    async def release_stuck(self) -> tuple[int, int]:
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (the visitor may
+        try again, the demo quota is free), "reading" becomes "rejected" (it counts as any failed attempt)."""
+        cut = datetime.now(UTC) - STUCK
+        async with self._sessions.begin() as session:
+            written = await session.execute(
                 update(OrderRun)
-                .where(OrderRun.id == run_id)
-                .values(
-                    status="written" if ok else "failed",
-                    deal_id=deal_id,
-                    deal_url=deal_url,
-                    readback=readback,
-                    error=error,
-                    written_at=datetime.now(UTC) if ok else None,
+                .where(
+                    OrderRun.status == "writing",
+                    or_(OrderRun.writing_at.is_(None), OrderRun.writing_at < cut),
                 )
+                .values(status="failed", error="interrupted")
             )
+            read = await session.execute(
+                update(OrderRun)
+                .where(OrderRun.status == "reading", OrderRun.created_at < cut)
+                .values(status="rejected", error="interrupted")
+            )
+            return int(written.rowcount), int(read.rowcount)  # type: ignore[attr-defined]
 
     async def runs_today(self, *, owner: str | None = None, ip_key: str | None = None) -> int:
         since = datetime.now(UTC) - timedelta(days=1)
@@ -294,10 +342,19 @@ class OrderStore:
         async with self._sessions() as session:
             return int(await session.scalar(query) or 0)
 
-    async def writes_today(self, owner: str) -> int:
-        """Demo deals of the session in the last day: written or being written."""
+    async def demo_left(self, owner: str, ip_key: str, crm: str, demo: DemoLimits) -> int:
+        """Demo deals this visitor may still write into this CRM: the least of what is left to the session,
+        to the address and to the CRM (in 24 hours and, with a total, in all) — what ``start_writing``
+        checks, so the page never offers a write it would refuse."""
         async with self._sessions() as session:
-            return await _demo_writes(session, OrderRun.owner == owner)
+            left = [
+                demo.per_session - await _demo_writes(session, OrderRun.owner == owner),
+                demo.per_ip - await _demo_writes(session, OrderRun.write_ip_key == ip_key[:64]),
+                demo.per_crm - await _demo_writes(session, OrderRun.crm == crm),
+            ]
+            if demo.total is not None:
+                left.append(demo.total - await _total_written(session, crm))
+        return max(0, min(left))
 
     async def demo_full(self, limits: dict[str, DemoLimits]) -> dict[str, str]:
         """The demo CRMs that take no more deals now: crm -> "full" (for today), "full_total" or "down"
@@ -419,24 +476,27 @@ async def _crm_state(session: AsyncSession, crm: str, demo: DemoLimits) -> str |
         return "down"
     if await _demo_writes(session, OrderRun.crm == crm) >= demo.per_crm:
         return "full"
-    if demo.total is not None:
-        # every deal the demo ever created there (the journal of the platform is kept), and those being
-        # written; other solutions' writes into a deal that exists create none
-        written = await session.scalar(
-            select(func.count())
-            .select_from(CrmWrite)
-            .where(
-                CrmWrite.owner == DEMO_OWNER,
-                CrmWrite.crm == crm,
-                CrmWrite.action == "order_deal",
-                CrmWrite.ok.is_(True),
-            )
-        )
-        flying = await session.scalar(
-            select(func.count())
-            .select_from(OrderRun)
-            .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.status == "writing")
-        )
-        if (written or 0) + (flying or 0) >= demo.total:
-            return "full_total"
+    if demo.total is not None and await _total_written(session, crm) >= demo.total:
+        return "full_total"
     return None
+
+
+async def _total_written(session: AsyncSession, crm: str) -> int:
+    """Every deal the demo ever created there (the journal of the platform is kept), and those being
+    written; other solutions' writes into a deal that exists create none."""
+    written = await session.scalar(
+        select(func.count())
+        .select_from(CrmWrite)
+        .where(
+            CrmWrite.owner == DEMO_OWNER,
+            CrmWrite.crm == crm,
+            CrmWrite.action == "order_deal",
+            CrmWrite.ok.is_(True),
+        )
+    )
+    flying = await session.scalar(
+        select(func.count())
+        .select_from(OrderRun)
+        .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.status == "writing")
+    )
+    return (written or 0) + (flying or 0)

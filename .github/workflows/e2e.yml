@@ -52,16 +52,10 @@ jobs:
           USER: odoo
           PASSWORD: odoo
         ports: ["8069:8069"]
+    # secrets only in the env of the step that runs the tests: checkout, setup-uv and the build scripts
+    # of ``uv sync`` never see them
     env:
       E2E_REQUIRE_ALL: "1"
-      AMOCRM_DOMAIN: ${{ secrets.AMOCRM_DOMAIN }}
-      AMOCRM_TOKEN: ${{ secrets.AMOCRM_TOKEN }}
-      KOMMO_DOMAIN: ${{ secrets.KOMMO_DOMAIN }}
-      KOMMO_TOKEN: ${{ secrets.KOMMO_TOKEN }}
-      B24_WEBHOOK: ${{ secrets.B24_WEBHOOK }}
-      ZOHO_CLIENT_ID: ${{ secrets.ZOHO_CLIENT_ID }}
-      ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
-      ZOHO_REFRESH_TOKEN: ${{ secrets.ZOHO_REFRESH_TOKEN }}
       ODOO_URL: http://127.0.0.1:8069
       ODOO_DB: e2e
       ODOO_LOGIN: admin
@@ -81,7 +75,16 @@ jobs:
         run: uv run python scripts/odoo_bootstrap.py --url "$ODOO_URL" --db "$ODOO_DB" --password "$ODOO_PASSWORD" --wait 300
       - name: Live E2E
         # short tracebacks: no frame arguments (request headers) in the log
-        run: uv run pytest -m e2e -v --tb=short -p no:cacheprovider
+        run: uv run --frozen --no-sync pytest -m e2e -v --tb=short -p no:cacheprovider
+        env:
+          AMOCRM_DOMAIN: ${{ secrets.AMOCRM_DOMAIN }}
+          AMOCRM_TOKEN: ${{ secrets.AMOCRM_TOKEN }}
+          KOMMO_DOMAIN: ${{ secrets.KOMMO_DOMAIN }}
+          KOMMO_TOKEN: ${{ secrets.KOMMO_TOKEN }}
+          B24_WEBHOOK: ${{ secrets.B24_WEBHOOK }}
+          ZOHO_CLIENT_ID: ${{ secrets.ZOHO_CLIENT_ID }}
+          ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
+          ZOHO_REFRESH_TOKEN: ${{ secrets.ZOHO_REFRESH_TOKEN }}
 
   quality:
     name: Order to deal on the reference set (live model)
@@ -89,9 +92,6 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -101,7 +101,10 @@ jobs:
       - run: uv sync --frozen
       - name: Reference set against the bar of the page
         # short tracebacks: no frame arguments in the log
-        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/order-to-deal/tests/test_quality.py
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/order-to-deal/tests/test_quality.py
+        env:
+          ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   voice-quality:
     name: Voice to CRM on the reference set (live speech and model)
@@ -110,10 +113,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -123,7 +122,11 @@ jobs:
       - run: uv sync --frozen
       - name: Reference set against the bar of CI
         # short tracebacks: no frame arguments in the log
-        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/voice-to-crm/tests/test_quality.py
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/voice-to-crm/tests/test_quality.py
+        env:
+          ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
   contracts-quality:
     name: Contract check on the reference set (live model)
@@ -132,9 +135,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -144,4 +144,7 @@ jobs:
       - run: uv sync --frozen
       - name: Reference set against the bar of CI
         # short tracebacks: no frame arguments in the log
-        run: uv run pytest -m quality -v -s --tb=short -p no:cacheprovider apps/contract-check/tests/test_quality.py
+        run: uv run --frozen --no-sync pytest -m quality -v -s --tb=short -p no:cacheprovider apps/contract-check/tests/test_quality.py
+        env:
+          ANTHROPIC_OAUTH_TOKEN: ${{ secrets.ANTHROPIC_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

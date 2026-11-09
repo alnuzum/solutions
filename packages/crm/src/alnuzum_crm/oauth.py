@@ -49,6 +49,11 @@ ZOHO_API_HOSTS = frozenset(
 )
 
 
+# a Developer Edition token is answered only on its own host, yet the token server names the US one: when
+# that refuses the token, a connection tries this host once (no other host, no pattern)
+ZOHO_US_API, ZOHO_DEVELOPER_API = "www.zohoapis.com", "developer.zohoapis.com"
+
+
 # API host of a Zoho data centre → host of its web interface (deal links)
 ZOHO_WEB_HOSTS = {
     "www.zohoapis.com": "crm.zoho.com",

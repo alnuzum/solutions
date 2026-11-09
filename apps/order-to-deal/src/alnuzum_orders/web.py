@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException
 from starlette.formparsers import MultiPartParser
 
 from alnuzum_crm.amocrm import AmoCRM, Kommo
@@ -51,6 +52,8 @@ log = logging.getLogger("alnuzum_orders.web")
 HERE = Path(__file__).parent
 CRMS = tuple(k.value for k in CrmKind)
 MAX_BODY = intake.MAX_BYTES + 256 * 1024
+# a field of the form: the longest text in the worst UTF-8 (4 bytes a character; a newline sent as CRLF is 2)
+MAX_FIELD = 4 * intake.MAX_TEXT + 4096
 MAX_LINKED_LINES = 400
 # CRMs whose deal lines keep their own price; the rest get catalog prices and the total as the budget
 LINE_PRICES = frozenset(
@@ -278,7 +281,9 @@ class Orders:
         return OrderStore(maker)
 
     async def startup(self, app: FastAPI) -> None:
-        """The demo accounts become connections of the owner ``demo`` (encrypted like any other)."""
+        """The demo accounts become connections of the owner ``demo`` (encrypted like any other); the runs
+        a stopped process left "writing" or "reading" are released."""
+        await self.release(app)
         store: ConnectionStore | None = app.state.store
         app.state.orders_demo = {}
         if store is None:
@@ -318,7 +323,16 @@ class Orders:
         await store.touch(DEMO_OWNER)
         log.info("demo accounts: %s", ", ".join(sorted(app.state.orders_demo)) or "none")
 
+    @staticmethod
+    async def release(app: FastAPI) -> None:
+        maker = getattr(app.state, "sessionmaker", None)
+        if maker is not None:
+            written, read = await OrderStore(maker).release_stuck()
+            if written or read:
+                log.warning("orders: %d runs left writing and %d left reading released", written, read)
+
     async def sweep(self, app: FastAPI) -> None:
+        await self.release(app)
         maker = getattr(app.state, "sessionmaker", None)
         if maker is not None:
             runs, calls = await OrderStore(maker).purge()
@@ -433,6 +447,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         conns = [c for c in await st.list(owner) if c.status == "active"]
         demo = sorted(getattr(request.app.state, "orders_demo", {}), key=CRMS.index)
         used = await orders.store(request).runs_today(owner=owner)
+        used_here = await orders.store(request).runs_today(ip_key=ip_key(request))
         full = await orders.store(request).demo_full({k: s.demo_limits(k) for k in demo})
         return kit.page(
             request,
@@ -444,7 +459,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             demo_full=full,
             samples=samples(),
             quality=quality(),
-            left=max(0, s.orders_runs_per_session - used),
+            # what reserve_run checks: the session's and the address's runs of 24 hours
+            left=max(0, min(s.orders_runs_per_session - used, s.orders_runs_per_ip - used_here)),
             model_on=orders.reader() is not None,
             **ctx,
         )
@@ -459,7 +475,13 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         declared = request.headers.get("content-length", "")
         if not declared.isdigit() or int(declared) > MAX_BODY:
             raise PageError(413, "e_size_t", "e_size", lang)
-        form = await request.form(max_files=1, max_fields=10, max_part_size=64 * 1024)
+        try:
+            form = await request.form(max_files=1, max_fields=10, max_part_size=MAX_FIELD)
+        except HTTPException as exc:
+            # a field over the limit is a text far too long: our page says so, not Starlette's JSON
+            if exc.status_code != 400 or "exceeded maximum size" not in str(exc.detail):
+                raise
+            return await start(request, lang, status=413, error="e_too_long")
         sid = kit.need_csrf(request, form, lang)
         owner = kit.owner(sid)
         target = str(form.get("target") or "")
@@ -469,7 +491,7 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         # only what costs nothing is checked before the quota: which input, and its size
         sample = str(form.get("sample") or "")
         upload = form.get("file")
-        typed = str(form.get("text") or "")
+        typed = str(form.get("text") or "").replace("\r\n", "\n")  # the browser sends CRLF
         name, data = "text", b""
         if sample:
             if sample not in samples():
@@ -483,6 +505,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
                 return await start(request, lang, status=400, error=error, target=target)
         elif not typed.strip():
             return await start(request, lang, status=400, error="e_empty", target=target)
+        elif len(typed) > intake.MAX_TEXT:
+            return await start(request, lang, status=413, error="e_too_long", target=target)
         # the run is counted before the file is read or the model asked: a failing, a heavy or a parallel
         # attempt counts too
         try:
@@ -503,38 +527,43 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             await ost.reject_run(run_id, error)
             return await start(request, lang, status=status, error=error, target=target)
 
+        # anything else (a bug, a lost database) must not leave the run "reading"
         try:
-            if data:
-                source = await orders.parsing.read(intake.read, name, data)
-            else:
-                source = await orders.parsing.read(intake.from_text, "text", typed)
-        except intake.IntakeError as exc:
-            return await refuse(503 if exc.code == "e_busy" else 400, exc.code)
-        finally:
-            del data
-        if reader is None and not source.columns:
-            return await refuse(503, "e_model_off")
-        try:
-            catalog = await orders.catalog(kit, request, info, demo)
-        except CrmError as exc:
-            log.info("catalog of %s not read: %s", info.id, _crm_error(exc))
-            return await refuse(502, "e_catalog")
-        if not catalog.items:
-            return await refuse(409, "e_catalog_empty")
-        try:
-            result = await run(source, catalog, reader or _NoReader(), orders.gate(request, owner))
-        except ModelError as exc:
-            return await refuse(503, exc.code)
-        if not result.lines:
-            return await refuse(422, "e_no_lines")
-        result.catalog["line_prices"] = info.crm in LINE_PRICES
-        if demo and not result.catalog.get("currency"):
-            # Zoho gives products no currency; the demo account's own is known
-            result.catalog["currency"] = _demo_currency(info)
-        result.catalog["target"] = _target_key(info, demo)
-        await ost.fill_run(run_id, result.to_json())
-        log.info("order run %s: %d lines, %d calls", run_id, len(result.lines), result.usage["calls"])
-        return redirect(f"/{lang}/orders/{run_id}")
+            try:
+                if data:
+                    source = await orders.parsing.read(intake.read, name, data)
+                else:
+                    source = await orders.parsing.read(intake.from_text, "text", typed)
+            except intake.IntakeError as exc:
+                return await refuse(503 if exc.code == "e_busy" else 400, exc.code)
+            finally:
+                del data
+            if reader is None and not source.columns:
+                return await refuse(503, "e_model_off")
+            try:
+                catalog = await orders.catalog(kit, request, info, demo)
+            except CrmError as exc:
+                log.info("catalog of %s not read: %s", info.id, _crm_error(exc))
+                return await refuse(502, "e_catalog")
+            if not catalog.items:
+                return await refuse(409, "e_catalog_empty")
+            try:
+                result = await run(source, catalog, reader or _NoReader(), orders.gate(request, owner))
+            except ModelError as exc:
+                return await refuse(503, exc.code)
+            if not result.lines:
+                return await refuse(422, "e_no_lines")
+            result.catalog["line_prices"] = info.crm in LINE_PRICES
+            if demo and not result.catalog.get("currency"):
+                # Zoho gives products no currency; the demo account's own is known
+                result.catalog["currency"] = _demo_currency(info)
+            result.catalog["target"] = _target_key(info, demo)
+            await ost.fill_run(run_id, result.to_json())
+            log.info("order run %s: %d lines, %d calls", run_id, len(result.lines), result.usage["calls"])
+            return redirect(f"/{lang}/orders/{run_id}")
+        except Exception:
+            await ost.reject_run(run_id, "error")
+            raise
 
     async def own_run(request: Request, lang: str, run_id: str) -> tuple[str, Any]:
         sid = kit.need_session(request, lang)
@@ -554,8 +583,8 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         full: dict[str, str] = {}
         others: list[str] = []
         if item.demo:
-            demo_left = max(
-                0, s.orders_demo_writes_per_session - await orders.store(request).writes_today(owner)
+            demo_left = await orders.store(request).demo_left(
+                owner, ip_key(request), item.crm, s.demo_limits(item.crm)
             )
             demo = sorted(getattr(request.app.state, "orders_demo", {}), key=CRMS.index)
             full = await orders.store(request).demo_full({k: s.demo_limits(k) for k in demo})
@@ -640,10 +669,24 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         )
         the_plan = plan(result, rules, line_prices=bool(result.catalog.get("line_prices")), lang=lang)
         tags = ("al-nuzum", "demo") if item.demo else ("al-nuzum",)
+        steps, made = await ost.steps_done(item.id)  # read while "writing" is ours alone
+
+        async def mark(step: str, deal_id: str | None) -> None:
+            await ost.step_done(item.id, step, deal_id)
+
         try:
             secrets = await st.secrets(info.id)
             async with kit.connectors.adapter(info, secrets, st) as crm:
-                done = await write(crm, the_plan, clean_customer(result.customer), lang=lang, tags=tags)
+                done = await write(
+                    crm,
+                    the_plan,
+                    clean_customer(result.customer),
+                    lang=lang,
+                    tags=tags,
+                    done=steps,
+                    deal_id=made,
+                    mark=mark,
+                )
                 url = None if item.demo else crm.deal_link(kit.connectors.account_of(info), done.deal_id)
         except CrmError as exc:
             code = _crm_error(exc)
@@ -652,6 +695,11 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
             if code == "auth" and not item.demo:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("order run %s not written: %s", item.id, code)
+            return redirect(f"{back}?n=failed")
+        except Exception:  # anything else: the run must not stay "writing", the visitor may try again
+            log.exception("order run %s not written", item.id)
+            await st.finish_write(write_id, ok=False, error="error")
+            await ost.finish_writing(item.id, ok=False, error="error")
             return redirect(f"{back}?n=failed")
         await st.finish_write(write_id, ok=True, record_id=done.deal_id, record_url=url)
         await ost.finish_writing(item.id, ok=True, deal_id=done.deal_id, deal_url=url, readback=done.readback)

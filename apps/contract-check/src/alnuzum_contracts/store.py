@@ -40,10 +40,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import Base
 
 KEEP = timedelta(days=1)
+# a write or a reading takes minutes at most; one still going after this was left by a stopped process
+STUCK = timedelta(minutes=30)
 LOCK_SPEND = 0x434F4E54  # the money ceiling of the solution ("CONT")
 LOCK_RUNS, LOCK_DEMO = 0x4352, 0x4344  # runs of an owner, an address or a connection; demo writes
 
@@ -70,6 +73,8 @@ class ContractRun(Base):
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     write_ip_key: Mapped[str | None] = mapped_column(String(64))
     steps: Mapped[list[str] | None] = mapped_column(JSONB)
+    # when the write began: a run a stopped process left "writing" is released after ``STUCK``
+    writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     erase_after: Mapped[bool] = mapped_column(Boolean, default=False)  # erased once its write ends
 
 
@@ -189,6 +194,30 @@ TOMBSTONE: dict[str, Any] = {
     "deal_url": None,
     "erase_after": False,
 }
+
+
+DEMO_DOWN_FOR = timedelta(minutes=30)
+
+
+async def _demo_down(session: AsyncSession, crm: str) -> bool:
+    """The test account refused a demo write as over its records limit, and nothing was written there
+    since: for half an hour the demo of that CRM says it is unavailable instead of failing every visitor."""
+    refused = await session.scalar(
+        select(func.max(ContractRun.writing_at)).where(
+            ContractRun.demo,
+            ContractRun.crm == crm,
+            ContractRun.error == ACCOUNT_LIMIT,
+            ContractRun.writing_at > datetime.now(UTC) - DEMO_DOWN_FOR,
+        )
+    )
+    if refused is None:
+        return False
+    written = await session.scalar(
+        select(func.count())
+        .select_from(ContractRun)
+        .where(ContractRun.demo, ContractRun.crm == crm, ContractRun.written_at > refused)
+    )
+    return not written
 
 
 class ContractStore:
@@ -348,13 +377,15 @@ class ContractStore:
         self, run_id: uuid.UUID, owner: str, *, demo: bool, crm: str, ip_key: str, limits: Limits
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner. Returns "ok", "busy" (written,
-        being written), "quota" (the owner's or the address's demo writes of the day) or "full" (this demo
-        CRM's of the day)."""
+        being written), "quota" (the owner's or the address's demo writes of the day), "full" (this demo
+        CRM's of the day) or "down" (its test account refuses records)."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
                 await _lock(session, LOCK_DEMO, "ip:" + ip_key)
                 await _lock(session, LOCK_DEMO, "crm:" + crm)
+                if await _demo_down(session, crm):
+                    return "down"
                 writing = or_(ContractRun.written_at > _day(), ContractRun.status == "writing")
                 count = select(func.count()).select_from(ContractRun).where(ContractRun.demo, writing)
                 if (
@@ -380,9 +411,37 @@ class ContractStore:
                     ContractRun.status.in_(("ready", "failed")),
                     ContractRun.deal_id.is_not(None),
                 )
-                .values(status="writing", write_ip_key=ip_key[:64])
+                .values(status="writing", write_ip_key=ip_key[:64], writing_at=func.now())
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
+
+    async def release_stuck(self) -> tuple[int, int]:
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (a retry goes on
+        from the first step not done; one its owner asked to erase meanwhile is erased now), "reading"
+        becomes "rejected"."""
+        cut = datetime.now(UTC) - STUCK
+        async with self._sessions.begin() as session:
+            stuck = (
+                await session.scalars(
+                    select(ContractRun)
+                    .where(
+                        ContractRun.status == "writing",
+                        or_(ContractRun.writing_at.is_(None), ContractRun.writing_at < cut),
+                    )
+                    .with_for_update()
+                )
+            ).all()
+            for row in stuck:
+                row.status, row.error = "failed", "interrupted"
+                if row.erase_after:
+                    for field, value in TOMBSTONE.items():
+                        setattr(row, field, value)
+            read = await session.execute(
+                update(ContractRun)
+                .where(ContractRun.status == "reading", ContractRun.created_at < cut)
+                .values(status="rejected", error="interrupted")
+            )
+            return len(stuck), int(read.rowcount)  # type: ignore[attr-defined]
 
     async def step_done(self, run_id: uuid.UUID, step: str) -> None:
         """Kept before the next step begins: a retry skips it."""

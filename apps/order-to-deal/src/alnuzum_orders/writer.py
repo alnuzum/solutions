@@ -1,6 +1,7 @@
 """The deal in the CRM: client, contact, deal with product lines, the note with the calculation, the
 task for what is left, then the deal read back from the CRM."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -23,7 +24,29 @@ class Written:
     readback: dict[str, Any]
 
 
-async def write(crm: CRM, plan: Plan, customer: Customer, *, lang: str, tags: tuple[str, ...]) -> Written:
+# a step done: its name, and the deal it made (for "deal")
+Mark = Callable[[str, str | None], Awaitable[None]]
+
+
+async def _nothing(step: str, deal_id: str | None) -> None:
+    return None
+
+
+async def write(
+    crm: CRM,
+    plan: Plan,
+    customer: Customer,
+    *,
+    lang: str,
+    tags: tuple[str, ...],
+    done: frozenset[str] = frozenset(),
+    deal_id: str | None = None,
+    mark: Mark = _nothing,
+) -> Written:
+    """A retry after a failure passes the steps already ``done`` and the deal it made: it adds what is
+    missing to that deal and never makes a second one."""
+    if "deal" in done and deal_id:
+        return await _rest(crm, plan, deal_id, None, None, done=done, mark=mark)
     if any(x.quantity <= 0 or x.unit_price <= 0 for x in plan.lines) or (
         plan.total is not None and plan.total < 0
     ):
@@ -51,10 +74,27 @@ async def write(crm: CRM, plan: Plan, customer: Customer, *, lang: str, tags: tu
             plan.title, plan.lines, company_id=company_id, contact_id=contact_id, tags=tags, total=plan.total
         )
     )
-    await crm.add_note(created.id, plan.note)
-    if plan.task:
-        await crm.add_task(created.id, TaskIn(plan.task, datetime.now(UTC) + timedelta(days=1)))
-    deal = await crm.get_deal(created.id)
+    await mark("deal", created.id)
+    return await _rest(crm, plan, created.id, company_id, contact_id, done=done, mark=mark)
+
+
+async def _rest(
+    crm: CRM,
+    plan: Plan,
+    deal_id: str,
+    company_id: str | None,
+    contact_id: str | None,
+    *,
+    done: frozenset[str],
+    mark: Mark,
+) -> Written:
+    if "note" not in done:
+        await crm.add_note(deal_id, plan.note)
+        await mark("note", None)
+    if plan.task and "task" not in done:
+        await crm.add_task(deal_id, TaskIn(plan.task, datetime.now(UTC) + timedelta(days=1)))
+        await mark("task", None)
+    deal = await crm.get_deal(deal_id)
     readback = {
         "id": deal.id,
         "title": deal.title,
@@ -73,4 +113,4 @@ async def write(crm: CRM, plan: Plan, customer: Customer, *, lang: str, tags: tu
         "note": bool(plan.note),
         "task": bool(plan.task),
     }
-    return Written(created.id, company_id, contact_id, readback)
+    return Written(deal_id, company_id, contact_id, readback)

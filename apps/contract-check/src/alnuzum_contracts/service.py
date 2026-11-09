@@ -17,6 +17,7 @@ from alnuzum_contracts.clauses import Clause, split
 from alnuzum_contracts.engine import DEMO_PREFIX, comparison, summary, to_result, write
 from alnuzum_contracts.model import SIDES, ContractReader
 from alnuzum_contracts.store import CeilingReached, ContractStore, Limits, RunInfo, Seal
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_crm.errors import CrmAuthError, CrmError, CrmRateLimited, CrmUnavailable
 from alnuzum_files import FileError
 from alnuzum_orders.model import Gate, ModelError, Usage
@@ -222,6 +223,9 @@ class Contracts:
         except (FileError, ModelError, ContractError) as exc:
             await cs.reject_run(run_id, exc.code)
             raise ContractError(exc.code, getattr(exc, "n", None)) from None
+        except Exception:  # anything else must not leave the run "reading"
+            await cs.reject_run(run_id, "error")
+            raise
         spent = {"calls": usage.calls, "usd": str(usage.usd.quantize(Decimal("0.0001")))}
         result = to_result(
             cmp,
@@ -275,7 +279,8 @@ class Contracts:
         self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, ip_key: str, lang: str
     ) -> str:
         """Write the note and the task into the chosen deal; a retry after a failure goes on from the first
-        step not done. Returns the notice: written, quota, full, busy, failed, auth, no_deal, not_demo."""
+        step not done. Returns the notice: written, quota, full, down, busy, failed, auth, no_deal,
+        not_demo."""
         if not run.deal_id or not run.result:
             return "no_deal"
         cs, st, limits = self.store(app, kit), self.connections(app), self.settings.limits()
@@ -327,6 +332,8 @@ class Contracts:
             if code == "auth" and not run.demo:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("contract run %s not written: %s", run.id, code)
+            if code == ACCOUNT_LIMIT and run.demo:
+                return "down"  # the test account takes no records now: for half an hour the demo says so
             return "auth" if code == "auth" else "failed"
         except Exception:  # anything else: the run must not stay "writing" (a retry goes on from the step)
             await st.finish_write(write_id, ok=False, error="error")

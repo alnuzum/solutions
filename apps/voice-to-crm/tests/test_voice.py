@@ -28,7 +28,18 @@ from sqlalchemy import text
 
 from alnuzum_crm.types import CrmKind
 
-from .conftest import BOT_TOKEN, ORIGIN, Harness, callback, csrf_of, intent, message, rows, session_cookie
+from .conftest import (
+    BOT_TOKEN,
+    ORIGIN,
+    TG_SECRET,
+    Harness,
+    callback,
+    csrf_of,
+    intent,
+    message,
+    rows,
+    session_cookie,
+)
 
 SAMPLE = resources.files("alnuzum_voice").joinpath("samples/ru-02.ogg").read_bytes()
 
@@ -186,7 +197,7 @@ async def test_speech_has_its_own_minutes_a_day_and_says_so(make: Any, engine: A
     h.speech.fail = None
     await h.update(message(811, 2, voice={"file_id": "m1", "duration": 7, "file_size": len(SAMPLE)}))
     assert h.speech.calls == 1  # 8 + 45 + 8 > 60: not sent to the service at all
-    assert "На сегодня лимит распознавания исчерпан" in h.tg.texts()[-1]
+    assert "Лимит распознавания за последние 24 часа исчерпан" in h.tg.texts()[-1]
     await h.update(message(811, 3, text="По сделке Ромашка переведи на переговоры."))
     assert "Переговоры" in h.tg.texts()[-1]  # a typed command needs no speech
 
@@ -226,7 +237,7 @@ async def test_demo_writes_of_a_chat_are_bounded(make: Any) -> None:
     for n in (1, 3):
         await h.update(message(805, n, text="Ромашка"))
         await h.update(callback(805, n + 1, next(d for _, d in h.tg.buttons() if d.startswith("w:"))))
-    assert "Лимит демо-записей" in h.tg.texts()[-1]
+    assert "Лимит записей за последние 24 часа" in h.tg.texts()[-1]
     assert [k for k, _ in h.crm.writes] == ["note"]
 
 
@@ -711,7 +722,7 @@ async def test_voice_writes_into_demo_kommo_leave_the_deals_of_solution_1_alone(
         await h.update(callback(571, n + 1, next(d for _, d in h.tg.buttons() if d.startswith("w:"))))
     journal = await rows(engine, "SELECT action FROM crm_writes WHERE crm = 'kommo' AND ok")
     assert [a for (a,) in journal] == ["voice_update", "voice_update"]
-    assert "Демо Kommo на сегодня заполнено" in h.tg.texts()[-1]  # the third: voice's own ceiling a day
+    assert "Демо Kommo заполнено" in h.tg.texts()[-1]  # the third: voice's own ceiling a day
     assert await orders.demo_full(limits) == {}  # two voice writes, a total of two deals: still all there
 
 
@@ -725,7 +736,7 @@ async def test_speech_minutes_are_bounded_per_chat_and_others_keep_theirs(make: 
     for n in (1, 2, 3):
         await h.update(message(581, n, voice=voice))
     assert h.speech.calls == 2  # 2 + 2 minutes heard; the third two would pass 4
-    assert "Ваш лимит распознавания на сегодня исчерпан" in h.tg.texts()[-1]
+    assert "Ваш лимит распознавания за последние 24 часа исчерпан" in h.tg.texts()[-1]
     await h.update(message(582, 4, voice=voice))
     assert h.speech.calls == 3 and "лимит" not in h.tg.texts()[-1]  # another chat hears its own
     heard = await rows(engine, "SELECT owner, units FROM voice_spend WHERE kind = 'stt' ORDER BY created_at")
@@ -745,7 +756,7 @@ async def test_speech_minutes_are_bounded_per_address_across_sessions(make: Any,
             )
             if n < 2:
                 assert sent.status_code == 303
-    assert sent.status_code == 422 and "Ваш лимит распознавания на сегодня исчерпан" in sent.text
+    assert sent.status_code == 422 and "Ваш лимит распознавания за последние 24 часа исчерпан" in sent.text
     assert h.speech.calls == 2
 
 
@@ -844,3 +855,166 @@ async def test_the_day_s_minutes_spent_or_no_key_the_page_says_so(make: Any, eng
     keyless: Harness = await make(elevenlabs_api_key="")
     async with keyless.client() as c:
         assert OFF_EN in (await c.get("/en/voice")).text
+
+
+def test_the_telegram_hook_is_the_path_outside_the_limit_of_an_address() -> None:
+    from alnuzum_voice.web import HOOK
+
+    from alnuzum_platform.web.security import UNLIMITED
+
+    assert HOOK in UNLIMITED
+
+
+async def test_a_write_or_a_reading_that_breaks_outside_the_crm_errors_leaves_no_run_stuck(
+    make: Any, engine: Any
+) -> None:
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 2)
+    await _pick_demo(h, 571)
+    found = h.crm.find_deals
+
+    async def broken(*_a: Any, **_k: Any) -> Any:
+        raise RuntimeError("a bug of an adapter")
+
+    h.crm.find_deals = broken  # type: ignore[method-assign]
+    await h.update(message(571, 1, text="По сделке Ромашка переведи на переговоры."))
+    assert "Не удалось разобрать" in h.tg.texts()[-1]  # the person gets an answer
+    assert await rows(engine, "SELECT status, error FROM voice_runs") == [("rejected", "error")]
+    h.crm.find_deals = found  # type: ignore[method-assign]
+    await h.update(message(571, 2, text="По сделке Ромашка переведи на переговоры."))
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    h.crm.update_deal = broken  # type: ignore[method-assign]
+    await h.update(callback(571, 3, button))
+    assert "Не удалось записать" in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT status, error FROM voice_runs WHERE result IS NOT NULL") == [
+        ("failed", "error")
+    ]
+    assert await rows(engine, "SELECT ok, error FROM crm_writes") == [(False, "error")]
+
+
+async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_start(
+    make: Any, engine: Any
+) -> None:
+    from alnuzum_voice import web
+
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 3)
+    await _pick_demo(h, 572)
+    for n in range(3):
+        await h.update(message(572, 10 + n, text="По сделке Ромашка переведи на переговоры."))
+    ids = [r[0] for r in await rows(engine, "SELECT id FROM voice_runs ORDER BY created_at")]
+    stale = (
+        "UPDATE voice_runs SET status = CAST(:s AS varchar), created_at = now() - make_interval(mins => :c), "
+        "writing_at = CASE WHEN CAST(:s AS varchar) = 'writing' THEN now() - make_interval(mins => :w) END WHERE id = :i"
+    )
+    async with engine.begin() as conn:
+        for rid, state, age in zip(ids, ("writing", "writing", "reading"), (31, 5, 31), strict=True):
+            await conn.execute(text(stale), {"s": state, "c": age + 1, "w": age, "i": rid})
+    await web._startup(h.app)
+    got = {r[0]: (r[1], r[2]) for r in await rows(engine, "SELECT id, status, error FROM voice_runs")}
+    assert got == {
+        ids[0]: ("failed", "interrupted"),
+        ids[1]: ("writing", None),
+        ids[2]: ("rejected", "interrupted"),
+    }
+
+
+async def test_our_busy_decoder_does_not_take_a_persons_attempt(
+    make: Any, engine: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    h: Harness = await make(intent(stage={"id": "1:20", "phrases": [1]}), voice_runs_per_owner=1)
+    await _pick_demo(h, 591)
+    taken = threading.BoundedSemaphore(1)
+    taken.acquire()  # both slots of the decoder are busy with others
+    monkeypatch.setattr(audio, "_SLOTS", taken)
+    monkeypatch.setattr(audio, "SECONDS", 0.05)
+    h.tg.files["b1"] = SAMPLE
+    note = {"file_id": "b1", "duration": 7, "file_size": len(SAMPLE)}
+    await h.update(message(591, 1, voice=note))
+    assert "Сейчас занято" in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT count(*) FROM voice_runs") == [(0,)]
+    monkeypatch.undo()  # the decoder is free again
+    await h.update(message(591, 2, voice=note))  # the only attempt of the day is still there
+    assert "Лимит разборов" not in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT status FROM voice_runs") == [("ready",)]
+
+
+async def test_the_webhook_keeps_at_most_a_few_updates_in_work(make: Any) -> None:
+    from alnuzum_voice.web import MAX_TASKS
+
+    h: Harness = await make()
+    gate = asyncio.Event()
+    for _ in range(MAX_TASKS):
+        h.voice.tasks.add(asyncio.ensure_future(gate.wait()))
+    async with h.client() as c:
+        resp = await c.post(
+            "/hooks/voice/telegram",
+            json=message(592, 1, text="/start"),
+            headers={"X-Telegram-Bot-Api-Secret-Token": TG_SECRET},
+        )
+    assert resp.status_code == 503  # Telegram sends the update again later; nothing is lost
+    assert len(h.voice.tasks) == MAX_TASKS
+    gate.set()
+    await asyncio.gather(*list(h.voice.tasks))
+    h.voice.tasks.clear()
+    assert (await h.update(message(592, 1, text="/start"))).status_code == 200
+    assert h.tg.texts()  # the same update, sent again, is answered
+
+
+async def test_a_test_account_over_its_records_limit_says_the_demo_is_unavailable(
+    make: Any, engine: Any
+) -> None:
+    from alnuzum_crm.amocrm import ACCOUNT_LIMIT
+    from alnuzum_crm.errors import CrmPermissionError
+
+    h: Harness = await make(*[intent(stage={"id": "1:20", "phrases": [1]})] * 2)
+    await _pick_demo(h, 593)
+
+    async def full(*_a: Any, **_k: Any) -> None:
+        raise CrmPermissionError("Payment Required", crm="bitrix24", status=400, code=ACCOUNT_LIMIT)
+
+    h.crm.update_deal = full  # type: ignore[method-assign]
+    await h.update(message(593, 1, text="По сделке Ромашка переведи на переговоры."))
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    await h.update(callback(593, 2, button))
+    assert "Демо Битрикс24 временно недоступно" in h.tg.texts()[-1]
+    # the next visitor does not go to the CRM for half an hour: the same words, no write
+    h.crm.update_deal = None  # type: ignore[assignment,method-assign]
+    await h.update(message(593, 3, text="По сделке Ромашка переведи на переговоры."))
+    button = next(d for _, d in h.tg.buttons() if d.startswith("w:"))
+    await h.update(callback(593, 4, button))
+    assert "Демо Битрикс24 временно недоступно" in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT count(*) FROM crm_writes") == [(1,)]
+
+
+async def test_one_chat_cannot_take_every_place_in_work(make: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Narrow check I-1: a chat has at most two updates in work; its extra one gets an answer at once (in
+    the webhook's reply, no 503), and another chat still gets a place."""
+    from alnuzum_voice import bot as bot_mod
+    from alnuzum_voice.web import MAX_CHAT_TASKS
+
+    h: Harness = await make()
+    gate, seen = asyncio.Event(), []
+
+    async def slow(self: Any, app: Any, update: dict[str, Any]) -> None:
+        seen.append(update.get("update_id"))
+        await gate.wait()
+
+    monkeypatch.setattr(bot_mod.Updates, "handle", slow)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": TG_SECRET}
+    async with h.client() as c:
+        mine = [
+            await c.post("/hooks/voice/telegram", json=message(601, n, text="/start"), headers=headers)
+            for n in (1, 2, 3)
+        ]
+        press = await c.post("/hooks/voice/telegram", json=callback(601, 4, "c:bitrix24"), headers=headers)
+        other = await c.post("/hooks/voice/telegram", json=message(602, 5, text="/start"), headers=headers)
+    assert MAX_CHAT_TASKS == 2
+    assert [r.status_code for r in mine] == [200, 200, 200] and press.status_code == other.status_code == 200
+    extra = mine[2].json()
+    assert extra["method"] == "sendMessage" and extra["chat_id"] == 601 and "предыдущ" in extra["text"]
+    assert press.json()["method"] == "answerCallbackQuery" and press.json()["callback_query_id"] == "cb4"
+    assert other.json() == {"ok": True}
+    await asyncio.sleep(0)
+    assert seen == [1, 2, 5]  # the other chat is in work
+    gate.set()
+    await asyncio.gather(*list(h.voice.tasks))
+    assert h.voice.chat_tasks == {}

@@ -132,7 +132,7 @@ async def test_demo_order_to_deal_with_products_note_task_and_readback(
     assert index.status_code == 200
     no_style_no_script(index.text)
     assert re.findall(r'value="demo:(\w+)"', index.text) == ["amocrm", "bitrix24", "zoho"]
-    assert "Разборов на сегодня осталось: 10" in index.text
+    assert "Разборов осталось: 10" in index.text
     rid = run_id(await b.order(sample="order-ru.xlsx"))
     page = await b.http.get(f"/ru/orders/{rid}")
     assert page.status_code == 200
@@ -311,7 +311,7 @@ async def test_runs_per_session_counted_before_reading_parallel_and_failed_ones_
     # the failed ones keep counting
     again = await b.order(sample="order-ru.xlsx", csrf=token)
     assert again.status_code == 429
-    assert "Разборов на сегодня осталось: 0" in again.text
+    assert "Разборов осталось: 0" in again.text
 
 
 async def test_runs_per_address_across_sessions(make: Any) -> None:
@@ -346,7 +346,7 @@ async def test_demo_writes_per_session_are_counted_with_the_status_change(make: 
     assert len(h.crm.deals) == 2
     refused = next(r for r, a in zip(runs, answers, strict=True) if a.headers["location"].endswith("quota"))
     page = await b.http.get(f"/ru/orders/{refused}")
-    assert "Записей в демо на сегодня осталось: 0" in page.text
+    assert "Записей в демо осталось: 0" in page.text
 
 
 async def test_model_ceiling_of_the_whole_solution(make: Any, engine: AsyncEngine) -> None:
@@ -505,7 +505,7 @@ async def test_model_dollars_are_booked_at_the_worst_cost_before_the_call(
     # the longest document could cost more than the day allows: refused before the model is asked
     refused = await b.order(text=LONG)
     assert refused.status_code == 503
-    assert "Суточный лимит системы на все заявки исчерпан" in refused.text
+    assert "Лимит системы на все заявки за последние 24 часа исчерпан" in refused.text
     assert len(h.messages.requests) == 2
 
 
@@ -521,7 +521,7 @@ async def test_model_dollars_spent_today_stop_the_next_call(make: Any, engine: A
         )
     resp = await Browser(h.app).order(text=SHORT)
     assert resp.status_code == 503
-    assert "Суточный лимит системы" in resp.text
+    assert "Лимит системы на все заявки" in resp.text
     assert h.messages.requests == []
 
 
@@ -559,12 +559,12 @@ async def test_demo_crm_has_its_own_ceiling_apart_from_the_platform_quota(make: 
     resp = await late.decide(rid, {"action": "write"})
     assert resp.headers["location"].endswith("?n=full")
     page = await late.http.get(f"/ru/orders/{rid}")
-    assert "Демо Битрикс24 на сегодня заполнено" in page.text
+    assert "Демо Битрикс24 заполнено" in page.text
     assert "Демо других CRM открыто: amoCRM, Zoho CRM." in page.text
     assert re.search(r'value="write" disabled', page.text)
     start = await late.http.get("/ru/orders")
     assert re.search(r'value="demo:bitrix24" required disabled>', start.text)
-    assert "на сегодня заполнено" in start.text
+    assert re.search(r"<small class=\"muted\">· заполнено</small>", start.text)
     assert len(h.crm.deals) == 4
 
 
@@ -705,3 +705,146 @@ async def test_the_accuracy_reads_as_a_reader_writes_it(make: Any, monkeypatch: 
     ru, en = await pages()
     assert "98,5\u00a0% строк" in ru and "ошибок 2, из них система сама пометила спорными 1." in ru
     assert "98.5% of lines" in en and "mistakes: 2, of which the system itself marked 1 as unsure." in en
+
+
+# --- the Minor pack 1 ---
+
+
+async def test_a_write_that_breaks_outside_the_crm_errors_leaves_the_run_failed(
+    make: Any, engine: AsyncEngine
+) -> None:
+    h = await make(choose_first())
+    b = Browser(h.app)
+    rid = run_id(await b.order(sample="order-ru.xlsx"))
+    h.crm.fail = KeyError("a bug of an adapter")
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=failed")
+    assert [tuple(r) for r in await rows(engine, "SELECT status, error FROM orders_runs")] == [
+        ("failed", "error")
+    ]
+    assert [tuple(r) for r in await rows(engine, "SELECT ok, error FROM crm_writes")] == [(False, "error")]
+    h.crm.fail = None  # the visitor tries again
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=written")
+
+
+async def test_a_reading_that_breaks_outside_the_known_errors_is_rejected(
+    make: Any, engine: AsyncEngine
+) -> None:
+    h = await make(choose_first())
+    b = Browser(h.app)
+    h.crm.fail_list = KeyError("a bug of an adapter")
+    with pytest.raises(KeyError):
+        await b.order(sample="order-ru.xlsx")
+    assert [tuple(r) for r in await rows(engine, "SELECT status, error FROM orders_runs")] == [
+        ("rejected", "error")
+    ]
+
+
+async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_start(
+    make: Any, engine: AsyncEngine
+) -> None:
+    h = await make(choose_first(), choose_first(), choose_first())
+    b = Browser(h.app)
+    ids = old, fresh, read = [run_id(await b.order(sample="order-ru.xlsx")) for _ in range(3)]
+    stale = (
+        "UPDATE orders_runs SET status = CAST(:s AS varchar), created_at = now() - make_interval(mins => :c), "
+        "writing_at = CASE WHEN CAST(:s AS varchar) = 'writing' THEN now() - make_interval(mins => :w) END WHERE id = :i"
+    )
+    async with engine.begin() as conn:
+        for rid, state, age in zip(ids, ("writing", "writing", "reading"), (31, 5, 31), strict=True):
+            await conn.execute(text(stale), {"s": state, "c": age + 1, "w": age, "i": uuid.UUID(rid)})
+    await h.orders.startup(h.app)
+    got = {str(r[0]): (r[1], r[2]) for r in await rows(engine, "SELECT id, status, error FROM orders_runs")}
+    assert got == {
+        old: ("failed", "interrupted"),
+        fresh: ("writing", None),
+        read: ("rejected", "interrupted"),
+    }
+    assert (await b.decide(old, {"action": "write"})).headers["location"].endswith("?n=written")
+
+
+@pytest.mark.parametrize("breaks", ["add_note", "add_task"])
+async def test_a_retry_after_the_deal_was_created_writes_into_that_deal(
+    make: Any, engine: AsyncEngine, breaks: str
+) -> None:
+    """The note or the task failed after the deal was made: the retry adds what is missing to that deal."""
+    h = await make(choose_first())
+    b = Browser(h.app)
+    rid = run_id(await b.order(sample="order-ru.xlsx"))
+    real = getattr(h.crm, breaks)
+
+    async def down(*_a: Any, **_k: Any) -> Any:
+        raise CrmUnavailable("down", crm="bitrix24")
+
+    setattr(h.crm, breaks, down)
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=failed")
+    setattr(h.crm, breaks, real)
+    clients = (len(h.crm.companies), len(h.crm.contacts))
+    assert (await b.decide(rid, {"action": "write"})).headers["location"].endswith("?n=written")
+    assert list(h.crm.deals) == ["500"]
+    assert [d for d, _ in h.crm.notes] == ["500"]
+    assert [d for d, _ in h.crm.tasks] == ["500"]
+    assert (len(h.crm.companies), len(h.crm.contacts)) == clients  # the client is not looked up again
+    ((deal, status),) = await rows(engine, "SELECT deal_id, status FROM orders_runs")
+    assert (deal, status) == ("500", "written")
+
+
+async def test_a_long_text_gets_our_page_and_costs_no_run(make: Any, engine: AsyncEngine) -> None:
+    """40 000 Cyrillic letters are 80 KB of UTF-8: the field once hit Starlette's 64 KB part limit."""
+    h = await make(choose_first())
+    b = Browser(h.app)
+    # a table (read without the model) of 200 rows: under MAX_LINES
+    head, line = (
+        "Наименование;Количество\n",
+        "Кабель медный силовой Севкабель, пятьдесят метров, " * 4 + ";50\n",
+    )
+    empty = {"file": ("", b"", "application/octet-stream")}  # what a browser sends without a file
+
+    async def send(text: str) -> httpx.Response:
+        token = await b.csrf()
+        data = {"csrf": token, "target": "demo:bitrix24", "sample": "", "text": text}
+        return await b.http.post("/ru/orders", data=data, files=empty)
+
+    fits = head + line * ((intake.MAX_TEXT - len(head)) // len(line))
+    assert len(fits.encode()) > 64 * 1024
+    read = await send(fits)
+    assert read.status_code == 303, re.findall(
+        r"class=\"err[^>]*>(.*?)</p>", read.text, re.S
+    )  # read as an order
+    for size in (intake.MAX_TEXT + 1, 4 * intake.MAX_TEXT):
+        resp = await send((head + line * 4000)[:size])
+        assert resp.status_code == 413 and "<html" in resp.text
+        assert "Документ слишком длинный для одной заявки." in resp.text
+    # only the text that fitted counts as a run
+    assert len(await rows(engine, "SELECT 1 FROM orders_runs")) == 1
+
+
+async def test_what_is_left_is_the_least_of_the_session_the_address_and_the_crm(make: Any) -> None:
+    """A second browser at the same address: the address has spent its writes and its orders, so the page
+    says 0 and does not offer what it would refuse."""
+    h = await make(*[choose_first()] * 3, orders_demo_writes_per_ip=2, orders_runs_per_ip=3)
+    first = Browser(h.app)
+    for _ in range(2):
+        rid = run_id(await first.order(sample="order-ru.xlsx"))
+        assert (await first.decide(rid, {"action": "write"})).headers["location"].endswith("?n=written")
+    second = Browser(h.app)
+    rid = run_id(await second.order(sample="order-ru.xlsx"))
+    page = (await second.http.get(f"/ru/orders/{rid}")).text
+    assert "Записей в демо осталось: 0" in page
+    assert re.search(r'<button class="btn" type="submit" name="action" value="write" disabled', page)
+    assert "Разборов осталось: 0" in (await second.http.get("/ru/orders")).text
+    assert "на сегодня" not in page and "завтра" not in page.lower()
+
+
+def test_no_limit_text_promises_a_new_day_or_calls_your_crm_a_demo() -> None:
+    from alnuzum_contracts.i18n import texts as contract_texts
+    from alnuzum_voice.i18n import texts as voice_texts
+
+    from alnuzum_orders.i18n import texts as order_texts
+
+    for texts in (order_texts, voice_texts, contract_texts):
+        for lang in ("ru", "en"):
+            for key, value in texts(lang).items():
+                low = value.lower()
+                assert not any(w in low for w in ("сегодня", "завтра", "today", "tomorrow", "дневной")), key
+                if key in ("e_ceiling", "n_quota", "e_runs", "e_stt_ceiling", "e_stt_mine"):
+                    assert "демо" not in low and "demo" not in low, key  # an own CRM sees them too

@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_crm.errors import CrmAuthError, CrmError, CrmRateLimited, CrmUnavailable
 from alnuzum_orders.catalog import Catalog, CatalogCache, read_catalog
 from alnuzum_orders.demo_catalog import PREFIX
@@ -113,6 +114,7 @@ class Voice:
         self._reader, self._scribe, self._bot = reader, scribe, bot
         self.catalogs = CatalogCache()
         self.tasks: set[Any] = set()
+        self.chat_tasks: dict[int, int] = {}  # updates in work per chat
 
     def reader(self) -> VoiceReader:
         if self._reader is None:
@@ -263,7 +265,10 @@ class Voice:
                     usage=usage,
                 )
         except audio_mod.AudioError as exc:
-            await vs.reject_run(run_id, exc.code)
+            if exc.code == "e_busy":  # our decoder was busy: nothing was spent, the attempt is not taken
+                await vs.drop_run(run_id)
+            else:
+                await vs.reject_run(run_id, exc.code)
             raise VoiceError(exc.code) from None
         except (SpeechError, ModelError, VoiceError) as exc:
             if exc.code == "e_stt_out":
@@ -273,12 +278,16 @@ class Voice:
         except CrmError as exc:
             await vs.reject_run(run_id, "crm:" + crm_error(exc))
             raise VoiceError("e_crm") from None
+        except Exception:  # anything else must not leave the run "reading"; the person gets an answer
+            log.exception("voice run %s not read", run_id)
+            await vs.reject_run(run_id, "error")
+            raise VoiceError("e_error") from None
         await vs.fill_run(run_id, result.to_json())
         return result
 
     async def confirm(self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, lang: str) -> str:
         """Write a confirmed plan; a retry after a failure goes on from the first step not done. Returns the
-        notice: written, quota, full, busy, failed, auth, no_deal."""
+        notice: written, quota, full, down, busy, failed, auth, no_deal."""
         result = Result.from_json(run.result or {})
         if not result.deal_id:
             return "no_deal"
@@ -315,7 +324,14 @@ class Voice:
             if code == "auth" and not run.demo:
                 await st.mark(info.id, status="reauth_required", error="auth")
             log.info("voice run %s not written: %s", run.id, code)
+            if code == ACCOUNT_LIMIT and run.demo:
+                return "down"  # the test account takes no records now: for half an hour the demo says so
             return "auth" if code == "auth" else "failed"
+        except Exception:  # anything else: the run must not stay "writing" (a retry goes on from the step)
+            log.exception("voice run %s not written", run.id)
+            await st.finish_write(write_id, ok=False, error="error")
+            await vs.finish_writing(run.id, ok=False, error="error")
+            return "failed"
         await st.finish_write(write_id, ok=True, record_id=done.deal_id, record_url=url)
         await vs.finish_writing(run.id, ok=True, readback=done.readback, deal_url=url)
         log.info("voice run %s written to deal %s", run.id, done.deal_id)

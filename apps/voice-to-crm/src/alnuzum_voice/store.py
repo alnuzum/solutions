@@ -36,9 +36,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
+from alnuzum_crm.amocrm import ACCOUNT_LIMIT
 from alnuzum_platform.db import Base
 
 KEEP = timedelta(days=1)
+# a write or a reading takes minutes at most; one still going after this was left by a stopped process
+STUCK = timedelta(minutes=30)
 LINK_LIFE = timedelta(minutes=10)
 LOCK_SPEND = 0x564F4943  # the money ceiling of the solution ("VOIC")
 LOCK_RUNS, LOCK_DEMO = 0x5652, 0x5644  # runs of an owner or an address; demo writes of an owner
@@ -67,6 +70,8 @@ class VoiceRun(Base):
     written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # the steps of the write already done, each named; once one is done the plan no longer changes
     steps: Mapped[list[str] | None] = mapped_column(JSONB)
+    # when the write began: a run a stopped process left "writing" is released after ``STUCK``
+    writing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class VoiceSpend(Base):
@@ -201,6 +206,30 @@ def _day() -> datetime:
     return datetime.now(UTC) - timedelta(days=1)
 
 
+DEMO_DOWN_FOR = timedelta(minutes=30)
+
+
+async def _demo_down(session: AsyncSession, crm: str) -> bool:
+    """The test account refused a demo write as over its records limit, and nothing was written there
+    since: for half an hour the demo of that CRM says it is unavailable instead of failing every person."""
+    refused = await session.scalar(
+        select(func.max(VoiceRun.writing_at)).where(
+            VoiceRun.demo,
+            VoiceRun.crm == crm,
+            VoiceRun.error == ACCOUNT_LIMIT,
+            VoiceRun.writing_at > datetime.now(UTC) - DEMO_DOWN_FOR,
+        )
+    )
+    if refused is None:
+        return False
+    written = await session.scalar(
+        select(func.count())
+        .select_from(VoiceRun)
+        .where(VoiceRun.demo, VoiceRun.crm == crm, VoiceRun.written_at > refused)
+    )
+    return not written
+
+
 class VoiceStore:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._sessions = sessions
@@ -264,6 +293,11 @@ class VoiceStore:
                 update(VoiceRun).where(VoiceRun.id == run_id).values(status="rejected", error=error[:40])
             )
 
+    async def drop_run(self, run_id: uuid.UUID) -> None:
+        """A run refused for our own load before anything was spent: it does not count."""
+        async with self._sessions.begin() as session:
+            await session.execute(delete(VoiceRun).where(VoiceRun.id == run_id, VoiceRun.status == "reading"))
+
     async def get_run(self, run_id: uuid.UUID, owner: str) -> RunInfo:
         async with self._sessions() as session:
             row = await session.scalar(select(VoiceRun).where(VoiceRun.id == run_id, VoiceRun.owner == owner))
@@ -301,12 +335,14 @@ class VoiceStore:
         self, run_id: uuid.UUID, owner: str, *, demo: bool, crm: str, limits: Limits
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner, after a confirmation. Returns
-        "ok", "busy" (written, being written or cancelled), "quota" (the owner's demo writes of the day) or
-        "full" (this demo CRM's of the day)."""
+        "ok", "busy" (written, being written or cancelled), "quota" (the owner's demo writes of the day),
+        "full" (this demo CRM's of the day) or "down" (its test account refuses records)."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
                 await _lock(session, LOCK_DEMO, "crm:" + crm)
+                if await _demo_down(session, crm):
+                    return "down"
                 since = _day()
                 writing = or_(VoiceRun.written_at > since, VoiceRun.status == "writing")
                 mine = await session.scalar(
@@ -331,9 +367,29 @@ class VoiceStore:
                 .where(
                     VoiceRun.id == run_id, VoiceRun.owner == owner, VoiceRun.status.in_(("ready", "failed"))
                 )
-                .values(status="writing")
+                .values(status="writing", writing_at=func.now())
             )
             return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
+
+    async def release_stuck(self) -> tuple[int, int]:
+        """Runs a stopped process left behind: "writing" since ``STUCK`` becomes "failed" (a retry goes on
+        from the first step not done, the quotas are free), "reading" becomes "rejected"."""
+        cut = datetime.now(UTC) - STUCK
+        async with self._sessions.begin() as session:
+            written = await session.execute(
+                update(VoiceRun)
+                .where(
+                    VoiceRun.status == "writing",
+                    or_(VoiceRun.writing_at.is_(None), VoiceRun.writing_at < cut),
+                )
+                .values(status="failed", error="interrupted")
+            )
+            read = await session.execute(
+                update(VoiceRun)
+                .where(VoiceRun.status == "reading", VoiceRun.created_at < cut)
+                .values(status="rejected", error="interrupted")
+            )
+            return int(written.rowcount), int(read.rowcount)  # type: ignore[attr-defined]
 
     async def step_done(self, run_id: uuid.UUID, step: str) -> None:
         """Kept before the next step begins: a retry skips it."""

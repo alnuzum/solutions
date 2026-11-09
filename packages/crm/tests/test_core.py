@@ -289,3 +289,8 @@ async def test_record_scrub_and_replay(tmp_path: Path) -> None:
         with pytest.raises(ReplayMismatch, match="unexpected"):
             await client.get("https://example.com/again")
     assert json.loads(text)["meta"] == {"run_id": "1"}
+
+
+def test_the_developer_edition_fallback_is_two_listed_hosts() -> None:
+    assert {oauth.ZOHO_US_API, oauth.ZOHO_DEVELOPER_API} <= oauth.ZOHO_API_HOSTS
+    assert oauth.ZOHO_DEVELOPER_API == "developer.zohoapis.com"

@@ -85,6 +85,9 @@ class Net:
     def __init__(self) -> None:
         self.requests: list[httpx.Request] = []
         self.odoo_uid: Any = 2
+        self.zoho_api = "https://www.zohoapis.eu"  # what the token server names
+        # hosts that refuse the token: a Developer Edition token on www.zohoapis.com (live, 09.11)
+        self.zoho_refused = {"www.zohoapis.com"}
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -105,15 +108,23 @@ class Net:
                 json={
                     "access_token": "AT-zoho",
                     "refresh_token": "RT-zoho",
-                    "api_domain": "https://www.zohoapis.eu",
+                    "api_domain": self.zoho_api,
                     "expires_in": 3600,
                 },
             )
         if host.startswith("accounts.zoho") and path == "/oauth/v2/token/revoke":
             return httpx.Response(200, json={"status": "success"})
+        if host in self.zoho_refused and path == "/crm/v8/org":
+            return httpx.Response(
+                401, json={"code": "INVALID_TOKEN", "status": "error", "message": "invalid"}
+            )
         if host == "www.zohoapis.eu" and path == "/crm/v8/org":
             return httpx.Response(
                 200, json={"org": [{"id": "9001", "domain_name": "org9001", "company_name": "EU"}]}
+            )
+        if host == "developer.zohoapis.com" and path == "/crm/v8/org":
+            return httpx.Response(
+                200, json={"org": [{"id": "4607", "domain_name": None, "company_name": "AlNuzum DE"}]}
             )
         if host.endswith(".bitrix24.ru") and path.endswith("/crm.deal.list.json"):
             return httpx.Response(200, json={"result": [], "total": 0})
@@ -607,6 +618,34 @@ async def test_oauth_state_belongs_to_one_session_and_is_used_once(
     assert (await owner.http.get("/oauth/zoho/callback", params=params | {"state": late})).status_code == 400
 
 
+async def test_a_zoho_developer_edition_connects_on_its_own_host(
+    app: FastAPI, engine: AsyncEngine, net: Net
+) -> None:
+    """The token server names www.zohoapis.com for a Developer Edition token too, and that host answers
+    401: one retry on developer.zohoapis.com, and the connection keeps the host that answered."""
+    net.zoho_api = "https://www.zohoapis.com"
+    b = Browser(app)
+    state = _state((await b.http.get("/en/connect/zoho/start")).headers["location"])
+    params = {"code": "c", "state": state, "accounts-server": "https://accounts.zoho.com", "location": "us"}
+    done = await b.http.get("/oauth/zoho/callback", params=params)
+    assert done.status_code == 303 and done.headers["location"].startswith("/en/connections/")
+    orgs = [r.url.host for r in net.requests if r.url.path == "/crm/v8/org"]
+    assert orgs == ["www.zohoapis.com", "developer.zohoapis.com"]
+    ((endpoint, account, meta),) = await rows(engine, "SELECT endpoint, account, meta FROM crm_connections")
+    assert (endpoint, account) == ("developer.zohoapis.com", "4607")
+    assert meta["web"].startswith("https://developer.zoho.com/crm")
+
+
+async def test_a_zoho_token_refused_on_another_host_is_not_retried(app: FastAPI, net: Net) -> None:
+    """Only www.zohoapis.com falls back, and only to the one Developer Edition host."""
+    net.zoho_refused = {"www.zohoapis.eu"}
+    b = Browser(app)
+    state = _state((await b.http.get("/en/connect/zoho/start")).headers["location"])
+    params = {"code": "c", "state": state, "accounts-server": "https://accounts.zoho.eu", "location": "eu"}
+    assert (await b.http.get("/oauth/zoho/callback", params=params)).status_code == 400
+    assert [r.url.host for r in net.requests if r.url.path == "/crm/v8/org"] == ["www.zohoapis.eu"]
+
+
 async def test_zoho_accounts_server_outside_zoho_is_refused(app: FastAPI, net: Net) -> None:
     b = Browser(app)
     state = _state((await b.http.get("/ru/connect/zoho/start")).headers["location"])
@@ -744,6 +783,20 @@ async def test_rate_limit_per_address(make: Callable[..., FastAPI]) -> None:
     assert (await b.http.get("/health")).status_code == 200
     statuses = [(await b.http.get("/ru")).status_code for _ in range(3)]
     assert statuses[-1] == 429
+
+
+@pytest.mark.parametrize("hook", ["/hooks/amocrm/secrets", "/hooks/kommo/uninstall"])
+async def test_the_crm_hooks_are_under_the_limit_of_an_address(
+    make: Callable[..., FastAPI], hook: str
+) -> None:
+    """Each of them goes to the database: only the Telegram hook (few shared senders) is outside the limit."""
+    app = make(rate_per_minute=5, rate_post_per_minute=2)
+    await make.start(app)  # type: ignore[attr-defined]
+    http = Browser(app).http
+    codes = [(await http.post(hook, json={"state": "x"})).status_code for _ in range(3)]
+    assert codes[-1] == 429
+    telegram = [(await http.post("/hooks/voice/telegram", json={})).status_code for _ in range(3)]
+    assert 429 not in telegram
 
 
 def test_rate_limiter_windows() -> None:

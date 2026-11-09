@@ -139,6 +139,8 @@ SECURITY_HEADERS = {
 }
 
 Handler = Callable[[Request], Awaitable[Response]]
+# exact paths outside the per-address limit (voice-to-crm's ``HOOK`` is the second)
+UNLIMITED = frozenset({"/health", "/hooks/voice/telegram"})
 
 
 def make_middleware(
@@ -146,9 +148,10 @@ def make_middleware(
 ) -> Callable[[Request, Handler], Awaitable[Response]]:
     async def middleware(request: Request, call_next: Handler) -> Response:
         path = request.url.path
-        # a webhook (``/hooks/``) proves itself with its own secret and has its own quotas: the senders' few
-        # shared addresses must not run into the per-address limit
-        if path != "/health" and not path.startswith(("/static/", "/hooks/")):
+        # the Telegram webhook proves itself with its own secret and has its own quotas: Telegram's few shared
+        # addresses must not run into the per-address limit. The CRM hooks go to the database on every
+        # request, so they stay under it
+        if path not in UNLIMITED and not path.startswith("/static/"):
             ip = request.client.host if request.client else "?"
             if not limiter.allow(ip, request.method):
                 return PlainTextResponse("Too many requests", status_code=429, headers={"Retry-After": "60"})
