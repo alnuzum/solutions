@@ -279,6 +279,7 @@ def amo_catalog(price: int = 100) -> dict[str, Any]:
         "GET /api/v4/account": {"currency": "UZS", "drive_url": "https://drive-b.amocrm.ru"},
         "POST /api/v4/leads": {"_embedded": {"leads": [{"id": 1}]}},
         "POST /api/v4/leads/1/link": {"_embedded": {"links": []}},
+        "PATCH /api/v4/leads/1": {"id": 1},
     }
 
 
@@ -330,6 +331,9 @@ async def test_amo_budget_is_the_given_total_while_lines_keep_catalog_prices() -
     async with crm:
         await crm.create_deal(DealIn("d", (line,), total=Decimal("271.50")))
     assert json.loads(router.sent("POST", "/api/v4/leads")[0].content)[0]["price"] == 272
+    # the link recounts the budget at catalog prices, so the total is put back after it
+    assert json.loads(router.sent("PATCH", "/api/v4/leads/1")[0].content) == {"price": 272}
+    assert router.requests[-1].method == "PATCH"
 
 
 async def test_odoo_currency_is_applied_or_refused() -> None:

@@ -46,7 +46,8 @@ log = logging.getLogger("alnuzum_platform.web")
 NOTICES = ("quota", "auth", "unavailable", "rejected")
 
 # Where a page may send the browser: one of our own pages, or the consent window of a CRM.
-_OWN_PAGE = re.compile(r"/(?:ru|en)(?:/[A-Za-z0-9_-]+)*(?:\?[A-Za-z0-9_=&%.-]*)?")
+# a colon only inside a path segment ("demo:amocrm"): the address always starts with /ru or /en
+_OWN_PAGE = re.compile(r"/(?:ru|en)(?:/[A-Za-z0-9_:-]+)*(?:\?[A-Za-z0-9_=&%.-]*)?")
 CONSENT_HOSTS = frozenset({"www.amocrm.ru", "www.kommo.com", "accounts.zoho.com"})
 # the language as our own constant, never the string that came in the address
 _LANG_OF = {code: code for code in LANGS}

@@ -466,6 +466,10 @@ class AmoCRM(CRM):
                     meta["price_id"] = price_field
                 links.append({"to_entity_id": pid, "to_entity_type": "catalog_elements", "metadata": meta})
             await self._request("POST", f"/api/v4/leads/{deal_id}/link", json=links)
+            if deal.total is not None:
+                # linking products with a price field recounts the budget at catalog prices: the
+                # total after the company's rules goes back on top
+                await self._request("PATCH", f"/api/v4/leads/{deal_id}", json={"price": lead["price"]})
         return CreatedDeal(deal_id, tuple(created))
 
     def _deal(self, lead: dict[str, Any], currency: str | None, lines: tuple[DealLine, ...] = ()) -> Deal:

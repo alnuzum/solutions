@@ -99,7 +99,7 @@ class OrderSettings(BaseSettings):
             out[CrmKind.ZOHO] = (
                 zoho_host("https://www.zohoapis.com", ZOHO_API_HOSTS),
                 {
-                    "access_token": "expired",
+                    "access_token": "expired",  # nosec B105: a placeholder, refreshed on first use
                     "refresh_token": refresh,
                     "expires_at": "2000-01-01T00:00:00+00:00",
                     "accounts_server": zoho_host("https://accounts.zoho.com", ZOHO_ACCOUNTS_HOSTS),
@@ -400,6 +400,9 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         if not result.lines:
             return await start(request, lang, status=422, error="e_no_lines", target=target)
         result.catalog["line_prices"] = info.crm in LINE_PRICES
+        if demo and not result.catalog.get("currency"):
+            # Zoho gives products no currency; the demo account's own is known
+            result.catalog["currency"] = _demo_currency(info)
         result.catalog["target"] = target
         run_id = await ost.create_run(
             owner, ip_key(request), info.id, info.crm.value, lang, result.to_json(), demo=demo
