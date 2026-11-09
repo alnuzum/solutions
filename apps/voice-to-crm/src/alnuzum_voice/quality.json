@@ -4,15 +4,15 @@
  "speech": "scribe_v2",
  "commands": 22,
  "uzbek": 10,
- "wer": 0.0949,
- "wer_ru": 0.0964,
- "wer_uz": 0.093,
+ "wer": 0.0847,
+ "wer_ru": 0.0843,
+ "wer_uz": 0.0853,
  "deal": 1.0,
- "exact": 0.9545,
+ "exact": 1.0,
  "extra": 0,
  "usage": {
-  "calls": 50,
+  "calls": 49,
   "seconds": 165,
-  "usd": "0.2987"
+  "usd": "0.2982"
  }
 }
