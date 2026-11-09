@@ -27,9 +27,10 @@
 	}
 }
 
-# the platform: CRM hooks take at most 64 KB (no CRM sends more), an order with its file (POST
-# /ru/orders, /en/orders) 9 MB (the file itself at most 8 MB), anything else 1 MB; the admin API
-# (/connections) answers only from inside the server
+# the platform: hooks take at most 64 KB (no CRM and no Telegram update sends more: a voice note comes by
+# getFile), an order or a voice note with its file (POST /ru/orders, /en/orders, /ru/voice, /en/voice) 9 MB
+# (the file itself at most 8 MB), anything else 1 MB; the admin API (/connections) answers only from inside
+# the server
 (platform) {
 	@hooks path /hooks/*
 	request_body @hooks {
@@ -37,7 +38,7 @@
 	}
 	@order {
 		method POST
-		path_regexp ^/(ru|en)/orders$
+		path_regexp ^/(ru|en)/(orders|voice)$
 	}
 	request_body @order {
 		max_size 9MB
@@ -46,7 +47,7 @@
 		not path /hooks/*
 		not {
 			method POST
-			path_regexp ^/(ru|en)/orders$
+			path_regexp ^/(ru|en)/(orders|voice)$
 		}
 	}
 	request_body @other {
