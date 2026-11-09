@@ -44,9 +44,12 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False, index=True),
         sa.Column("written_at", sa.DateTime(timezone=True)),
-        sa.CheckConstraint("status IN ('ready', 'writing', 'written', 'failed')", name="status"),
+        sa.CheckConstraint(
+            "status IN ('reading', 'rejected', 'ready', 'writing', 'written', 'failed')", name="status"
+        ),
     )
     op.create_index("ix_orders_runs_owner_created", "orders_runs", ["owner", "created_at"])
+    op.create_index("ix_orders_runs_ip_created", "orders_runs", ["ip_key", "created_at"])
     op.create_table(
         "orders_rules",
         sa.Column("owner", sa.String(128), primary_key=True),
@@ -73,5 +76,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("orders_model_calls")
     op.drop_table("orders_rules")
+    op.drop_index("ix_orders_runs_ip_created", "orders_runs")
     op.drop_index("ix_orders_runs_owner_created", "orders_runs")
     op.drop_table("orders_runs")

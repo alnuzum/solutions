@@ -1,8 +1,9 @@
 """What the solution keeps: a run for a day (never the file), price rules, the journal of model calls.
 
 Quotas are counted from these tables: runs per session and per address, model calls per day for the
-whole solution. A model call is reserved before it is made (under an advisory lock), so parallel
-requests cannot both take the last one.
+whole solution, demo deals per session. Each is taken before the work it pays for, inside one
+transaction under an advisory lock, so parallel requests cannot both take the last one, and an attempt
+that fails afterwards stays counted.
 """
 
 import uuid
@@ -21,6 +22,7 @@ from sqlalchemy import (
     Uuid,
     delete,
     func,
+    or_,
     select,
     text,
     update,
@@ -33,6 +35,11 @@ from alnuzum_platform.db import Base
 
 KEEP = timedelta(days=1)
 LOCK_KEY = 0x4F524452  # advisory lock of the model-call ceiling ("ORDR")
+# advisory lock classes (two-key form): runs of a session, runs of an address, demo writes of a session
+LOCK_OWNER, LOCK_IP, LOCK_WRITES = 0x4F4F, 0x4F49, 0x4F57
+# a run is "reading" while the system reads it and "rejected" when that failed: neither is shown,
+# both count against the quotas
+HIDDEN = ("reading", "rejected")
 
 
 class OrderRun(Base):
@@ -89,6 +96,10 @@ class RunNotFound(LookupError):
     pass
 
 
+class RunsExceeded(RuntimeError):
+    """The session's or the address's runs for the day are spent."""
+
+
 @dataclass(frozen=True)
 class RunInfo:
     id: uuid.UUID
@@ -119,38 +130,69 @@ class OrderStore:
 
     # --- runs ---
 
-    async def create_run(
+    async def reserve_run(
         self,
         owner: str,
         ip_key: str,
         connection_id: uuid.UUID,
         crm: str,
         lang: str,
-        result: dict[str, Any],
         *,
         demo: bool,
+        per_session: int,
+        per_ip: int,
     ) -> uuid.UUID:
-        row = OrderRun(
-            id=uuid.uuid4(),
-            owner=owner,
-            ip_key=ip_key,
-            connection_id=connection_id,
-            demo=demo,
-            crm=crm,
-            lang=lang,
-            result=result,
-            status="ready",
-            expires_at=datetime.now(UTC) + KEEP,
-        )
+        """A run is counted before the document is read: under locks of the session and of the address,
+        every attempt of the last day (read, failing or failed) is counted, then this one is added."""
+        since = datetime.now(UTC) - timedelta(days=1)
         async with self._sessions.begin() as session:
+            await _lock(session, LOCK_OWNER, owner)
+            await _lock(session, LOCK_IP, ip_key)
+            base = select(func.count()).select_from(OrderRun).where(OrderRun.created_at > since)
+            mine = await session.scalar(base.where(OrderRun.owner == owner))
+            theirs = await session.scalar(base.where(OrderRun.ip_key == ip_key))
+            if (mine or 0) >= per_session or (theirs or 0) >= per_ip:
+                raise RunsExceeded(f"{per_session} per session, {per_ip} per address")
+            row = OrderRun(
+                id=uuid.uuid4(),
+                owner=owner,
+                ip_key=ip_key,
+                connection_id=connection_id,
+                demo=demo,
+                crm=crm,
+                lang=lang,
+                result={},
+                status="reading",
+                expires_at=datetime.now(UTC) + KEEP,
+            )
             session.add(row)
         return row.id
+
+    async def fill_run(self, run_id: uuid.UUID, result: dict[str, Any]) -> None:
+        async with self._sessions.begin() as session:
+            await session.execute(
+                update(OrderRun)
+                .where(OrderRun.id == run_id, OrderRun.status == "reading")
+                .values(result=result, status="ready")
+            )
+
+    async def reject_run(self, run_id: uuid.UUID, error: str) -> None:
+        """The attempt failed; it stays (without a result) and keeps counting for a day."""
+        async with self._sessions.begin() as session:
+            await session.execute(
+                update(OrderRun)
+                .where(OrderRun.id == run_id, OrderRun.status == "reading")
+                .values(status="rejected", error=error[:60])
+            )
 
     async def get_run(self, run_id: uuid.UUID, owner: str) -> RunInfo:
         async with self._sessions() as session:
             row = await session.scalar(
                 select(OrderRun).where(
-                    OrderRun.id == run_id, OrderRun.owner == owner, OrderRun.expires_at > datetime.now(UTC)
+                    OrderRun.id == run_id,
+                    OrderRun.owner == owner,
+                    OrderRun.expires_at > datetime.now(UTC),
+                    OrderRun.status.not_in(HIDDEN),
                 )
             )
             if row is None:
@@ -165,9 +207,14 @@ class OrderStore:
                 .values(result=result)
             )
 
-    async def start_writing(self, run_id: uuid.UUID, owner: str) -> bool:
-        """Only one write per run: False when it is being written or was written already."""
+    async def start_writing(self, run_id: uuid.UUID, owner: str, *, demo_limit: int | None = None) -> str:
+        """Only one write per run, and at most ``demo_limit`` demo deals per session a day: the count
+        (written or being written) and the change of status happen in one transaction under a lock of
+        the session. Returns "ok", "busy" (written or being written) or "quota"."""
         async with self._sessions.begin() as session:
+            await _lock(session, LOCK_WRITES, owner)
+            if demo_limit is not None and await _demo_writes(session, owner) >= demo_limit:
+                return "quota"
             done = await session.execute(
                 update(OrderRun)
                 .where(
@@ -175,7 +222,7 @@ class OrderStore:
                 )
                 .values(status="writing")
             )
-            return bool(done.rowcount)  # type: ignore[attr-defined]
+            return "ok" if done.rowcount else "busy"  # type: ignore[attr-defined]
 
     async def finish_writing(
         self,
@@ -212,16 +259,9 @@ class OrderStore:
             return int(await session.scalar(query) or 0)
 
     async def writes_today(self, owner: str) -> int:
-        since = datetime.now(UTC) - timedelta(days=1)
+        """Demo deals of the session in the last day: written or being written."""
         async with self._sessions() as session:
-            return int(
-                await session.scalar(
-                    select(func.count())
-                    .select_from(OrderRun)
-                    .where(OrderRun.owner == owner, OrderRun.written_at > since)
-                )
-                or 0
-            )
+            return await _demo_writes(session, owner)
 
     async def purge(self) -> tuple[int, int]:
         """Runs older than a day go with the document's text; model calls are kept 30 days (no text)."""
@@ -274,13 +314,22 @@ class OrderStore:
                 .values(input_tokens=input_tokens, output_tokens=output_tokens, usd=usd, ok=ok)
             )
 
-    async def calls_today(self) -> tuple[int, Decimal]:
-        async with self._sessions() as session:
-            row = (
-                await session.execute(
-                    select(func.count(), func.coalesce(func.sum(ModelCall.usd), 0)).where(
-                        ModelCall.created_at > datetime.now(UTC) - timedelta(days=1)
-                    )
-                )
-            ).one()
-            return int(row[0]), Decimal(row[1])
+
+async def _lock(session: AsyncSession, cls: int, key: str) -> None:
+    await session.execute(text("SELECT pg_advisory_xact_lock(:c, hashtext(:k))"), {"c": cls, "k": key})
+
+
+async def _demo_writes(session: AsyncSession, owner: str) -> int:
+    since = datetime.now(UTC) - timedelta(days=1)
+    return int(
+        await session.scalar(
+            select(func.count())
+            .select_from(OrderRun)
+            .where(
+                OrderRun.owner == owner,
+                OrderRun.demo.is_(True),
+                or_(OrderRun.written_at > since, OrderRun.status == "writing"),
+            )
+        )
+        or 0
+    )

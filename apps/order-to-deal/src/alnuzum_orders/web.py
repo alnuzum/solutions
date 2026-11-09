@@ -36,7 +36,7 @@ from alnuzum_orders.engine import Result, apply_choices, clean_customer, plan, p
 from alnuzum_orders.i18n import texts
 from alnuzum_orders.model import ClaudeReader, Gate, ModelError, Reader, Usage
 from alnuzum_orders.pricing import Rules, RulesError, demo_rules, parse_rules
-from alnuzum_orders.store import CeilingReached, OrderStore, RunNotFound
+from alnuzum_orders.store import CeilingReached, OrderStore, RunNotFound, RunsExceeded
 from alnuzum_orders.writer import write
 from alnuzum_platform.solutions import Kit, Solution
 from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionStore, QuotaExceeded
@@ -358,11 +358,6 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         target = str(form.get("target") or "")
         info, demo = await orders.target(kit, request, lang, target)
         ost = orders.store(request)
-        if (
-            await ost.runs_today(owner=owner) >= s.orders_runs_per_session
-            or await ost.runs_today(ip_key=ip_key(request)) >= s.orders_runs_per_ip
-        ):
-            return await start(request, lang, status=429, error="e_quota_runs", target=target)
         reader = orders.reader()
         try:
             sample = str(form.get("sample") or "")
@@ -384,29 +379,46 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
                 raise intake.IntakeError("e_empty")
         except intake.IntakeError as exc:
             return await start(request, lang, status=400, error=exc.code, target=target)
+        if reader is None and not source.columns:
+            return await start(request, lang, status=503, error="e_model_off", target=target)
+        # the run is counted before anything is read or asked: a failing or a parallel attempt counts too
+        try:
+            run_id = await ost.reserve_run(
+                owner,
+                ip_key(request),
+                info.id,
+                info.crm.value,
+                lang,
+                demo=demo,
+                per_session=s.orders_runs_per_session,
+                per_ip=s.orders_runs_per_ip,
+            )
+        except RunsExceeded:
+            return await start(request, lang, status=429, error="e_quota_runs", target=target)
+
+        async def refuse(status: int, error: str) -> HTMLResponse:
+            await ost.reject_run(run_id, error)
+            return await start(request, lang, status=status, error=error, target=target)
+
         try:
             catalog = await orders.catalog(kit, request, info, demo)
         except CrmError as exc:
             log.info("catalog of %s not read: %s", info.id, _crm_error(exc))
-            return await start(request, lang, status=502, error="e_catalog", target=target)
+            return await refuse(502, "e_catalog")
         if not catalog.items:
-            return await start(request, lang, status=409, error="e_catalog_empty", target=target)
-        if reader is None and not source.columns:
-            return await start(request, lang, status=503, error="e_model_off", target=target)
+            return await refuse(409, "e_catalog_empty")
         try:
             result = await run(source, catalog, reader or _NoReader(), orders.gate(request, owner))
         except ModelError as exc:
-            return await start(request, lang, status=503, error=exc.code, target=target)
+            return await refuse(503, exc.code)
         if not result.lines:
-            return await start(request, lang, status=422, error="e_no_lines", target=target)
+            return await refuse(422, "e_no_lines")
         result.catalog["line_prices"] = info.crm in LINE_PRICES
         if demo and not result.catalog.get("currency"):
             # Zoho gives products no currency; the demo account's own is known
             result.catalog["currency"] = _demo_currency(info)
         result.catalog["target"] = target
-        run_id = await ost.create_run(
-            owner, ip_key(request), info.id, info.crm.value, lang, result.to_json(), demo=demo
-        )
+        await ost.fill_run(run_id, result.to_json())
         log.info("order run %s: %d lines, %d calls", run_id, len(result.lines), result.usage["calls"])
         return redirect(f"/{lang}/orders/{run_id}")
 
@@ -473,11 +485,16 @@ def build(kit: Kit, orders: Orders) -> APIRouter:
         await ost.save_result(item.id, owner, result.to_json())
         if form.get("action") != "write":
             return redirect(back)
-        if item.demo and await ost.writes_today(owner) >= s.orders_demo_writes_per_session:
-            return redirect(f"{back}?n=quota")
         if not any(ln.status == "ok" for ln in result.lines):
             return redirect(f"{back}?n=empty")
-        if not await ost.start_writing(item.id, owner):
+        # the demo quota is counted and the run marked "writing" in one step, so parallel clicks cannot
+        # pass it together
+        state = await ost.start_writing(
+            item.id, owner, demo_limit=s.orders_demo_writes_per_session if item.demo else None
+        )
+        if state == "quota":
+            return redirect(f"{back}?n=quota")
+        if state != "ok":
             return redirect(back)
         st = kit.store_of(request)
         conn_owner = DEMO_OWNER if item.demo else owner
