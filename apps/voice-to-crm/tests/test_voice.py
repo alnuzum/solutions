@@ -690,3 +690,25 @@ async def test_a_retry_into_amocrm_does_not_add_the_products_twice(make: Any, en
     assert (
         len(amo.tasks) == 1 and len(amo.notes) == 1 and amo.patches == [{"pipeline_id": 1, "status_id": 20}]
     )
+
+
+async def test_voice_writes_into_demo_kommo_leave_the_deals_of_solution_1_alone(
+    make: Any, engine: Any
+) -> None:
+    from alnuzum_orders.store import DemoLimits, OrderStore
+
+    h: Harness = await make(
+        *([intent(stage={"id": "1:20", "phrases": [1]})] * 3),
+        voice_kommo_writes_per_day=2,
+        orders_kw={"demo_kommo_domain": "acme.kommo.com", "demo_kommo_token": "AT-demo-kommo-secret"},
+    )
+    orders, limits = OrderStore(h.app.state.sessionmaker), {"kommo": DemoLimits(5, 5, 40, total=2)}
+    assert await orders.demo_full(limits) == {}
+    await h.update(callback(571, 1, "c:kommo"))
+    for n in (2, 4, 6):
+        await h.update(message(571, n, text="По сделке Ромашка переведи на переговоры."))
+        await h.update(callback(571, n + 1, next(d for _, d in h.tg.buttons() if d.startswith("w:"))))
+    journal = await rows(engine, "SELECT action FROM crm_writes WHERE crm = 'kommo' AND ok")
+    assert [a for (a,) in journal] == ["voice_update", "voice_update"]
+    assert "Демо Kommo на сегодня заполнено" in h.tg.texts()[-1]  # the third: voice's own ceiling a day
+    assert await orders.demo_full(limits) == {}  # two voice writes, a total of two deals: still all there

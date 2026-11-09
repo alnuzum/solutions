@@ -3,8 +3,8 @@ one-time links and the chats bound by them, the Telegram updates already taken.
 
 Quotas are counted from these tables, each taken before the work it pays for, in one transaction under an
 advisory lock, so parallel requests cannot both take the last one, and an attempt that fails afterwards
-stays counted. Demo writes into Kommo are counted with solution 1 in the platform's journal ``crm_writes``
-under the same lock of the CRM.
+stays counted. A voice write creates no deal, so it leaves the deals solution 1 may still create in Kommo's
+technical account alone; its demo writes into Kommo have a ceiling of their own a day.
 """
 
 import hashlib
@@ -36,9 +36,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
-from alnuzum_orders.store import DEMO_OWNER, LOCK_WRITES_CRM, OrderRun
 from alnuzum_platform.db import Base
-from alnuzum_platform.models import CrmWrite
 
 KEEP = timedelta(days=1)
 LINK_LIFE = timedelta(minutes=10)
@@ -131,7 +129,7 @@ class Limits:
     runs_per_ip: int
     demo_per_owner: int
     demo_per_crm: int
-    kommo_total: int
+    kommo_per_day: int  # Kommo's demo takes fewer: its technical account is small
 
 
 @dataclass(frozen=True)
@@ -294,12 +292,12 @@ class VoiceStore:
         self, run_id: uuid.UUID, owner: str, *, demo: bool, crm: str, limits: Limits
     ) -> str:
         """The only way to "writing": from "ready" or "failed", by the owner, after a confirmation. Returns
-        "ok", "busy" (written, being written or cancelled), "quota" (the owner's demo writes of the day),
-        "full" (this demo CRM's of the day) or "full_total" (Kommo in all, with solution 1)."""
+        "ok", "busy" (written, being written or cancelled), "quota" (the owner's demo writes of the day) or
+        "full" (this demo CRM's of the day)."""
         async with self._sessions.begin() as session:
             await _lock(session, LOCK_DEMO, owner)
             if demo:
-                await _lock(session, LOCK_WRITES_CRM, crm)  # the same lock solution 1 takes for this CRM
+                await _lock(session, LOCK_DEMO, "crm:" + crm)
                 since = _day()
                 writing = or_(VoiceRun.written_at > since, VoiceRun.status == "writing")
                 mine = await session.scalar(
@@ -314,26 +312,11 @@ class VoiceStore:
                     .select_from(VoiceRun)
                     .where(VoiceRun.crm == crm, VoiceRun.demo, writing)
                 )
-                if (into or 0) >= limits.demo_per_crm:
+                ceiling = (
+                    min(limits.demo_per_crm, limits.kommo_per_day) if crm == "kommo" else limits.demo_per_crm
+                )
+                if (into or 0) >= ceiling:
                     return "full"
-                if crm == "kommo":
-                    journal = await session.scalar(
-                        select(func.count())
-                        .select_from(CrmWrite)
-                        .where(CrmWrite.owner == DEMO_OWNER, CrmWrite.crm == crm, CrmWrite.ok.is_(True))
-                    )
-                    flying = await session.scalar(
-                        select(func.count())
-                        .select_from(VoiceRun)
-                        .where(VoiceRun.demo, VoiceRun.crm == crm, VoiceRun.status == "writing")
-                    )
-                    orders = await session.scalar(
-                        select(func.count())
-                        .select_from(OrderRun)
-                        .where(OrderRun.demo.is_(True), OrderRun.crm == crm, OrderRun.status == "writing")
-                    )
-                    if (journal or 0) + (flying or 0) + (orders or 0) >= limits.kommo_total:
-                        return "full_total"
             done = await session.execute(
                 update(VoiceRun)
                 .where(

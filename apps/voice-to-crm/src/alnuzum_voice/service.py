@@ -51,8 +51,9 @@ class VoiceSettings(BaseSettings):
     voice_runs_per_ip: int = 20  # from an address (the page)
     voice_demo_writes_per_owner: int = 5
     voice_demo_writes_per_crm: int = 40
-    # Kommo's technical account keeps at most 100 deals: its demo writes are bounded in all, with solution 1
-    voice_kommo_total: int = 40
+    # Kommo's technical account keeps at most 100 deals; a voice write creates none, so it leaves the deals
+    # of solution 1 alone and has a smaller ceiling of its own a day
+    voice_kommo_writes_per_day: int = 10
     voice_tg_token: SecretStr = SecretStr("")
     voice_tg_secret: SecretStr = SecretStr("")
     voice_tg_bot: str = ""  # the bot's username, for links
@@ -63,7 +64,7 @@ class VoiceSettings(BaseSettings):
             self.voice_runs_per_ip,
             self.voice_demo_writes_per_owner,
             self.voice_demo_writes_per_crm,
-            self.voice_kommo_total,
+            self.voice_kommo_writes_per_day,
         )
 
 
@@ -241,7 +242,7 @@ class Voice:
 
     async def confirm(self, app: FastAPI, kit: Kit, run: RunInfo, *, conn_owner: str, lang: str) -> str:
         """Write a confirmed plan; a retry after a failure goes on from the first step not done. Returns the
-        notice: written, quota, full, full_total, busy, failed, auth, no_deal."""
+        notice: written, quota, full, busy, failed, auth, no_deal."""
         result = Result.from_json(run.result or {})
         if not result.deal_id:
             return "no_deal"

@@ -391,11 +391,17 @@ async def _crm_state(session: AsyncSession, crm: str, demo: DemoLimits) -> str |
     if await _demo_writes(session, OrderRun.crm == crm) >= demo.per_crm:
         return "full"
     if demo.total is not None:
-        # every deal the demo ever wrote there (the journal of the platform is kept), and those being written
+        # every deal the demo ever created there (the journal of the platform is kept), and those being
+        # written; other solutions' writes into a deal that exists create none
         written = await session.scalar(
             select(func.count())
             .select_from(CrmWrite)
-            .where(CrmWrite.owner == DEMO_OWNER, CrmWrite.crm == crm, CrmWrite.ok.is_(True))
+            .where(
+                CrmWrite.owner == DEMO_OWNER,
+                CrmWrite.crm == crm,
+                CrmWrite.action == "order_deal",
+                CrmWrite.ok.is_(True),
+            )
         )
         flying = await session.scalar(
             select(func.count())

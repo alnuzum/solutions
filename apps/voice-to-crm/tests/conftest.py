@@ -278,7 +278,7 @@ def voice_settings(**kw: Any) -> VoiceSettings:
 async def make(engine: AsyncEngine, migrated: str) -> AsyncIterator[Callable[..., Any]]:
     started: list[Any] = []
 
-    async def build(*script: Any, **kw: Any) -> Harness:
+    async def build(*script: Any, orders_kw: dict[str, Any] | None = None, **kw: Any) -> Harness:
         reader = VoiceReader(API_KEY)
         reader.retry_pause = 0.0
         messages = FakeMessages(list(script))
@@ -290,7 +290,9 @@ async def make(engine: AsyncEngine, migrated: str) -> AsyncIterator[Callable[...
             scribe=Scribe(STT_KEY, transport=httpx.MockTransport(speech)),
             bot=Bot(BOT_TOKEN, transport=httpx.MockTransport(tg)),
         )
-        orders = Orders(OrderSettings(anthropic_api_key=API_KEY, demo_b24_webhook=DEMO_HOOK))
+        orders = Orders(
+            OrderSettings(anthropic_api_key=API_KEY, demo_b24_webhook=DEMO_HOOK, **(orders_kw or {}))
+        )
         app = create_app(
             Settings(
                 database_url=migrated,
