@@ -13,10 +13,14 @@ keywords = ["bitrix24"]
 
 [[rules.allowlists]]
 description = "placeholders of tests and recorded traffic"
-regexes = ['''^(WEBHOOKTOKEN|abcdef123456|supersecret123|abcdefghijklmnop|whsecrettoken123456|whsecrettoken654321|demohooksecret123456)$''']
+regexes = ['''^(WEBHOOKTOKEN|abcdef123456|supersecret123|abcdefghijklmnop|whsecrettoken123456|whsecrettoken654321|demohooksecret123456|ownhook0123456789)$''']
 
 [[rules]]
 id = "zoho-oauth-token"
 description = "Zoho OAuth access or refresh token"
 regex = '''\b1000\.[a-f0-9]{32}\.[a-f0-9]{32}\b'''
 keywords = ["1000."]
+
+[[allowlists]]
+description = "placeholder keys of the voice tests"
+regexes = ['''^sk_eleven_test_key_0123456789$''']

@@ -122,7 +122,7 @@ class Updates:
         except TelegramError:
             pass
         except Exception:
-            log.exception("voice update %s failed", update_id)
+            log.exception("a voice update failed")  # its id is the sender's text to a log: not named
 
     @staticmethod
     def _lang(sender: Any) -> str:
