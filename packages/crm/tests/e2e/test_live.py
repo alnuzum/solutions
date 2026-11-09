@@ -110,7 +110,7 @@ async def test_zoho(run_id: str, recording: Callable[..., Recording]) -> None:
     tokens = MemoryOAuthToken(expired, refresh)
     rec = recording("zoho")
     crm = ZohoCRM(
-        os.environ.get("ZOHO_API_DOMAIN", "https://www.zohoapis.com"), tokens, transport=rec.recorder
+        os.environ.get("ZOHO_API_DOMAIN", "https://developer.zohoapis.com"), tokens, transport=rec.recorder
     )
     async with crm:
         steps = await run_conformance(crm, run_id)
