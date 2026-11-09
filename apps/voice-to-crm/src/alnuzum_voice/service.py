@@ -263,7 +263,10 @@ class Voice:
                     usage=usage,
                 )
         except audio_mod.AudioError as exc:
-            await vs.reject_run(run_id, exc.code)
+            if exc.code == "e_busy":  # our decoder was busy: nothing was spent, the attempt is not taken
+                await vs.drop_run(run_id)
+            else:
+                await vs.reject_run(run_id, exc.code)
             raise VoiceError(exc.code) from None
         except (SpeechError, ModelError, VoiceError) as exc:
             if exc.code == "e_stt_out":

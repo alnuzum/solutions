@@ -28,7 +28,18 @@ from sqlalchemy import text
 
 from alnuzum_crm.types import CrmKind
 
-from .conftest import BOT_TOKEN, ORIGIN, Harness, callback, csrf_of, intent, message, rows, session_cookie
+from .conftest import (
+    BOT_TOKEN,
+    ORIGIN,
+    TG_SECRET,
+    Harness,
+    callback,
+    csrf_of,
+    intent,
+    message,
+    rows,
+    session_cookie,
+)
 
 SAMPLE = resources.files("alnuzum_voice").joinpath("samples/ru-02.ogg").read_bytes()
 
@@ -904,3 +915,45 @@ async def test_runs_a_stopped_process_left_writing_or_reading_are_released_at_st
         ids[1]: ("writing", None),
         ids[2]: ("rejected", "interrupted"),
     }
+
+
+async def test_our_busy_decoder_does_not_take_a_persons_attempt(
+    make: Any, engine: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    h: Harness = await make(intent(stage={"id": "1:20", "phrases": [1]}), voice_runs_per_owner=1)
+    await _pick_demo(h, 591)
+    taken = threading.BoundedSemaphore(1)
+    taken.acquire()  # both slots of the decoder are busy with others
+    monkeypatch.setattr(audio, "_SLOTS", taken)
+    monkeypatch.setattr(audio, "SECONDS", 0.05)
+    h.tg.files["b1"] = SAMPLE
+    note = {"file_id": "b1", "duration": 7, "file_size": len(SAMPLE)}
+    await h.update(message(591, 1, voice=note))
+    assert "Сейчас занято" in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT count(*) FROM voice_runs") == [(0,)]
+    monkeypatch.undo()  # the decoder is free again
+    await h.update(message(591, 2, voice=note))  # the only attempt of the day is still there
+    assert "Лимит разборов" not in h.tg.texts()[-1]
+    assert await rows(engine, "SELECT status FROM voice_runs") == [("ready",)]
+
+
+async def test_the_webhook_keeps_at_most_a_few_updates_in_work(make: Any) -> None:
+    from alnuzum_voice.web import MAX_TASKS
+
+    h: Harness = await make()
+    gate = asyncio.Event()
+    for _ in range(MAX_TASKS):
+        h.voice.tasks.add(asyncio.ensure_future(gate.wait()))
+    async with h.client() as c:
+        resp = await c.post(
+            "/hooks/voice/telegram",
+            json=message(592, 1, text="/start"),
+            headers={"X-Telegram-Bot-Api-Secret-Token": TG_SECRET},
+        )
+    assert resp.status_code == 503  # Telegram sends the update again later; nothing is lost
+    assert len(h.voice.tasks) == MAX_TASKS
+    gate.set()
+    await asyncio.gather(*list(h.voice.tasks))
+    h.voice.tasks.clear()
+    assert (await h.update(message(592, 1, text="/start"))).status_code == 200
+    assert h.tg.texts()  # the same update, sent again, is answered

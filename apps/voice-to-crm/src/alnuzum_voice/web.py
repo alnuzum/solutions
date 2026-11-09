@@ -32,6 +32,9 @@ from alnuzum_voice.text import MAX_PHRASES
 log = logging.getLogger("alnuzum_voice.web")
 HERE = Path(__file__).parent
 HOOK = "/hooks/voice/telegram"
+# updates in work at once: each may hold a downloaded note (up to 8 MB); one more is answered 503 and
+# Telegram sends it again later (the update is marked seen only when its work begins)
+MAX_TASKS = 8
 MAX_UPDATE = 64 * 1024
 MAX_FIELD = 20 * 1024  # a typed command is at most MAX_TEXT characters: 20 KB holds it in any script
 
@@ -103,6 +106,8 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
         except ValueError:
             return JSONResponse({"ok": False}, status_code=400)
         if isinstance(update, dict):
+            if len(voice.tasks) >= MAX_TASKS:
+                return JSONResponse({"ok": False}, status_code=503)
             # answered at once: Telegram waits for no reading; the work goes on in the background
             task = asyncio.create_task(updates.handle(request.app, update))
             voice.tasks.add(task)

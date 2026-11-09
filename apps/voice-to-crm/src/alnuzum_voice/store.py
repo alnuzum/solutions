@@ -268,6 +268,11 @@ class VoiceStore:
                 update(VoiceRun).where(VoiceRun.id == run_id).values(status="rejected", error=error[:40])
             )
 
+    async def drop_run(self, run_id: uuid.UUID) -> None:
+        """A run refused for our own load before anything was spent: it does not count."""
+        async with self._sessions.begin() as session:
+            await session.execute(delete(VoiceRun).where(VoiceRun.id == run_id, VoiceRun.status == "reading"))
+
     async def get_run(self, run_id: uuid.UUID, owner: str) -> RunInfo:
         async with self._sessions() as session:
             row = await session.scalar(select(VoiceRun).where(VoiceRun.id == run_id, VoiceRun.owner == owner))
