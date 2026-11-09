@@ -5,8 +5,8 @@
 	}
 }
 
-# access log per site as JSON lines; the query string (OAuth codes) and the Referer never reach it,
-# Cookie and Authorization are redacted by Caddy itself
+# access log per site as JSON lines; the query string (OAuth codes), the Referer and the Telegram webhook
+# secret never reach it, Cookie and Authorization are redacted by Caddy itself
 (access) {
 	log {
 		output file /var/log/caddy/{args[0]}.log {
@@ -18,6 +18,8 @@
 			fields {
 				request>uri regexp "\?.*$" "?_"
 				request>headers>Referer delete
+				# the webhook secret of the Telegram bots comes in a header of its own
+				request>headers>X-Telegram-Bot-Api-Secret-Token delete
 			}
 		}
 	}

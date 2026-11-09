@@ -117,3 +117,10 @@ def test_every_setting_of_the_deploy_jobs_is_sent() -> None:
         app = {k for k in step["env"] if not k.startswith("DEPLOY_")}
         assert app <= sent, sorted(app - sent)
         assert re.search(r"ci-deploy\.sh (stand|prod)", step["run"])
+
+
+def test_the_access_log_drops_every_header_that_carries_a_secret() -> None:
+    caddy = (DEPLOY / "server" / "Caddyfile").read_text()
+    for header in ("Referer", "X-Telegram-Bot-Api-Secret-Token"):
+        assert f"request>headers>{header} delete" in caddy
+    assert 'request>uri regexp "\\?.*$" "?_"' in caddy
