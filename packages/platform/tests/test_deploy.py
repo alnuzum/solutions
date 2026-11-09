@@ -175,3 +175,17 @@ def test_a_contract_and_a_standard_get_the_9_mb_rule_and_the_ceiling_is_sent() -
     for job in ("deploy-stand", "deploy-prod"):
         step = next(s for s in ci["jobs"][job]["steps"] if s.get("name") == "Build, ship, start")
         assert step["env"]["CONTRACTS_USD_PER_DAY"] == "${{ vars.CONTRACTS_USD_PER_DAY }}"
+
+
+def test_a_secret_of_the_live_jobs_reaches_only_the_step_that_needs_it() -> None:
+    """A key on the job's level is seen by checkout, setup-uv and every build script ``uv sync`` runs."""
+    e2e = yaml.safe_load((ROOT / ".github" / "workflows" / "e2e.yml").read_text())
+    for name, job in e2e["jobs"].items():
+        assert "secrets." not in str(job.get("env", {})), name
+        holders = [s for s in job["steps"] if "secrets." in str(s.get("env", {}))]
+        for step in job["steps"]:
+            assert "secrets." not in str(step.get("with", {})), name
+            if "uses" in step or "pytest" not in str(step.get("run", "")):
+                assert step not in holders, (name, step.get("name") or step.get("uses") or step.get("run"))
+        if job["steps"][-1].get("env"):
+            assert holders == [job["steps"][-1]], name
