@@ -121,6 +121,29 @@ async def test_contacts_and_companies_are_counted_page_by_page() -> None:
     assert seen == ["/api/v4/contacts 1", "/api/v4/contacts 2", "/api/v4/companies 1"]
 
 
+async def test_open_deals_are_counted_page_by_page_without_the_won_and_lost() -> None:
+    """A technical account keeps 100 open deals: every page is read, won (142) and lost (143) left out."""
+    seen: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.url.path} {request.url.params['page']}")
+        if request.url.params["page"] == "1":
+            leads = [{"id": i, "status_id": (142, 143, 5001)[i % 3]} for i in range(250)]
+            page = {"_embedded": {"leads": leads}, "_links": {"next": {"href": "page 2"}}}
+        else:
+            page = {"_embedded": {"leads": [{"id": 1, "status_id": 5002}, {"id": 2, "status_id": 143}]}}
+        return httpx.Response(200, json=page)
+
+    async with BUILD["kommo"](httpx.MockTransport(answer)) as crm:
+        assert isinstance(crm, AmoCRM)
+        assert await crm.open_deals() == 83 + 1  # 250 // 3 of the first page in stage 5001, one of the second
+    assert seen == ["/api/v4/leads 1", "/api/v4/leads 2"]
+
+    async with BUILD["amocrm"](httpx.MockTransport(lambda r: httpx.Response(204))) as crm:
+        assert isinstance(crm, AmoCRM)
+        assert await crm.open_deals() == 0
+
+
 def test_the_run_stops_near_the_technical_limit() -> None:
     check_room(TECH_GUARD - 1)
     with pytest.raises(ConformanceError) as stop:

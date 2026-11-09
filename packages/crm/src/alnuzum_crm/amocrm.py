@@ -387,6 +387,24 @@ class AmoCRM(CRM):
                     break
         return total
 
+    async def open_deals(self) -> int:
+        """Deals of the account not won or lost, counted page by page: a technical account keeps 100 open
+        ones (Kommo's own window counts open deals, the closed are not in it). Every deal is read and the
+        closed are left out, so one in a stage a filter by stages would miss is still counted."""
+        total = 0
+        for page in range(1, 100):
+            data = await self._request("GET", "/api/v4/leads", params={"limit": 250, "page": page})
+            if not data:
+                break
+            total += sum(
+                1
+                for lead in data.get("_embedded", {}).get("leads", [])
+                if int(lead.get("status_id") or 0) not in (WON, LOST)
+            )
+            if not data.get("_links", {}).get("next"):
+                break
+        return total
+
     async def find_contact(self, contact: ContactIn) -> str | None:
         if contact.email:
             hits = await self._search("/api/v4/contacts", "contacts", contact.email.strip())

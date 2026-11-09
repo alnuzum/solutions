@@ -68,6 +68,7 @@
 
    <section class="card deal for-new">
     <h2>{{ t.m_bind }}</h2>
+    {% if not b.get('allow_deal', true) %}<p class="warn small">{{ t.m_deal_off.format(crm=crm_name) }}</p>{% endif %}
     {% if not b.checked %}<p class="warn small">{{ t.m_bind_off.format(why=t['m_why_' ~ (b.error or 'unavailable')]) }}</p>{% endif %}
     {% if b.conflict %}<p class="warn small" role="alert">{{ t.m_conflict }}</p>{% endif %}
     <h3>{{ t.m_company }}</h3>
