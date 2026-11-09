@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ t.m_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/contracts/contracts.css"><link rel="stylesheet" href="/static/mail/mail.css">{% endblock %}
+{% macro runs(items) %}{% for text, key in items %}{% if key %}<mark data-f="{{ key }}">{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}{% endmacro %}
+{% block body %}
+{% set crm_name = t['crm_' ~ run.crm] %}
+{% set open_run = run.status in ('ready', 'failed') %}
+{% set cls = choice.cls or reading.cls %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/mail">← {{ t.m_new }}</a></p>
+  <h1>{{ t.m_title }}</h1>
+  <p>{{ t['m_class_' ~ reading.cls] }}{% if reading.request %} · {{ reading.request }}{% endif %}</p>
+  <p class="muted small">{{ crm_name }} · {{ t.m_cost.format(usd=cost) }} · {{ t.m_until.format(until=until) }}</p>
+  <form method="post" action="/{{ lang }}/mail/{{ run.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn ghost" type="submit" name="action" value="erase">{{ t.m_erase }}</button></form>
+  </div>
+</div>
+{% if notice and t.get('n_' ~ notice) %}<p class="err{% if notice in ('written', 'found', 'looked', 'closed') %} good{% endif %}" role="status"><svg class="ic" aria-hidden="true"><use href="#{{ 'i-check' if notice in ('written', 'found', 'looked', 'closed') else 'i-warn' }}"/></svg>{{ t['n_' ~ notice] }}</p>{% endif %}
+
+{% if run.status == 'written' %}
+<section class="card done">
+  <h2><svg class="ic" aria-hidden="true"><use href="#c-{{ run.crm }}"/></svg>{{ t.m_written.format(crm=crm_name) }}</h2>
+  <p class="muted">{{ t.m_written_reply if cls == 'reply' else t.m_written_hint }}</p>
+  {% if run.deal_url %}<a class="open" href="{{ run.deal_url }}" rel="noopener noreferrer">{{ t.m_open }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>{% endif %}
+</section>
+{% elif run.status == 'closed' %}
+<section class="card done"><h2>{{ t.m_closed }}</h2></section>
+{% endif %}
+
+<div class="oc">
+ <section class="src card">
+  <h2>{{ t.m_letter }}</h2>
+  <div class="paper doc mail">
+   <div class="hdr">{{ runs(src.h) }}</div>
+   {% if letter.date %}<p class="muted small">{{ t.m_date }}: {{ letter.date }}</p>{% endif %}
+   <div class="body">{{ runs(src.b) }}</div>
+   {% if letter.history %}<p class="muted small hist">{{ t.m_history.format(n=letter.history) }}</p>{% endif %}
+   {% if letter.attachments %}<h3 class="att-h">{{ t.m_attachments }}</h3>{% endif %}
+   {% for a in letter.attachments %}
+   <div class="att">
+    <p class="att-n"><b>{{ a.name }}</b>
+     {% if a.kind in ('scan', 'image') and a.text %}<small class="muted"> · {{ t.m_att_scan }}</small>{% endif %}
+     {% if a.cut %}<small class="muted"> · {{ t.m_att_cut.format(n=a.cut) }}</small>{% endif %}
+     {% if a.kind == 'skipped' %}<small class="muted"> · {{ t.m_att_skipped }}</small>{% elif a.kind == 'big' %}<small class="muted"> · {{ t.m_att_big }}</small>{% elif not a.text and not a.pictures %}<small class="muted"> · {{ t.m_att_not_read }}</small>{% endif %}
+    </p>
+    {% if src.get(a.id) %}<div class="body">{{ runs(src[a.id]) }}</div>{% endif %}
+   </div>
+   {% endfor %}
+  </div>
+ </section>
+ <div class="res">
+  <form method="post" action="/{{ lang }}/mail/{{ run.id }}" class="decide">
+   <input type="hidden" name="csrf" value="{{ csrf }}">
+   <h2>{{ t.m_class }}</h2>
+   <div class="picks light cls">
+    {% for c in classes %}<label class="pick"><input type="radio" name="cls" value="{{ c }}"{% if c == cls %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span>{{ t['m_class_' ~ c] }}</span></label>{% endfor %}
+   </div>
+   {% if reading.why %}<p class="muted small">{{ t.m_class_model.format(cls=t['m_class_' ~ reading.cls], why=reading.why) }}</p>{% endif %}
+
+   <h2>{{ t.m_fields }}</h2>
+   <p class="muted small">{{ t.m_hover }}</p>
+   <div class="items">
+    {% for key, f in fields %}
+    <div class="it" data-f="{{ key }}" tabindex="0"><small class="read">{{ t['f_' ~ key] }}{% if f.src == 'h' %} · {{ t.f_from_header }}{% elif f.src and f.src.startswith('a') %} · {{ (letter.attachments | selectattr('id', 'equalto', f.src) | first).name }}{% endif %}</small><b>{{ f.value }}</b></div>
+    {% else %}<p class="muted small">{{ t.m_fields_none }}</p>{% endfor %}
+   </div>
+   {% set dropped_names = [] %}{% for x in reading.dropped %}{% set _ = dropped_names.append(t['f_' ~ x]) %}{% endfor %}
+   {% if reading.dropped %}<p class="muted small">{{ t.m_dropped.format(names=dropped_names | join(', ')) }}</p>{% endif %}
+
+   <section class="card deal for-new">
+    <h2>{{ t.m_bind }}</h2>
+    {% if not b.checked %}<p class="warn small">{{ t.m_bind_off.format(why=t['m_why_' ~ (b.error or 'unavailable')]) }}</p>{% endif %}
+    <h3>{{ t.m_company }}</h3>
+    {% set chosen = choice.company or b.company or ('new' if not b.companies and reading.fields.company else 'none') %}
+    {% for c in b.companies %}<label class="opt"><input type="radio" name="company" value="{{ c.id }}"{% if chosen == c.id %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span><b>{{ c.name }}</b><small>{% set why = [] %}{% for x in c.by %}{% set _ = why.append(t['by_' ~ x]) %}{% endfor %}{{ t.m_by.format(by=why | join(', ')) }}{% if c.inn %} · {{ t.f_inn }} {{ c.inn }}{% endif %}</small></span></label>{% endfor %}
+    {% if b.checked and not b.companies %}<p class="muted small">{{ t.m_company_none_found }}</p>{% endif %}
+    {% if reading.fields.company and b.checked %}<label class="opt"><input type="radio" name="company" value="new"{% if chosen == 'new' %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span>{{ t.m_company_new.format(name=reading.fields.company.value) }}</span></label>{% endif %}
+    <label class="opt"><input type="radio" name="company" value="none"{% if chosen == 'none' %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span>{{ t.m_company_none }}</span></label>
+    {% if b.checked %}<p class="muted small">{{ t.m_contact_found if b.contact else t.m_contact_new }}</p>{% endif %}
+    <h3>{{ t.m_route }}</h3>
+    <p class="small">{% if route.rule %}{{ t.m_route_rule.format(n=route.rule, when=t['when_' ~ route.when], value=route.value) }}{% if route.stage_name %} → {{ t.m_route_stage.format(name=route.stage_name) }}{% endif %}{% if route.user_name and not run.demo %}, {{ t.m_route_user.format(name=route.user_name) }}{% endif %}{% else %}{{ t.m_route_none }}{% endif %}{% if run.demo %} {{ t.m_route_demo }}{% endif %}</p>
+   </section>
+
+   <section class="card deal for-reply">
+    <h2>{{ t.m_deal }}</h2>
+    {% if not b.checked %}<p class="warn small">{{ t.m_bind_off.format(why=t['m_why_' ~ (b.error or 'unavailable')]) }}</p>{% endif %}
+    {% set deal_chosen = choice.deal or b.deal %}
+    {% for d in b.deals %}<label class="opt"><input type="radio" name="deal" value="{{ d.id }}"{% if deal_chosen == d.id %} checked{% endif %}{% if not open_run or run.steps %} disabled{% endif %}><span><b>{{ d.title }}</b></span></label>{% else %}<p class="muted small">{{ t.m_deals_none }}</p>{% endfor %}
+   </section>
+
+   <p class="muted small for-junk">{{ t.m_junk_hint }}</p>
+   {% if run.steps %}<p class="muted small">{{ t.m_steps.format(done=run.steps|length) }}</p>{% endif %}
+   {% if open_run %}
+   <div class="acts">
+    <button class="btn" type="submit" name="action" value="write">{% if run.steps %}{{ t.m_retry }}{% else %}<span class="for-new">{{ t.m_write_new.format(crm=crm_name) }}</span><span class="for-reply">{{ t.m_write_reply.format(crm=crm_name) }}</span><span class="for-junk">{{ t.m_write_junk }}</span>{% endif %}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></button>
+    {% if not run.steps %}<button class="btn ghost" type="submit" name="action" value="look">{{ t.m_look }}</button>{% endif %}
+   </div>
+   {% endif %}
+  </form>
+  {% if open_run and not run.steps %}
+  <form class="row for-reply search" method="post" action="/{{ lang }}/mail/{{ run.id }}">
+   <input type="hidden" name="csrf" value="{{ csrf }}">
+   <input type="search" name="q" maxlength="80" placeholder="{{ t.m_search_ph }}"{% if run.demo %} value="Демо"{% endif %}>
+   <button class="btn ghost" type="submit" name="action" value="search">{{ t.m_search }}</button>
+  </form>
+  {% endif %}
+ </div>
+</div>
+{% endblock %}

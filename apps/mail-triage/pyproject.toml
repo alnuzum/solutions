@@ -1,0 +1,31 @@
+[project]
+name = "alnuzum-mail"
+version = "0.1.0"
+description = "Al-Nuzum open solution: a customer's letter sorted (a new request, a reply on a deal, junk), the sender's requisites found in the signature and the attachments, the company and the contact found in the CRM without a duplicate, routed by the company's rules"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "alnuzum-crm",
+    "alnuzum-platform",
+    "alnuzum-files",
+    "alnuzum-orders",
+    "alnuzum-contracts",
+    "anthropic>=2.6",
+]
+
+[project.entry-points."alnuzum.solutions"]
+mail = "alnuzum_mail.web:solution"
+
+[tool.uv.sources]
+alnuzum-crm = { workspace = true }
+alnuzum-platform = { workspace = true }
+alnuzum-files = { workspace = true }
+alnuzum-orders = { workspace = true }
+alnuzum-contracts = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alnuzum_mail"]

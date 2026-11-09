@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ t.r_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/static/mail/mail.css">{% endblock %}
+{% block body %}
+{% set tgt = t['crm_' ~ info.crm.value] ~ (' · ' ~ t.m_demo|lower if demo else ' · ' ~ info.label) %}
+<div class="head">
+  <div><p class="back"><a href="/{{ lang }}/mail">← {{ t.r_back }}</a></p>
+  <h1>{{ t.r_title }}</h1><p>{{ t.r_lead.format(target=tgt) }}</p>
+  <p class="muted small">{{ t.r_hint }}{% if demo %} {{ t.r_demo }}{% endif %}</p></div>
+</div>
+{% if error %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t[error].format(n=error_n or "") }}</p>{% endif %}
+{% if problem %}<p class="err" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t.e_rules_crm }}</p>{% endif %}
+{% if request.query_params.get('n') == 'saved' %}<p class="err good" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>{{ t.n_saved }}</p>{% endif %}
+<form class="card rules" method="post" action="/{{ lang }}/mail/rules/{{ target }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <table class="mrules"><thead><tr><th>#</th><th>{{ t.r_when }}</th><th>{{ t.r_value }}</th><th>{{ t.r_stage }}</th>{% if not demo %}<th>{{ t.r_user }}</th>{% endif %}</tr></thead><tbody>
+  {% for i in range(rows) %}{% set rule = rules[i] if i < rules|length else none %}
+  {% set w = typed.get('when' ~ i) if typed else (rule.when if rule else 'keyword') %}
+  {% set st = typed.get('stage' ~ i) if typed else (rule.stage if rule else '') %}
+  {% set us = typed.get('user' ~ i) if typed else (rule.user if rule else '') %}
+  <tr><td class="muted">{{ i + 1 }}</td>
+   <td><select name="when{{ i }}">{% for k in kinds %}<option value="{{ k }}"{% if w == k %} selected{% endif %}>{{ t['when_' ~ k] }}</option>{% endfor %}</select></td>
+   <td><input name="value{{ i }}" maxlength="80" value="{{ typed.get('value' ~ i, '') if typed else (rule.value if rule else '') }}"></td>
+   <td><select name="stage{{ i }}"><option value="">{{ t.r_any }}</option>{% for s in stages %}<option value="{{ s.id }}"{% if st == s.id %} selected{% endif %}>{{ s.name }}{% if s.pipeline %} · {{ s.pipeline }}{% endif %}</option>{% endfor %}</select></td>
+   {% if not demo %}<td><select name="user{{ i }}"><option value="">{{ t.r_any }}</option>{% for u in users %}<option value="{{ u.id }}"{% if us == u.id %} selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody></table>
+  <button class="btn" type="submit"{% if problem %} disabled{% endif %}>{{ t.r_save }}<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></button>
+</form>
+{% endblock %}
