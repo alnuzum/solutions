@@ -77,6 +77,7 @@ WORDS = {
         "cosmetic": "правок оформления: {n}",
         "clause": "п. {name}",
         "new": "новый пункт",
+        "unnumbered": "пункт без номера",
         "was": "Было",
         "now": "Стало",
         "more": "…и ещё изменений: {n}. Полный разбор — на странице решения 24 часа.",
@@ -89,6 +90,7 @@ WORDS = {
         "cosmetic": "formatting edits: {n}",
         "clause": "cl. {name}",
         "new": "a new clause",
+        "unnumbered": "an unnumbered clause",
         "was": "Was",
         "now": "Now",
         "more": (
@@ -194,7 +196,9 @@ def note_text(cmp: Comparison, lang: str, now: datetime | None = None) -> str:
     items = ordered(cmp)
     for n, c in enumerate(items, 1):
         name = clause_name(cmp, c)
-        where = w["clause"].format(name=crm_text(name, 20)) if name else w["new"]
+        # a clause without a number is new only when it was added; a changed one keeps being the old clause
+        unnamed = w["new"] if c.kind == "added" else w["unnumbered"]
+        where = w["clause"].format(name=crm_text(name, 20)) if name else unnamed
         level = risks.get(c.risk, "") if c.rated else w["unrated"]
         block = [f"{n}. {where} · {topics.get(c.topic, '')} · {level} · {kinds.get(c.kind, '')}"]
         was, now_q = quotes(cmp, c)

@@ -151,3 +151,32 @@ def test_moved_and_rated_changes_are_not_asked_again() -> None:
         == 0
     )
     assert "Write each reason in English" in rate_prompt(c, c.changes, "buyer", "en")
+
+
+def test_a_clause_without_a_number_is_new_only_when_it_was_added() -> None:
+    """The requisites have no number: their changed address is «пункт без номера · изменён», never «новый пункт»;
+    a paragraph without a number that was added is the new clause."""
+    from alnuzum_contracts.engine import note_text
+
+    ours = [
+        "ДОГОВОР № 1",
+        "1. ПРЕДМЕТ",
+        "1.1. Исполнитель оказывает услуги.",
+        "РЕКВИЗИТЫ",
+        "Ташкент, ул. Амира Темура, 1.",
+    ]
+    blocks = lambda lines: split([Block("", "", t, True) for t in lines])  # noqa: E731
+    changed = compare(blocks(ours), blocks([*ours[:4], "Ташкент, ул. Шота Руставели, 45."]))
+    assert [c.kind for c in changed.changes] == ["changed"]
+    ru, en = note_text(changed, "ru"), note_text(changed, "en")
+    assert (
+        "1. пункт без номера · " in ru
+        and ru.split("\n")[3].endswith(" · изменён")
+        and "новый пункт" not in ru
+    )
+    assert "1. an unnumbered clause · " in en and "a new clause" not in en
+    added = compare(blocks(ours), blocks([*ours, "Банк: АКБ «Капиталбанк», МФО 00974."]))
+    assert [c.kind for c in added.changes] == ["added"]
+    assert "1. новый пункт · " in note_text(added, "ru") and note_text(added, "ru").split("\n")[3].endswith(
+        " · добавлен"
+    )
