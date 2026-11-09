@@ -1,8 +1,8 @@
-"""Word documents made from parts, for tests and for the reference sets of the solutions."""
+"""Word documents made from parts, for tests and for the reference sets of the solutions (``escape`` writes
+text into XML made here; nothing here parses XML)."""
 
 import io
 import zipfile
-# escape writes text into XML we make; nothing here parses XML
 from xml.sax.saxutils import escape  # nosec B406
 
 NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
