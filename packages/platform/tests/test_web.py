@@ -746,6 +746,20 @@ async def test_rate_limit_per_address(make: Callable[..., FastAPI]) -> None:
     assert statuses[-1] == 429
 
 
+@pytest.mark.parametrize("hook", ["/hooks/amocrm/secrets", "/hooks/kommo/uninstall"])
+async def test_the_crm_hooks_are_under_the_limit_of_an_address(
+    make: Callable[..., FastAPI], hook: str
+) -> None:
+    """Each of them goes to the database: only the Telegram hook (few shared senders) is outside the limit."""
+    app = make(rate_per_minute=5, rate_post_per_minute=2)
+    await make.start(app)  # type: ignore[attr-defined]
+    http = Browser(app).http
+    codes = [(await http.post(hook, json={"state": "x"})).status_code for _ in range(3)]
+    assert codes[-1] == 429
+    telegram = [(await http.post("/hooks/voice/telegram", json={})).status_code for _ in range(3)]
+    assert 429 not in telegram
+
+
 def test_rate_limiter_windows() -> None:
     lim = RateLimiter(2, 1)
     assert [lim.allow("a", "GET", 60.0) for _ in range(3)] == [True, True, False]

@@ -844,3 +844,11 @@ async def test_the_day_s_minutes_spent_or_no_key_the_page_says_so(make: Any, eng
     keyless: Harness = await make(elevenlabs_api_key="")
     async with keyless.client() as c:
         assert OFF_EN in (await c.get("/en/voice")).text
+
+
+def test_the_telegram_hook_is_the_path_outside_the_limit_of_an_address() -> None:
+    from alnuzum_voice.web import HOOK
+
+    from alnuzum_platform.web.security import UNLIMITED
+
+    assert HOOK in UNLIMITED
