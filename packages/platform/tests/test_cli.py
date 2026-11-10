@@ -26,7 +26,7 @@ def test_migrate_and_rotate_keys(
 def test_serve_runs_uvicorn(migrated: str, monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, object] = {}
     monkeypatch.setenv("DATABASE_URL", migrated)
-    monkeypatch.setattr(uvicorn, "run", lambda *a, **kw: seen.update(kw))
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **kw: seen.update(kw, app=a[0]))
     get_settings.cache_clear()
     try:
         assert cli.main(["serve", "--port", "9999"]) == 0
@@ -34,6 +34,7 @@ def test_serve_runs_uvicorn(migrated: str, monkeypatch: pytest.MonkeyPatch) -> N
         get_settings.cache_clear()
     assert seen["port"] == 9999
     assert seen["factory"] is True
+    assert seen["app"] == "alnuzum_platform.api:serve_app"  # the container's log first, then the app
 
 
 async def _tables(url: str) -> set[str]:

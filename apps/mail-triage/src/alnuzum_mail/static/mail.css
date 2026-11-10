@@ -5,6 +5,8 @@
 .mail .hdr .date{display:block}
 .mail .body{margin:.6em 0 0}
 .mail .hist{margin-top:1em}
+/* the page's grey (white at 50 %) is for the dark ground; on the paper notes of the letter take the paper's own */
+.mail .muted,.mail .att-h{color:var(--ink-2)}
 .mail .att{margin-top:.8em;padding-top:.6em;border-top:1px dashed var(--doubt)}
 .mail .att-h{margin:1.2em 0 .2em;font-size:15px}
 .mail .att-n{margin:0}

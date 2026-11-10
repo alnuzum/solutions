@@ -10,12 +10,13 @@ import asyncio
 import contextlib
 import hmac
 import logging
+import sys
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TextIO
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
@@ -72,6 +73,32 @@ def quiet_http_logs() -> None:
     """httpx logs request URLs at INFO, and a Bitrix24 webhook URL holds its token."""
     for name in ("httpx", "httpcore"):
         logging.getLogger(name).setLevel(logging.WARNING)
+
+
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+
+class _Ours(logging.Filter):
+    """INFO and up of the platform and the solutions (loggers ``alnuzum_*``); of anything else WARNING
+    and up."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno >= logging.WARNING or record.name.startswith("alnuzum_")
+
+
+def configure_logs(stream: TextIO | None = None) -> logging.Handler:
+    """The container's log: the lines of ``alnuzum_*`` loggers from INFO (a sweep round, a startup), of the
+    libraries from WARNING, on stdout with the time and the logger's name. httpx and httpcore stay at
+    WARNING (``quiet_http_logs``) and their INFO would not pass the filter either: a Bitrix24 webhook URL
+    holds its token."""
+    handler = logging.StreamHandler(stream or sys.stdout)
+    handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    handler.addFilter(_Ours())
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    quiet_http_logs()
+    return handler
 
 
 async def sweep(store: ConnectionStore, connectors: Connectors) -> tuple[int, int]:
@@ -242,4 +269,17 @@ def create_app(
             )
             app.include_router(solution.router(kit))
         app.include_router(build_router(settings.quota_writes_per_day, sessions, connectors, templates))
+    return app
+
+
+def serve_app() -> FastAPI:
+    """What ``alnuzum-platform serve`` runs: the container's log, then the app."""
+    configure_logs()
+    app = create_app()
+    # a logger of ours that prints for itself where nothing configures logging (the spend journal of
+    # order-to-deal) would print each line twice: from here on the shared handler prints it, with the time
+    for name, logger in list(logging.root.manager.loggerDict.items()):
+        if name.startswith("alnuzum_") and isinstance(logger, logging.Logger):
+            for own in list(logger.handlers):
+                logger.removeHandler(own)
     return app
