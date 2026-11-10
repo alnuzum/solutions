@@ -24,8 +24,9 @@ from alnuzum_orders.intake import Source
 from alnuzum_orders.text import plain
 
 log = logging.getLogger("alnuzum_orders.model")
-# The spend journal by channel, a line a call. The app configures no logging (uvicorn prints only its own
-# lines, an INFO of ours would go nowhere), so this logger has a handler of its own, on stderr like uvicorn's
+# The spend journal by channel, a line a call. Where nothing configures logging (a script, a reference run) an
+# INFO of ours would go nowhere, so this logger has a handler of its own, on stderr like uvicorn's; the server
+# (alnuzum_platform.api.serve_app) drops it and prints the line through its own log, with the time
 spend_log = logging.getLogger("alnuzum_orders.spend")
 if not spend_log.handlers:
     _stderr = logging.StreamHandler()

@@ -50,8 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         # behind Caddy only (no published port): the client address comes from X-Forwarded-For.
         # The access log is off: query strings carry OAuth codes; Caddy keeps its own log without them.
+        # The app's own lines (INFO of alnuzum_*) go to stdout through serve_app's configure_logs.
         uvicorn.run(
-            "alnuzum_platform.api:create_app",
+            "alnuzum_platform.api:serve_app",
             factory=True,
             host=args.host,
             port=args.port,
