@@ -825,7 +825,19 @@ async def test_root_language_switch_and_health(app: FastAPI) -> None:
     assert "stand" in en.text
     health = await b.http.get("/health")
     assert health.json() == {"status": "ok", "version": "abc123"}
-    assert (await b.http.get("/static/app.css")).status_code == 200
+    css = await b.http.get("/static/app.css")
+    assert css.status_code == 200
+    # a returning browser revalidates: the same file is 304 without a body, a release brings the new one at once
+    assert css.headers["cache-control"] == "no-cache"
+    for condition in (
+        {"If-None-Match": css.headers["etag"]},
+        {"If-Modified-Since": css.headers["last-modified"]},
+    ):
+        same = await b.http.get("/static/app.css", headers=condition)
+        assert same.status_code == 304 and not same.content
+        assert same.headers["cache-control"] == "no-cache"
+    stale = await b.http.get("/static/app.css", headers={"If-None-Match": '"an-older-release"'})
+    assert stale.status_code == 200 and stale.content == css.content
 
 
 async def test_web_is_closed_without_a_strong_session_secret(make: Callable[..., FastAPI]) -> None:
