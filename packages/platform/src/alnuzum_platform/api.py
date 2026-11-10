@@ -79,7 +79,8 @@ LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 
 class _Ours(logging.Filter):
-    """INFO and up of the platform and the solutions (loggers ``alnuzum_*``); of anything else WARNING and up."""
+    """INFO and up of the platform and the solutions (loggers ``alnuzum_*``); of anything else WARNING
+    and up."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         return record.levelno >= logging.WARNING or record.name.startswith("alnuzum_")
@@ -87,8 +88,9 @@ class _Ours(logging.Filter):
 
 def configure_logs(stream: TextIO | None = None) -> logging.Handler:
     """The container's log: the lines of ``alnuzum_*`` loggers from INFO (a sweep round, a startup), of the
-    libraries from WARNING, on stdout with the time and the logger's name. httpx and httpcore stay at WARNING
-    (``quiet_http_logs``) and their INFO would not pass the filter either: a Bitrix24 webhook URL holds its token."""
+    libraries from WARNING, on stdout with the time and the logger's name. httpx and httpcore stay at
+    WARNING (``quiet_http_logs``) and their INFO would not pass the filter either: a Bitrix24 webhook URL
+    holds its token."""
     handler = logging.StreamHandler(stream or sys.stdout)
     handler.setFormatter(logging.Formatter(LOG_FORMAT))
     handler.addFilter(_Ours())

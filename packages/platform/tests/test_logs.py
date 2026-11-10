@@ -13,7 +13,9 @@ from alnuzum_platform import api
 
 TOKEN = "k3yOfTheWebhook0123"
 HOOK = f"https://example.bitrix24.ru/rest/1/{TOKEN}/crm.lead.add.json"
-LINE = re.compile(r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} INFO alnuzum_winback\.web: win-back sweep: 2 scans$", re.M)
+LINE = re.compile(
+    r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} INFO alnuzum_winback\.web: win-back sweep: 2 scans$", re.M
+)
 
 
 @pytest.fixture
