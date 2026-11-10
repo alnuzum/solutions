@@ -170,6 +170,11 @@ def make_middleware(
             response.headers.setdefault(name, value)
         if response.headers.get("content-type", "").startswith("text/html"):
             response.headers["Cache-Control"] = "no-store"
+        elif path.startswith("/static/"):
+            # styles, pictures, fonts: a browser asks again on every use and gets 304 while the file is
+            # the same (StaticFiles gives an ETag and Last-Modified), so after a release no old CSS stays
+            # beside a new page
+            response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
     return middleware
