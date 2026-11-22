@@ -37,7 +37,7 @@
    <div class="it" data-s="{{ r.deal_phrases|join(' ') }}" tabindex="0">
     <small class="read">{{ t.v_deal }}</small>
     {% if r.candidates %}
-     {% if r.deal and (r.deal_by == 'person' or r.candidates|length == 1 or not open_run) %}<b>{{ r.deal.title }}</b><small class="meta">{{ [r.deal.company, r.deal.contact]|select|join(' · ') }}</small>{% endif %}
+     {% if r.deal %}<b>{{ r.deal.title }}</b><small class="meta">{{ [r.deal.company, r.deal.contact]|select|join(' · ') }}</small>{% endif %}
      {% if open_run and (r.candidates|length > 1) %}
      <details class="opts"{% if not r.deal_id %} open{% endif %}><summary>{{ t.v_pick }}</summary>
       {% for c in r.candidates %}<label class="opt"><input type="radio" name="deal" value="{{ c.id }}"{% if r.deal_id == c.id %} checked{% endif %}><span><b>{{ c.title }}</b><small>{{ [c.company, c.contact]|select|join(' · ') }}{% if c.by == 'company' %} · {{ t.v_by_company }}{% elif c.by == 'contact' %} · {{ t.v_by_contact }}{% endif %}</small></span></label>{% endfor %}

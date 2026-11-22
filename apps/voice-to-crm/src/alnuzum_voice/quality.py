@@ -16,7 +16,8 @@ Metrics:
   refusal; a product the words leave open (``unsure`` in the set) is right when the plan leaves it to a
   person with the expected items among the candidates;
 - extra: changes the plan would write that the command did not ask for, over the whole set.
-The CRM is a stand-in with the five demo deals and one more deal of the same name outside the demo; the
+The CRM is a stand-in with the five demo deals, one more deal of the same name outside the demo and, as
+the live demo accounts hold them, closed purchases of the same companies (the history of solution 5); the
 catalog is the demo catalog of solution 1.
 """
 
@@ -46,6 +47,7 @@ MIN_EXACT = 0.8
 MAX_EXTRA = 2
 RESULT = Path(__file__).with_name("quality.json")
 DECOY = "Ромашка: чужая сделка"
+PURCHASES = ("2026-01-12", "2026-03-02", "2026-05-18")
 
 _KIND = {"open": DealStatus.OPEN, "won": DealStatus.WON, "lost": DealStatus.LOST}
 # number words, Latin-folded (Russian through the same table as Uzbek Cyrillic)
@@ -112,6 +114,12 @@ class ReferenceCRM:
             for key, d in truth["deals"].items()
         ]
         self.deals.append(DealHit("X1", DECOY, "Ромашка", None, first, Decimal(0), DealStatus.OPEN))
+        for key, d in truth["deals"].items():  # the purchase history the win-back demo keeps beside them
+            for day in PURCHASES:
+                title = f"Демо · Покупка · {d['company']} · {day}"
+                self.deals.append(
+                    DealHit(f"{key}-{day}", title, d["company"], None, first, Decimal(1), DealStatus.WON)
+                )
 
     async def stages(self) -> list[Stage]:
         return self._stages

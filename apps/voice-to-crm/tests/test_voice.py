@@ -26,7 +26,7 @@ from alnuzum_voice.store import chat_owner
 from alnuzum_voice.telegram import Bot
 from sqlalchemy import text
 
-from alnuzum_crm.types import CrmKind
+from alnuzum_crm.types import CrmKind, DealHit, DealStatus
 
 from .conftest import (
     BOT_TOKEN,
@@ -1018,3 +1018,42 @@ async def test_one_chat_cannot_take_every_place_in_work(make: Any, monkeypatch: 
     gate.set()
     await asyncio.gather(*list(h.voice.tasks))
     assert h.voice.chat_tasks == {}
+
+
+async def test_closed_purchases_of_the_same_company_leave_the_open_deal_to_the_system(make: Any) -> None:
+    """The win-back demo keeps won purchases «Демо · Покупка · Ромашка · …» in the same demo accounts: a
+    note about Ромашка still goes to its open deal alone, and the closed ones are not offered."""
+    h: Harness = await make(intent(stage={"id": "1:20", "phrases": [1]}))
+    for n, day in enumerate(("2025-11-10", "2025-12-20", "2026-01-25", "2026-02-14", "2026-03-08"), 20):
+        h.crm.deals[str(n)] = DealHit(
+            str(n), f"Демо · Покупка · Ромашка · {day}", "Ромашка", None, "1:142", Decimal(1), DealStatus.WON
+        )
+    async with h.client() as c:
+        c.cookies.update(session_cookie())
+        token = csrf_of((await c.get("/ru/voice")).text)
+        resp = await c.post(
+            "/ru/voice", data={"csrf": token, "target": "demo:bitrix24", "text": "По Ромашке на переговоры."}
+        )
+        shown = (await c.get(resp.headers["location"])).text
+        assert "<b>Демо · Ромашка: электрощитовая</b>" in shown
+        assert "Покупка" not in shown and "Выберите сделку" not in shown
+        done = await c.post(resp.headers["location"], data={"csrf": token, "action": "write"})
+        assert done.headers["location"].endswith("?n=written")
+    assert next(v for k, v in h.crm.writes if k == "update")[0] == "11"
+
+
+async def test_writing_without_a_deal_says_to_choose_one(make: Any) -> None:
+    h: Harness = await make(
+        intent(deal={"queries": ["Бахор"], "phrases": [1]}, amount={"value": 5, "phrases": [1]})
+    )
+    async with h.client() as c:
+        c.cookies.update(session_cookie())
+        token = csrf_of((await c.get("/ru/voice")).text)
+        resp = await c.post(
+            "/ru/voice", data={"csrf": token, "target": "demo:bitrix24", "text": "Бахор, сумма 5"}
+        )
+        done = await c.post(resp.headers["location"], data={"csrf": token, "action": "write"})
+        assert done.headers["location"].endswith("?n=no_deal")
+        shown = (await c.get(done.headers["location"])).text
+        assert "Сначала выберите сделку." in shown
+    assert h.crm.writes == []

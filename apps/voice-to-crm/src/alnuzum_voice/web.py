@@ -290,7 +290,10 @@ def build(kit: Kit, voice: Voice) -> APIRouter:
         lang = _lang(lang)
         n = request.query_params.get("n")
         return await show(
-            request, lang, await own_run(request, lang, run_id), notice=n if n and n.isalpha() else None
+            request,
+            lang,
+            await own_run(request, lang, run_id),
+            notice=n if n and n.replace("_", "").isalpha() else None,
         )
 
     @router.post("/{lang}/voice/{run_id}")
