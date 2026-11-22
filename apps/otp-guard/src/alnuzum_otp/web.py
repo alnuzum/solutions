@@ -4,9 +4,10 @@ the device's fingerprint.
 
 Lab mode lets the attack script tell the stand which IP a request comes from and what time it is
 (``X-Lab-Ip``, ``X-Lab-Time``) and reset the stand with other layers (``POST /lab/otp/reset``). It exists only
-when the solution is built with ``lab=True`` or ``OTP_LAB=1`` and the environment is neither ``prod`` nor
-``stand``, and only for a peer on the loopback address; anywhere else the headers are ignored and the route
-is not there.
+when the code builds the solution with ``lab=True`` (the attack scripts do; no setting of the environment
+turns it on) in a ``dev`` or ``lab`` environment, and only for a request from the loopback address that
+carries no ``X-Forwarded-For`` or ``Forwarded`` (``serve`` trusts those for the client's address); anywhere
+else the headers are ignored and the route is not there.
 """
 
 import hashlib
@@ -35,6 +36,7 @@ log = logging.getLogger("alnuzum_otp.web")
 HERE = Path(__file__).parent
 RESULTS = HERE / "data" / "results.json"
 LOOPBACK = frozenset({"127.0.0.1", "::1"})
+LAB_ENVS = frozenset({"dev", "lab"})  # environments where lab mode may exist at all
 NOTICES = frozenset({"sent", "in", "wrong", "expired", "bad", "csrf"})
 VERIFIED = {"ok": "in"}
 REASONS = frozenset({"geo", "number", "block", "device", "ip", "net", "human", "closed", "budget"})
@@ -51,7 +53,6 @@ class OtpSettings(BaseSettings):
     countries: str = "998"
     usd_per_hour: Decimal = Decimal(20)
     pow_bits: int = 20
-    lab: bool = False
 
     def config(self) -> Config:
         layers = frozenset(x.strip() for x in self.layers.split(",") if x.strip() in LAYERS)
@@ -108,18 +109,24 @@ def _lang(value: str) -> str:
     return {"ru": "ru", "en": "en"}[value]
 
 
-def build(kit: Kit, otp: OtpSettings, lab: bool) -> APIRouter:
+def build(kit: Kit, otp: OtpSettings, lab: bool, config: Config | None = None) -> APIRouter:
     router = APIRouter()
     env = kit.settings.app_env
-    lab_on = (lab or otp.lab) and env not in ("prod", "stand")
-    if (lab or otp.lab) and not lab_on:
+    lab_on = lab and env in LAB_ENVS
+    if lab and not lab_on:
         log.error("otp: lab mode refused in the %s environment", env)
     key = kit.settings.session_secret.get_secret_value().encode()
-    stand = Stand(Guard(otp.config()), ProofOfWork(key, otp.pow_bits))
+    stand = Stand(Guard(config or otp.config()), ProofOfWork(key, otp.pow_bits))
     results = load_results()
 
     def lab_peer(request: Request) -> bool:
-        return lab_on and request.client is not None and request.client.host in LOOPBACK
+        return (
+            lab_on
+            and request.client is not None
+            and request.client.host in LOOPBACK
+            and "x-forwarded-for" not in request.headers
+            and "forwarded" not in request.headers
+        )
 
     def now_of(request: Request) -> float:
         if lab_peer(request):
@@ -188,7 +195,13 @@ def build(kit: Kit, otp: OtpSettings, lab: bool) -> APIRouter:
         notice = q.get("n") if q.get("n") in NOTICES else None
         reason = q.get("r") if q.get("r") in REASONS else None
         wait = q.get("w", "")
-        return page(request, lang, notice=notice, reason=reason, wait=int(wait) if wait.isdigit() else 0)
+        return page(
+            request,
+            lang,
+            notice=notice,
+            reason=reason,
+            wait=int(wait) if wait.isascii() and wait.isdigit() and len(wait) <= 5 else 0,
+        )
 
     @router.get("/{lang}/otp/challenge")
     async def challenge(request: Request, lang: str) -> JSONResponse:
@@ -284,7 +297,10 @@ def _hour(h: int) -> str:
     return f"{(h + 5) % 24:02d}:00"
 
 
-def make_solution(otp: OtpSettings | None = None, *, lab: bool = False) -> Solution:
+def make_solution(
+    otp: OtpSettings | None = None, *, lab: bool = False, config: Config | None = None
+) -> Solution:
+    """``lab`` turns lab mode on (in ``dev`` or ``lab`` only); ``config`` replaces the layers' settings."""
     otp = otp or OtpSettings()
     return Solution(
         slug="otp",
@@ -292,7 +308,7 @@ def make_solution(otp: OtpSettings | None = None, *, lab: bool = False) -> Solut
         templates=HERE / "templates",
         static=HERE / "static",
         texts=texts,
-        router=lambda kit: build(kit, otp, lab),
+        router=lambda kit: build(kit, otp, lab, config),
     )
 
 

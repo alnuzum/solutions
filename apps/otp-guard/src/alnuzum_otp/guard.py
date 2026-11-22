@@ -48,10 +48,14 @@ class Config:
     limits: dict[str, Limit] = field(default_factory=lambda: dict(DEFAULT_LIMITS))
     usd_per_hour: Decimal = Decimal(20)
     # conversion: confirmed share over ``window`` of sends older than ``mature``, at least ``least`` of them;
-    # a prefix closes for ``close_for`` when the share falls under ``drop`` × its normal share
+    # a prefix closes for ``close_for`` when the share falls under ``drop`` × its normal share, the window
+    # holds ``surge`` × the prefix's normal volume and the unconfirmed sends came from ``networks`` different
+    # networks (/24, IPv6 /48): one visitor with a few addresses cannot close a range for everybody
     window: float = 1800
     mature: float = 180
     least: int = 20
+    surge: float = 3.0
+    networks: int = 8
     normal: float = 0.8
     drop: float = 0.5
     close_for: float = HOUR
@@ -81,6 +85,7 @@ class Sent:
     at: float
     prefix: str
     usd: Decimal
+    net: str = ""
     confirmed: bool = False
 
 
@@ -100,6 +105,7 @@ class Alert:
     sent: int
     confirmed: int
     normal: float
+    networks: int = 0
 
 
 @dataclass
@@ -165,7 +171,7 @@ class Guard:
             return None, refusal
         code = f"{secrets.randbelow(10**6):06d}"
         usd = self.provider.send(number, f"Your code: {code}")
-        sent = Sent(now, number.prefix, usd)
+        sent = Sent(now, number.prefix, usd, who.net)
         self._codes[number.e164] = Code(
             self._digest(number.e164, code), owner, now + self.config.code_ttl, self.config.code_tries, sent
         )
@@ -240,29 +246,40 @@ class Guard:
         while recent and recent[0].at < now - c.window:
             recent.popleft()
         sent = confirmed = 0
+        nets: set[str] = set()
         for s in recent:
             if s.at > now - c.mature:
                 break
             sent += 1
             confirmed += s.confirmed
-        if sent < c.least:
+            if not s.confirmed:
+                nets.add(s.net)
+        if sent < max(c.least, c.surge * self.normal_volume(prefix, now)) or len(nets) < c.networks:
             return False
         normal = self.normal_share(prefix, now)
         if confirmed / sent >= c.drop * normal:
             return False
         self._closed[prefix] = now + c.close_for
         recent.clear()
-        self.alerts.append(Alert(now, prefix, sent, confirmed, normal))
+        self.alerts.append(Alert(now, prefix, sent, confirmed, normal, len(nets)))
         log.warning(
-            "otp: ALERT prefix %s closed for %d min: %d of %d codes confirmed in %d min, normal %.0f %%",
+            "otp: ALERT prefix %s closed for %d min: %d of %d codes confirmed in %d min from %d networks, "
+            "normal %.0f %%",
             prefix,
             c.close_for // 60,
             confirmed,
             sent,
             c.window // 60,
+            len(nets),
             normal * 100,
         )
         return True
+
+    def normal_volume(self, prefix: str, now: float) -> float:
+        """Sends to the prefix in one window, on average over the day before the current hour."""
+        hour = int(now // HOUR)
+        sent = sum(self._hours.get((prefix, h), (0, 0))[0] for h in range(hour - 24, hour - 1))
+        return sent / 23 * self.config.window / HOUR
 
     def normal_share(self, prefix: str, now: float) -> float:
         """The confirmed share of the prefix over the day before the current hour; the configured one until

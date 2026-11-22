@@ -86,6 +86,7 @@
     </tbody>
   </table></div>
   <p class="small muted">{{ t.o_run_notes }}</p>
+  {% for r in results.rows if r.config == 'grief_before' %}{% for g in results.rows if g.config == 'grief' %}<p class="small">{{ t.o_grief.format(prefix=r.target, users=r.target_users, before=r.target_out, after=g.target_out) }}</p>{% endfor %}{% endfor %}
   {% if results.browser %}{% set b = results.browser %}<p class="small">{{ t.o_browser.format(n=b.solved, median=b.median_ms, max=b.max_ms, sent=b.outcomes.get('sent', 0), script=b.script_refused, scripts=b.scripts, solved=num(results.attack_solved), cpu=(results.attack_cpu_hours.replace('.', ',') if lang == 'ru' else results.attack_cpu_hours)) }}</p>{% endif %}
   <h3>{{ t.o_repro }}</h3>
   <pre class="otp-cmd"><code>{{ results.command }}</code></pre>

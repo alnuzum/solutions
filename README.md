@@ -125,7 +125,7 @@ default):
 | 1 `geo` | codes go only to the prefixes of the countries you serve (`OTP_COUNTRIES`, `998` by default) |
 | 2 `limits` | counters on the number, its range of 100 neighbouring numbers, the device, the IP and the provider's network (/24, IPv6 /48); after the free sends of an hour the pause doubles with every next one |
 | 3 `human` | a live browser before sending: a proof of work in the page (SHA-256, 20 bits) signed for the session, single use. In place of Cloudflare Turnstile, whose key needs a Cloudflare account. A script without a browser is cut off entirely, a real browser solves it |
-| 4 `conversion` | sends and confirmations per prefix (calling code and three digits) per hour; a confirmed share over 30 minutes under half of the normal one closes the prefix for an hour and raises an alert (`WARNING otp: ALERT …` in the log, a block on the page) |
+| 4 `conversion` | sends and confirmations per prefix (calling code and three digits) per hour; a confirmed share over 30 minutes under half of the normal one closes the prefix for an hour and raises an alert, when the unconfirmed codes came from 8 or more /24 networks and are three times the prefix's normal volume (otherwise one visitor with a couple of addresses would close a stranger's range for everybody) (`WARNING otp: ALERT …` in the log, a block on the page) |
 | 5 `budget` | the price of the SMS of the last hour stays under a ceiling (`OTP_USD_PER_HOUR`, $20) |
 
 The stand's SMS provider sends nothing: it counts the messages and their price, and the code is shown on the page.
@@ -159,6 +159,10 @@ gives the same table.
 | layer 4: confirmed share | 36681 | 1967 / 661 | 514.63 | 03:10 | 04:00 | 20 (3.3 %) |
 | layer 5: spend ceiling | 36601 | 194 / 1 | 39.99 | 00:07 | — | 599 (99.8 %) |
 | **all five** | 36686 | 90 / 661 | 5.93 | 00:00 | 00:00 | 23 (3.8 %) |
+| closing a stranger's range: layer 4 before the fix | 770 | 21 / 660 | 5.38 | 02:30 | 06:00 | 17 (2.8 %) |
+| closing a stranger's range: layer 4 now | 770 | 24 / 671 | 5.49 | 02:30 | 10:00 | 6 (1 %) |
+
+The last two rows are not pumping but spite: one visitor with three IPv4 addresses sends unconfirmed codes for 15 minutes to random numbers of the range +998 952 (the one most of the honest crowd's numbers fall in), so that layer 4 closes it for everybody. The old layer 4 closed on 20 unconfirmed codes: of 12 honest users with a number in that range, 11 were kept out. Now it needs codes from 8 or more /24 networks and three times the normal volume: 0 kept out.
 
 "Attack stopped": from this minute on, every minute less than 5 % of the attack's attempts get an SMS. "Honest users kept
 out" got no code at all. The run lasts a little over an hour (the attack's last attempts at minute 61), so in the row of layer 5 the $20 ceiling of the sliding hour opened a second time. The attack's browsers solve the proof of work (they are real browsers), so layer 3 alone does
@@ -168,14 +172,16 @@ measured by `browsers.py`: a real headless Chromium against the same stand with 
 Headless Chromium (playwright), 20 browsers with different fingerprints, 20 bits: all solved it, median 1509 ms, at most 3963 ms (measured on a machine under other load); 3 got codes, layer 2 (the range of 100 numbers) stopped the rest. 20 of 20 script requests without a solution were refused by layer 3. By this measure the attack's 36000 attempts of the table cost the attacker 15.1 CPU hours: minutes on a hundred machines.
 
 **Lab mode.** Claiming an IP and a clock (`X-Lab-Ip`, `X-Lab-Time`) and resetting the stand with other layers
-(`POST /lab/otp/reset`) works only when the solution is built with `lab=True` (the attack scripts) or `OTP_LAB=1`, the
-environment is neither `prod` nor `stand`, and the request comes from loopback. In production the route is not there
+(`POST /lab/otp/reset`) works only when the code builds the solution with `lab=True` (the attack scripts do; no environment variable
+turns it on), the environment is `dev` or `lab`, and the request comes from loopback without `X-Forwarded-For` or
+`Forwarded` (`serve` takes the client's address from them). In production the route is not there
 (404) and the headers are not read; `apps/otp-guard/tests/test_web.py` checks it, and the stage report records requests
 to apps.alnuzum.com.
 
 Not on the stand: an IP → ASN database (the provider's network is the /24), Turnstile (a proof of work instead), an alert
 sent to a messenger (it is in the log and on the page), a shared store of counters for several processes (the platform
-runs one; with several the counters move to Redis).
+runs one; with several the counters move to Redis). The page computes the device's fingerprint, so any client can
+forge it: an antidetect browser changes it on every request, and the device limit holds only a lazy attack.
 
 ## Security
 

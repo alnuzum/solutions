@@ -74,7 +74,7 @@ prefix and hour), the table of the run from `results.json`, the command, links t
   `prod`/`stand`, a loopback peer — and in production its route is not mounted at all — the cost: none for production;
   the attack runs in process or against a local server only.
 
-## Numbers (seed 7, one simulated hour; `results.json`)
+## Numbers (seed 7, one simulated hour; `results.json`; re-run after the narrow check's fixes: the pumping rows came out the same)
 
 12 000 proxied browsers × 3 attempts (half Uzbek ranges, half RU/KG/TJ/AZ/ID ranges, numbers in a row), 600 honest users.
 
@@ -88,6 +88,8 @@ prefix and hour), the table of the run from `results.json`, the command, links t
 | layer 4: confirmed share | 36,681 | 1,967 / 661 | 514.63 | 03:10 | 04:00 | 20 (3.3 %) | closed 34,033 |
 | layer 5: spend ceiling | 36,601 | 194 / 1 | 39.99 | 00:07 | — | 599 (99.8 %) | budget 35,806 |
 | **all five** | 36,686 | 90 / 661 | 5.93 | 00:00 | 00:00 | 23 (3.8 %) | geo 17,909, block 2,537, closed 15,464 |
+| closing a stranger's range, layer 4 before the fix (all layers) | 770 | 21 / 660 | 5.38 | 02:30 | 06:00 | 17 (2.8 %); of the 12 with a number in +998 952: 11 | ip 20, closed 49; ranges closed: +998 952 |
+| closing a stranger's range, layer 4 now (all layers) | 770 | 24 / 671 | 5.49 | 02:30 | 10:00 | 6 (1.0 %); of the 12 with a number in +998 952: 0 | ip 66; ranges closed: none |
 
 Real headless Chromium (playwright 1.65.2, headless shell 159), all five layers, proof of work 20 bits: 20/20
 browsers solved it, median 1509 ms, max 3963 ms (the machine ran at load average ~22–40 from other
@@ -123,3 +125,25 @@ gitleaks git origin/main..HEAD       no leaks found
 | `POST /lab/otp/reset`, `GET /lab/otp/state` in `prod`/`stand` (even with `OTP_LAB=1`) or without the flag | 404 | `test_outside_the_lab_its_headers_are_ignored`, `test_lab_mode_by_environment_only_outside_prod` |
 | the same in the lab from a non-loopback peer | 403 | same |
 | `X-Lab-Ip` / `X-Lab-Time` outside the lab | ignored: the real IP collects the IP limit, the number's pause is not reset | same |
+
+## Narrow check (fresh agent) and the fixes before the merge
+
+No Critical. Fixed before the merge:
+
+1. Important, layer 4 as a weapon against honest users: 20 unconfirmed codes from a couple of addresses closed a
+   range for everybody for an hour, again every hour. Now a range closes only when its unconfirmed codes in the window
+   came from 8 or more networks (/24, IPv6 /48) and the window holds 3× the range's normal volume (the day before)
+   besides the share falling under half of normal (`Config.networks`, `Config.surge`). The run got a "closing a
+   stranger's range" scenario (one visitor, three IPv4 /24s, a code every 10 s for 15 minutes to the range most honest
+   numbers fall in, all layers on) run with the old rule and the new one; see the table.
+   Ruling: count networks and volume rather than raise the proof of work for the range — a griefer with real
+   browsers pays a harder proof of work as easily as an attacker does — the cost: a griefer with residential proxies
+   in 8+ /24s at 3× a range's volume can still close it; a sparse range (no history) needs only the 20-code floor.
+2. Minor, lab mode behind `X-Forwarded-For`: `OTP_LAB` is gone (only code passes `lab=True`), lab mode exists only in
+   `dev`/`lab` environments (an allowlist), and a request with `X-Forwarded-For` or `Forwarded` is never a lab peer.
+3. Minor, `?w=²` or 5 000 digits gave 500: the pause is read only as at most five ASCII digits.
+4. Minor, Live E2E: when both pool deals come from an earlier run, their closed_at must lie 40 ± 1 days apart (a
+   closed_at read from the creation date would put them minutes apart).
+
+Limitation, by design: the device fingerprint is computed by the page and any client can forge it; an antidetect
+browser changes it on every request, so the device limit holds only a lazy attack (README says so).

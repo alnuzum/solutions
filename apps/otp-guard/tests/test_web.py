@@ -192,6 +192,7 @@ LAB = {"x-lab-ip": "8.8.4.4", "x-lab-time": str(T)}
     ("env", "lab", "peer"),
     [
         ("prod", True, "127.0.0.1"),
+        ("production", True, "127.0.0.1"),
         ("stand", True, "127.0.0.1"),
         ("dev", False, "127.0.0.1"),
         ("dev", True, "203.0.113.7"),
@@ -231,13 +232,40 @@ async def test_in_the_lab_a_loopback_peer_names_ip_and_time() -> None:
     assert await v.send("+998901234567", work=False, **bad) == "/ru/otp?n=sent"
 
 
-async def test_lab_mode_by_environment_only_outside_prod(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_no_setting_of_the_environment_turns_the_lab_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OTP_LAB", "1")
-    settings = Settings(session_secret=SECRET, public_url=ORIGIN, app_env="prod", sweep_minutes=0)
-    app = create_app(settings, solutions=[make_solution()])
+    for env in ("dev", "lab", "prod"):
+        settings = Settings(session_secret=SECRET, public_url=ORIGIN, app_env=env, sweep_minutes=0)
+        app = create_app(settings, solutions=[make_solution()])
+        v = Visitor(app, "127.0.0.1")
+        await v.page()
+        assert (await v.http.post("/lab/otp/reset", json={})).status_code == 404
+
+
+async def test_the_lab_exists_only_in_its_environments() -> None:
+    for env in ("ci", "staging", "production"):
+        v = Visitor(app_of(env, lab=True), "127.0.0.1")
+        assert (await v.http.get("/lab/otp/state")).status_code == 404
+
+
+@pytest.mark.parametrize("header", ["x-forwarded-for", "forwarded"])
+async def test_a_forwarded_request_is_not_a_lab_peer(header: str) -> None:
+    """``serve`` takes the client's address from X-Forwarded-For: a stranger claiming 127.0.0.1 there is still
+    a stranger."""
+    app = app_of("lab", lab=True)
     v = Visitor(app, "127.0.0.1")
-    await v.page()
-    assert (await v.http.post("/lab/otp/reset", json={})).status_code == 404
+    claim = {header: "127.0.0.1" if header == "x-forwarded-for" else "for=127.0.0.1"}
+    assert (await v.http.get("/lab/otp/state", headers=claim)).status_code == 403
+    assert (await v.http.post("/lab/otp/reset", json={}, headers=claim)).status_code == 403
+    assert await v.send("+998901234567", **claim, **LAB) == "/ru/otp?n=sent"
+    later = {**claim, "x-lab-ip": "9.9.9.9", "x-lab-time": str(T + 7200)}
+    assert (await v.send("+998901234567", **later)).startswith("/ru/otp?r=number")
+
+
+@pytest.mark.parametrize("wait", ["²", "9" * 5000, "-1", "1e3", "٣"])
+async def test_a_strange_pause_in_the_address_is_no_error(app: FastAPI, wait: str) -> None:
+    resp = await Visitor(app).http.get("/ru/otp", params={"r": "ip", "w": wait})
+    assert resp.status_code == 200 and 'data-reason="ip"' in resp.text
 
 
 # the rest

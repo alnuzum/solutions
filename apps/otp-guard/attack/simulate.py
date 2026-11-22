@@ -39,7 +39,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from alnuzum_otp.guard import LAYERS
+from alnuzum_otp.guard import LAYERS, Config
 from alnuzum_otp.pow import solve
 from alnuzum_otp.web import OtpSettings, make_solution
 from alnuzum_platform.api import create_app
@@ -52,16 +52,25 @@ ATTEMPTS = 3
 SUBNETS = 6_000
 HONEST = 600
 ABROAD = 0.02
-CONFIGS: tuple[tuple[str, tuple[str, ...], bool], ...] = (
-    ("none", (), True),
-    ("geo", ("geo",), True),
-    ("limits", ("limits",), True),
-    ("human", ("human",), True),
-    ("human_script", ("human",), False),
-    ("conversion", ("conversion",), True),
-    ("budget", ("budget",), True),
-    ("all", LAYERS, True),
+# name, layers, the attack's browsers solve the work, the scenario (pumping or closing a stranger's range),
+# layer 4 as it was before it counted networks and volume
+CONFIGS: tuple[tuple[str, tuple[str, ...], bool, str, bool], ...] = (
+    ("none", (), True, "pump", False),
+    ("geo", ("geo",), True, "pump", False),
+    ("limits", ("limits",), True, "pump", False),
+    ("human", ("human",), True, "pump", False),
+    ("human_script", ("human",), False, "pump", False),
+    ("conversion", ("conversion",), True, "pump", False),
+    ("budget", ("budget",), True, "pump", False),
+    ("all", LAYERS, True, "pump", False),
+    ("grief_before", LAYERS, True, "grief", True),
+    ("grief", LAYERS, True, "grief", False),
 )
+# closing a stranger's range: one visitor, three IPv4 addresses in three /24s, a code every 10 s for 15
+# minutes to random numbers of the range most honest numbers fall in, a new fingerprint each time
+GRIEF_IPS = ("45.12.7.10", "91.200.3.44", "185.9.77.5")
+GRIEF_EVERY = 10
+GRIEF_FOR = 900
 # number ranges the attack walks in a row: (start of the number, digits after it, first value)
 UZ_RANGES = (("99833", 7, 1_200_000), ("99888", 7, 5_400_000), ("99877", 7, 2_100_000))
 FOREIGN_RANGES = (
@@ -115,12 +124,15 @@ class Run:
     honest_sms: int = 0
     solved: int = 0
     blocked_by: Counter[str] = field(default_factory=Counter)
+    out: set[int] = field(default_factory=set)  # honest users who got no code
+    target: str = ""  # the range a griefer tries to close
+    target_users: set[int] = field(default_factory=set)
 
 
 class Lab:
     """The stand in process; every request names its IP and time."""
 
-    def __init__(self, layers: tuple[str, ...], bits: int) -> None:
+    def __init__(self, layers: tuple[str, ...], bits: int, before: bool = False) -> None:
         settings = Settings(
             session_secret="lab-" + "s" * 40,
             public_url=ORIGIN,
@@ -131,7 +143,9 @@ class Lab:
             sweep_minutes=0,
         )
         otp = OtpSettings(layers=",".join(layers), pow_bits=bits)
-        self.app = create_app(settings, solutions=[make_solution(otp, lab=True)])
+        # before: layer 4 closed a range on 20 unconfirmed codes alone, from however few networks
+        old = Config(layers=frozenset(layers), networks=1, surge=0.0) if before else None
+        self.app = create_app(settings, solutions=[make_solution(otp, lab=True, config=old)])
         self.http = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app, client=("127.0.0.1", 9)), base_url=ORIGIN
         )
@@ -189,9 +203,12 @@ class Lab:
 Event = tuple[float, int, str, int]  # time, order, kind, actor
 
 
-def plan(seed: int, scale: float = 1.0) -> tuple[list[Event], list[Visitor], list[Visitor], dict[int, str]]:
+def plan(
+    seed: int, scale: float = 1.0, grief: bool = False
+) -> tuple[list[Event], list[Visitor], list[Visitor], dict[int, str]]:
     """The crowd: who acts when, from where, with which number (honest numbers drawn here; the attack's
-    numbers are taken in a row as it goes). ``scale`` shrinks it for a quick look."""
+    numbers are taken in a row as it goes). ``scale`` shrinks it for a quick look; ``grief`` replaces the
+    pumping browsers by one visitor closing a stranger's range."""
     rng = random.Random(seed)  # nosec B311 - a seeded crowd for a reproducible run, not a secret
     subnets = public_subnets(rng, max(1, int(SUBNETS * scale)))
     attackers = [
@@ -215,7 +232,12 @@ def plan(seed: int, scale: float = 1.0) -> tuple[list[Event], list[Visitor], lis
         )
     events: list[Event] = []
     n = 0
-    for a in range(len(attackers)):
+    if grief:
+        attackers = [Visitor(ip, "") for ip in GRIEF_IPS]
+        for k in range(GRIEF_FOR // GRIEF_EVERY):
+            events.append((float(k * GRIEF_EVERY), n, "grief", k))
+            n += 1
+    for a in range(0 if grief else len(attackers)):
         first = rng.uniform(0, 1200)
         for k in range(ATTEMPTS):
             at = first if k == 0 else first + 1200 * k + rng.uniform(-60, 60)
@@ -228,13 +250,28 @@ def plan(seed: int, scale: float = 1.0) -> tuple[list[Event], list[Visitor], lis
     return events, attackers, honest, numbers
 
 
+def target_of(numbers: dict[int, str]) -> str:
+    """The Uzbek range (calling code and three digits) most honest numbers fall in."""
+    heads = Counter(n[:7] for n in numbers.values() if n.startswith("+998"))
+    return min(heads, key=lambda h: (-heads[h], h))
+
+
 async def run_config(
-    layers: tuple[str, ...], browser: bool, bits: int, seed: int, scale: float = 1.0
+    layers: tuple[str, ...],
+    browser: bool,
+    bits: int,
+    seed: int,
+    scale: float = 1.0,
+    scenario: str = "pump",
+    before: bool = False,
 ) -> tuple[Run, Any]:
-    events, attackers, honest, numbers = plan(seed, scale)
+    events, attackers, honest, numbers = plan(seed, scale, grief=scenario == "grief")
     rng = random.Random(seed + 1)  # nosec B311 - a seeded crowd for a reproducible run, not a secret
-    lab = Lab(layers, bits)
+    lab = Lab(layers, bits, before)
     run = Run()
+    if scenario == "grief":
+        run.target = target_of(numbers)
+        run.target_users = {h for h, n in numbers.items() if n.startswith(run.target)}
     counters = [0] * (len(UZ_RANGES) + len(FOREIGN_RANGES))
     order = len(events)
 
@@ -256,6 +293,16 @@ async def run_config(
     async with lab.http:
         while events:
             at, _, kind, who = heapq.heappop(events)
+            if kind == "grief":
+                v = attackers[who % len(attackers)]
+                v.device = f"{rng.getrandbits(128):032x}"  # a fingerprint the client chooses
+                if not v.csrf:
+                    await lab.open_page(v, at)
+                phone = f"{run.target}{rng.randrange(10**6):06d}"
+                sent, reason, _ = await lab.send(v, at, phone, solves=True)
+                run.solved += 1
+                run.attack.append(Attempt(at, sent, reason))
+                continue
             if kind == "attack":
                 v = attackers[who]
                 if not v.csrf:
@@ -287,6 +334,7 @@ async def run_config(
                         later(at + wait + rng.uniform(1, 10), "ask", who)
                     elif not v.got:
                         run.blocked_by[reason] += 1
+                        run.out.add(who)
             elif kind == "enter":
                 code = await lab.code(v, at)
                 if code is not None:
@@ -312,10 +360,10 @@ def stop_time(attempts: list[Attempt]) -> float | None:
     return stop
 
 
-def one(job: tuple[str, tuple[str, ...], bool, int, int, float]) -> dict[str, Any]:
+def one(job: tuple[str, tuple[str, ...], bool, str, bool, int, int, float]) -> dict[str, Any]:
     """A configuration in a process of its own."""
-    name, layers, browser, bits, seed, scale = job
-    run, state = asyncio.run(run_config(layers, browser, bits, seed, scale))
+    name, layers, browser, scenario, before, bits, seed, scale = job
+    run, state = asyncio.run(run_config(layers, browser, bits, seed, scale, scenario, before))
     return row(name, run, state)
 
 
@@ -338,6 +386,10 @@ def row(name: str, run: Run, state: dict[str, Any]) -> dict[str, Any]:
         "attack_refused_by": dict(Counter(a.reason for a in attack if not a.sent)),
         "solved": run.solved,
         "alerts": len(state["alerts"]),
+        "closed": sorted({a[1] for a in state["alerts"]}),
+        "target": f"+998 {run.target[4:]}" if run.target else None,
+        "target_users": len(run.target_users),
+        "target_out": len(run.out & run.target_users),
         "by_country": state["by_country"],
     }
 
@@ -376,8 +428,8 @@ def main(argv: list[str] | None = None, *, on_row: Callable[[str], None] = print
     args = parser.parse_args(argv)
     started = time.monotonic()
     jobs = [
-        (n, layers, b, args.bits, args.seed, args.scale)
-        for n, layers, b in CONFIGS
+        (n, layers, b, scenario, before, args.bits, args.seed, args.scale)
+        for n, layers, b, scenario, before in CONFIGS
         if not args.only or n in args.only
     ]
     # the configurations do not share anything: one process each

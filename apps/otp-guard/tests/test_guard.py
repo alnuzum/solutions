@@ -180,6 +180,50 @@ def test_a_prefix_whose_codes_are_confirmed_stays_open() -> None:
     assert rows[0][1:] == ("+998 331", 41, 36)
 
 
+def test_a_few_networks_cannot_close_a_range_for_everybody() -> None:
+    """One visitor with three IPv4 addresses, or one home IPv6 /56 (four /64s in one /48), sends unconfirmed
+    codes: the range stays open; the same from eight networks closes it."""
+    g = only("conversion")
+    nets = ("45.12.7.0/24", "91.200.3.0/24", "185.9.77.0/24")
+    for i in range(40):
+        g.request(parse(f"+99890100{i:04d}"), who(i, net=nets[i % 3]), "o", T + i)
+    for i in range(40):
+        g.request(
+            parse(f"+99890200{i:04d}"),
+            who(i, ip=f"2001:db8:5:{i % 4}::/64", net="2001:db8:5::/48"),
+            "o",
+            T + i,
+        )
+    assert g.request(parse("+998901009999"), who(99), "o", T + 400)[1] is None
+    assert g.request(parse("+998902009999"), who(99), "o", T + 400)[1] is None
+    assert not g.alerts
+    for i in range(40):
+        g.request(parse(f"+99890300{i:04d}"), who(i, net=f"10.{i % 8}.0.0/24"), "o", T + 500 + i)
+    _, r = g.request(parse("+998903009999"), who(99), "o", T + 900)
+    assert r is not None and r.reason == "closed"
+    assert [(a.prefix, a.networks) for a in g.alerts] == [("+998 903", 8)]
+
+
+def test_a_busy_range_closes_only_on_a_surge_over_its_normal_volume() -> None:
+    g = only("conversion")
+    for h in range(22, 0, -1):  # 40 sends an hour for a day, 90 % confirmed
+        for i in range(40):
+            n = parse(f"+99890400{i:04d}")
+            code, _ = g.request(n, who(i), "o", T - h * HOUR + i * 60)
+            if i % 10 and code:
+                g.verify(n, code, "o", T - h * HOUR + i * 60 + 5)
+    assert g.normal_volume("+998 904", T) == pytest.approx(
+        40 * 21 / 23 / 2
+    )  # the hour before the current one is not counted
+    for i in range(40):  # unconfirmed from 40 networks, but only about twice the normal volume
+        g.request(parse(f"+9989049{i:05d}"), who(1000 + i), "o", T + i)
+    assert g.request(parse("+998904999999"), who(2000), "o", T + 400)[1] is None
+    for i in range(40):  # three times and more
+        g.request(parse(f"+9989048{i:05d}"), who(3000 + i), "o", T + 410 + i)
+    _, r = g.request(parse("+998904888888"), who(4000), "o", T + 800)
+    assert r is not None and r.reason == "closed"
+
+
 def test_the_normal_share_is_learnt_from_the_day_before() -> None:
     g = only("conversion")
     assert g.normal_share("+998 331", T) == 0.8
