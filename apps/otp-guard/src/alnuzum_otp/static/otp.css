@@ -1,0 +1,26 @@
+/* the stand of SMS login: the platform's look, plus tables and the shown code */
+.otp-top{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px;margin:0 0 18px}
+@media (max-width:860px){.otp-top{grid-template-columns:minmax(0,1fr)}}
+.otp-try form{display:grid;gap:12px}
+.otp-go{display:flex;gap:10px;flex-wrap:wrap}
+.otp-go .btn[disabled]{opacity:.55;cursor:progress;transform:none}
+.otp-work{display:block;font-size:13px;color:var(--on-ac-2)}
+.otp-note{margin:0 0 14px;padding:12px 14px;border-radius:12px;background:rgb(16 25 53 / .55);font-size:14.5px}
+.otp-code{display:block;font-family:var(--mono);font-size:34px;letter-spacing:.18em;margin:2px 0 14px}
+.otp-layers,.otp-run{margin:0 0 18px}
+.otp-layers ol{margin:0;padding-left:22px;display:grid;gap:14px}
+.otp-layers p{margin:4px 0 0}
+.otp-live h3,.otp-run h3{margin:16px 0 6px}
+.otp-live p{margin:0}
+.otp-pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;background:var(--panel-up);box-shadow:inset 0 0 0 1px var(--line-deep);margin-right:4px}
+.otp-pill.on{box-shadow:inset 0 0 0 1px var(--ac-lite)}
+.otp-pill.off{opacity:.7}
+.otp-list{margin:0;padding-left:18px}
+.otp-scroll{overflow-x:auto;margin:6px 0 10px}
+.otp-t{border-collapse:collapse;width:100%;font-size:14px}
+.otp-t th,.otp-t td{padding:7px 10px;border-bottom:1px solid var(--line-deep);text-align:left;vertical-align:top}
+.otp-t th{font-weight:500;color:var(--on-deep-3);font-size:12.5px}
+.otp-t .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.otp-results tr.all td{font-weight:600}
+.otp-cmd{overflow-x:auto;padding:12px 14px;border-radius:12px;background:var(--panel-up);font-family:var(--mono);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.small{font-size:13.5px}
