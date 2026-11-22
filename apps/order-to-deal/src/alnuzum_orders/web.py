@@ -199,6 +199,9 @@ def quality() -> dict[str, Any] | None:
         data: dict[str, Any] = json.loads((HERE / "quality.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    # the quantity is measured over the lines whose product is right: both as counts, misses included
+    data["right"] = round(data["accuracy"] * data["lines"])
+    data["qty_ok"] = round(data.get("quantity", 1) * data["right"])
     return data
 
 
