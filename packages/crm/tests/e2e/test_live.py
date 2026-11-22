@@ -332,6 +332,14 @@ async def test_purchases_and_a_task_on_the_client(
                     assert p.closed_at < now - timedelta(days=days - 1), p
                 assert [(x.product_id, x.quantity) for x in p.lines] == [(product, qty)], p.lines
                 assert all(x.unit_price == Decimal(100) for x in p.lines), p.lines
+            if not made_now:
+                # both pool deals were made by one earlier run: their dates still lie the pool's 40 days apart
+                # (a closed_at read from the creation date would put them minutes apart)
+                (_, newer, _), (_, older, _) = reversed(PURCHASE_POOL)
+                apart = mine[0].closed_at - mine[1].closed_at
+                assert abs(apart - timedelta(days=older - newer)) <= timedelta(days=1), (
+                    f"{kind}: pool deals {apart} apart; if one was made again, delete both to make them anew"
+                )
             assert (await crm.purchases(company_id=company, lines=False)).items[0].lines == ()
             named = await crm.client_names([company])
             assert list(named) == [company] and named[company].startswith("E2E"), named
