@@ -71,6 +71,12 @@ class Keyring:
         n = envelope[2]
         return envelope[3 : 3 + n].decode()
 
+    def reencrypt(self, envelope: bytes, aad: bytes) -> bytes | None:
+        """The same secret under the primary key, or None when it is under it already."""
+        if self.key_id(envelope) == self.primary:
+            return None
+        return self.encrypt(self.decrypt(envelope, aad), aad)
+
     def decrypt(self, envelope: bytes, aad: bytes) -> bytes:
         kid = self.key_id(envelope)
         key = self._keys.get(kid)

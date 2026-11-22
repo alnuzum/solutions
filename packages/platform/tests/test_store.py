@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import socket
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -222,6 +223,97 @@ async def test_rotate_keys(store: ConnectionStore, engine: AsyncEngine) -> None:
     assert await store.rotate_keys() == 0
     only_new = ConnectionStore(make_sessionmaker(engine), Keyring([("k2", b"\x02" * 32)]))
     assert (await only_new.secrets(info.id))["access_token"] == "rotated"
+
+
+async def test_after_rotation_and_the_old_key_gone_everything_sealed_opens(
+    engine: AsyncEngine, migrated: str
+) -> None:
+    """README: rotate-keys, then k1 leaves SECRET_KEYS. Every value the old key sealed must open with the new
+    one alone: CRM secrets, the amoCRM keys of an OAuth window, contract runs and standards, mail runs and
+    win-back scans (the solutions declare their sealed columns)."""
+    from alnuzum_contracts.store import ContractRun, ContractStandard, Seal
+    from alnuzum_mail.store import MailRun
+
+    from alnuzum_platform import cli
+    from alnuzum_winback.store import WinbackScan
+
+    k1, k2 = b"\x01" * 32, b"\x02" * 32
+    both = f"k2:{base64.b64encode(k2).decode()},k1:{base64.b64encode(k1).decode()}"
+    maker = make_sessionmaker(engine)
+    old = ConnectionStore(maker, Keyring([("k1", k1)]))
+    info = await old.create("acme", CrmKind.AMOCRM, "acme", amo_secrets("rotated", expires=LATER))
+    state = await old.create_state("acme", CrmKind.AMOCRM, "ru")
+    assert await old.attach_client(state, "client-id", "client-secret")
+    seal = Seal(Keyring([("k1", k1)]))
+    ids = {kind: uuid.uuid4() for kind in ("run", "standard", "mail", "winback")}
+    run = {"owner": "acme", "ip_key": "ip", "connection_id": info.id, "crm": "amocrm", "demo": False}
+    async with maker.begin() as s:
+        s.add(
+            ContractRun(
+                id=ids["run"],
+                standard="demo:x",
+                status="ready",
+                erase_after=False,
+                sealed=seal.close({"run": 1}, ids["run"], "run"),
+                **run,
+            )
+        )
+        s.add(
+            ContractStandard(
+                id=ids["standard"],
+                owner="acme",
+                connection_id=info.id,
+                side="buyer",
+                clauses=1,
+                sealed=seal.close(["clause"], ids["standard"], "standard"),
+            )
+        )
+        s.add(
+            MailRun(
+                id=ids["mail"],
+                status="ready",
+                erase_after=False,
+                sealed=seal.close({"mail": 1}, ids["mail"], "mail"),
+                **run,
+            )
+        )
+        s.add(WinbackScan(id=ids["winback"], status="ready", sealed=seal.close({"scan": 1}, ids["winback"], "winback"),
+                          **run))  # fmt: skip
+    try:
+        assert await cli.rotate(migrated, both) == 6
+        assert await cli.rotate(migrated, both) == 0
+        new = Seal(Keyring([("k2", k2)]))
+
+        async def opened(model: Any, kind: str) -> Any:
+            async with maker() as s:
+                row: Any = await s.get(model, ids[kind])
+            return new.open(row.sealed, ids[kind], kind)
+
+        assert await opened(ContractRun, "run") == {"run": 1}
+        assert await opened(ContractStandard, "standard") == ["clause"]
+        assert await opened(MailRun, "mail") == {"mail": 1}
+        assert await opened(WinbackScan, "winback") == {"scan": 1}
+        only_new = ConnectionStore(maker, Keyring([("k2", k2)]))
+        assert (await only_new.secrets(info.id))["access_token"] == "rotated"
+        client = (await only_new.consume_state(state, "acme", CrmKind.AMOCRM))[1]
+        assert client == {"client_id": "client-id", "client_secret": "client-secret"}
+    finally:
+        async with engine.begin() as conn:
+            for table in (
+                "contract_runs",
+                "contract_standards",
+                "mail_runs",
+                "winback_scans",
+                "oauth_states",
+            ):
+                await conn.execute(text(f"DELETE FROM {table}"))  # noqa: S608 - our own table names
+
+
+def test_a_sealed_column_is_a_plain_sql_name() -> None:
+    from alnuzum_platform.store import SealedColumn
+
+    with pytest.raises(ValueError, match="plain SQL name"):
+        SealedColumn("runs; DROP TABLE crm_connections", "sealed", "run:{id}")
 
 
 async def test_unknown_connection(store: ConnectionStore) -> None:

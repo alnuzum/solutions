@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from alnuzum_platform.config import Settings
-from alnuzum_platform.store import ConnectionInfo, ConnectionNotFound, ConnectionStore
+from alnuzum_platform.store import ConnectionInfo, ConnectionNotFound, ConnectionStore, SealedColumn
 from alnuzum_platform.web.connectors import Connectors
 from alnuzum_platform.web.i18n import counted, texts
 from alnuzum_platform.web.routes import PageError
@@ -109,6 +109,8 @@ class Solution:
     router: Callable[[Kit], APIRouter]
     startup: Callable[[FastAPI], Awaitable[None]] | None = None
     sweep: Callable[[FastAPI], Awaitable[None]] | None = None
+    #: its columns sealed with the platform's keys: ``rotate-keys`` re-encrypts them too
+    sealed: tuple[SealedColumn, ...] = ()
 
 
 def discover(names: list[str] | None = None) -> list[Solution]:

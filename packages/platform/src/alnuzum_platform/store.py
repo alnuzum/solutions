@@ -18,15 +18,16 @@ the Odoo address for https and public IPs (and again on every connect, see ``net
 import asyncio
 import hashlib
 import json
+import re
 import secrets as _secrets
 import uuid
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from alnuzum_crm.bitrix24 import parse_webhook
@@ -128,6 +129,29 @@ class ConnectionInfo:
 
 def _aad(conn_id: uuid.UUID, crm: str) -> bytes:
     return f"crm-connection:{conn_id}:{crm}".encode()
+
+
+_IDENT = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+
+
+@dataclass(frozen=True)
+class SealedColumn:
+    """A column sealed with the platform's keys, for ``rotate-keys``: ``aad`` is the associated data of a row
+    with ``{id}`` for the value of its ``key`` column, exactly as the code that seals it writes it."""
+
+    table: str
+    column: str
+    aad: str
+    key: str = "id"
+
+    def __post_init__(self) -> None:
+        for name in (self.table, self.column, self.key):
+            if not _IDENT.match(name):
+                raise ValueError(f"not a plain SQL name: {name!r}")
+
+
+#: the amoCRM keys of an OAuth window, sealed by ``attach_client``
+OAUTH_CLIENTS = SealedColumn("oauth_states", "client", "oauth-state:{id}", key="id_hash")
 
 
 def tokens_of(secrets: dict[str, str]) -> TokenSet:
@@ -518,8 +542,33 @@ class ConnectionStore:
                 row.status = "reauth_required"
             raise refused
 
-    async def rotate_keys(self) -> int:
-        """Re-encrypt every secret that is not under the primary key; returns how many."""
+    async def rotate_keys(self, sealed: Iterable[SealedColumn] = ()) -> int:
+        """Re-encrypt everything that is not under the primary key: the CRM secrets, the OAuth windows and
+        the ``sealed`` columns of the solutions; returns how many values. Once it returns 0 with the old key
+        still listed, the old key opens nothing and may leave ``SECRET_KEYS``."""
+        done = await self._rotate_secrets()
+        for column in (OAUTH_CLIENTS, *sealed):
+            done += await self._rotate_column(column)
+        return done
+
+    async def _rotate_column(self, col: SealedColumn) -> int:
+        # the names are checked plain identifiers from code, never from a request
+        pick = text(
+            f"SELECT {col.key}, {col.column} FROM {col.table} WHERE {col.column} IS NOT NULL"  # noqa: S608  # nosec B608
+            f" AND substring({col.column} from 4 for get_byte({col.column}, 2)) <> :kid FOR UPDATE"
+        )
+        put = text(f"UPDATE {col.table} SET {col.column} = :value WHERE {col.key} = :key")  # noqa: S608  # nosec B608
+        done = 0
+        async with self._sessions.begin() as session:
+            rows = (await session.execute(pick, {"kid": self._keyring.primary.encode()})).all()
+            for key, blob in rows:
+                fresh = self._keyring.reencrypt(bytes(blob), col.aad.format(id=key).encode())
+                if fresh is not None:
+                    await session.execute(put, {"value": fresh, "key": key})
+                    done += 1
+        return done
+
+    async def _rotate_secrets(self) -> int:
         done = 0
         async with self._sessions.begin() as session:
             rows = await session.execute(

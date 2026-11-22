@@ -10,13 +10,15 @@ from alnuzum_platform.config import get_settings
 from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import make_engine, make_sessionmaker
 from alnuzum_platform.migrate import downgrade, head, upgrade
+from alnuzum_platform.solutions import discover
 from alnuzum_platform.store import ConnectionStore
 
 
 async def rotate(database_url: str, keys: str) -> int:
     engine = make_engine(database_url)
     try:
-        return await ConnectionStore(make_sessionmaker(engine), Keyring.from_env(keys)).rotate_keys()
+        sealed = [column for solution in discover() for column in solution.sealed]
+        return await ConnectionStore(make_sessionmaker(engine), Keyring.from_env(keys)).rotate_keys(sealed)
     finally:
         await engine.dispose()
 
@@ -25,7 +27,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="alnuzum-platform")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("migrate", help="apply database migrations")
-    sub.add_parser("rotate-keys", help="re-encrypt every secret under the first key of SECRET_KEYS")
+    sub.add_parser(
+        "rotate-keys",
+        help="re-encrypt everything sealed (CRM secrets, OAuth windows, solutions' data) under the first key",
+    )
     serve = sub.add_parser("serve", help="migrate, then run the HTTP API")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)

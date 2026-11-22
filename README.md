@@ -98,8 +98,10 @@ uv run python scripts/odoo_bootstrap.py --password "$ODOO_PASSWORD"
 
 ## Security
 
-- CRM secrets (tokens, webhook URLs, API keys) are stored only encrypted: AES-256-GCM, one envelope per
-  connection, bound to its row, so a ciphertext copied to another row does not decrypt.
+- CRM secrets (tokens, webhook URLs, API keys) are stored only encrypted: AES-256-GCM under one master key
+  from `SECRET_KEYS`, a fresh nonce for every value, and the row's id as associated data, so a ciphertext
+  copied to another row does not decrypt. The solutions seal what they keep of a document (contract runs and
+  standard contracts, mail runs, win-back scans) the same way.
 - A refresh token is spent once even with many workers: a process lock plus a row lock in Postgres.
 - Addresses typed in by users: a Bitrix24 webhook must be https on a cloud Bitrix24 portal; an Odoo
   address must be https on port 443 and resolve only to public addresses, checked again on every
@@ -112,6 +114,8 @@ uv run python scripts/odoo_bootstrap.py --password "$ODOO_PASSWORD"
 2. Put it first in `SECRET_KEYS`, keep the old one after it: `SECRET_KEYS=k2:<new>,k1:<old>`; restart.
    New secrets are encrypted with `k2`, old ones still decrypt with `k1`.
 3. Re-encrypt everything with the new key: `docker compose exec platform alnuzum-platform rotate-keys`.
+   It takes every sealed value: CRM secrets, the amoCRM keys of an open OAuth window and the columns each
+   solution declares (`Solution.sealed`: contract runs and standards, mail runs, win-back scans).
 4. When it prints `re-encrypted: 0` on a second run, remove `k1` from `SECRET_KEYS` and restart.
 
 ## License

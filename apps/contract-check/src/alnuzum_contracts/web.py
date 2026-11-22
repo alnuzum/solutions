@@ -30,7 +30,7 @@ from alnuzum_contracts.store import KEEP, ContractStore, NotFound, RunInfo, Runs
 from alnuzum_files import FileError
 from alnuzum_orders.model import ModelError
 from alnuzum_platform.solutions import Kit, Solution
-from alnuzum_platform.store import ConnectionInfo
+from alnuzum_platform.store import ConnectionInfo, SealedColumn
 from alnuzum_platform.web.routes import PageError, redirect
 from alnuzum_platform.web.security import RateLimiter
 
@@ -382,6 +382,10 @@ def make_solution(contracts: Contracts) -> Solution:
         router=lambda kit: build(kit, contracts),
         startup=_startup,
         sweep=_sweep,
+        sealed=(
+            SealedColumn("contract_runs", "sealed", "run:{id}"),
+            SealedColumn("contract_standards", "sealed", "standard:{id}"),
+        ),
     )
 
 
