@@ -16,11 +16,12 @@ permissions:
   contents: read
 
 concurrency:
-  # one run at a time in the shared accounts; pull requests from forks (their job is skipped) get a
-  # group of their own, so they cannot push a waiting run of main out of the queue
+  # one run at a time in the shared accounts; pull requests from forks and from Dependabot (their job is
+  # skipped) get a group of their own, so they cannot push a waiting run of main out of the queue
   group: >-
     live-e2e${{ github.event_name == 'pull_request' &&
-    github.event.pull_request.head.repo.full_name != github.repository &&
+    (github.event.pull_request.head.repo.full_name != github.repository ||
+     github.event.pull_request.user.login == 'dependabot[bot]') &&
     format('-fork-{0}', github.ref) || '' }}
   cancel-in-progress: false
 
