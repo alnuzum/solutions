@@ -267,7 +267,9 @@ def apply_choices(
         if pick == "skip":
             line.choice, line.status, line.by, line.problem = None, "not_found", "person", None
             continue
-        if pick and pick in line.options():
+        # the form sends every checked option back: the system's own choice on a line it settled stays
+        # the system's, with its confidence; an open line has nothing checked, so a pick there is a person's
+        if pick and pick in line.options() and not (pick == line.choice and line.status == "ok"):
             line.choice, line.by, line.confidence = pick, "person", 1.0
             line.status = "ok"
             if line.problem == "stock":

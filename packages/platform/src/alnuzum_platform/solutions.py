@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from alnuzum_platform.config import Settings
-from alnuzum_platform.store import ConnectionInfo, ConnectionNotFound, ConnectionStore
+from alnuzum_platform.store import ConnectionInfo, ConnectionNotFound, ConnectionStore, SealedColumn
 from alnuzum_platform.web.connectors import Connectors
 from alnuzum_platform.web.i18n import counted, texts
 from alnuzum_platform.web.routes import PageError
@@ -109,10 +109,13 @@ class Solution:
     router: Callable[[Kit], APIRouter]
     startup: Callable[[FastAPI], Awaitable[None]] | None = None
     sweep: Callable[[FastAPI], Awaitable[None]] | None = None
+    #: its columns sealed with the platform's keys: ``rotate-keys`` re-encrypts them too
+    sealed: tuple[SealedColumn, ...] = ()
 
 
-def discover(names: list[str] | None = None) -> list[Solution]:
-    """Installed solutions (``names`` limits them, ``[]`` turns them all off)."""
+def discover(names: list[str] | None = None, failed: list[str] | None = None) -> list[Solution]:
+    """Installed solutions (``names`` limits them, ``[]`` turns them all off); the names of those that do not
+    load go to ``failed`` when it is given."""
     found: list[Solution] = []
     for ep in entry_points(group=GROUP):
         if names is not None and ep.name not in names:
@@ -121,6 +124,8 @@ def discover(names: list[str] | None = None) -> list[Solution]:
             item = ep.load()
         except Exception:
             log.exception("solution %s does not load", ep.name)
+            if failed is not None:
+                failed.append(ep.name)
             continue
         if isinstance(item, Solution):
             found.append(item)

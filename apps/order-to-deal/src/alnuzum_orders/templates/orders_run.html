@@ -3,7 +3,7 @@
 {% block head %}<link rel="stylesheet" href="/static/orders/orders.css"><link rel="stylesheet" href="/orders/link.css">{% endblock %}
 {% macro num(v) %}{{ ("%.3f"|format(v|float)).rstrip("0").rstrip(".") }}{% endmacro %}
 {% macro money(v) %}{{ "{:,.2f}".format(v).replace(",", " ").removesuffix(".00") }}{% endmacro %}
-{% macro cand(ln, c, kind) %}<label class="opt"><input type="radio" name="c{{ ln.key }}" value="{{ c.id }}"{% if ln.choice == c.id %} checked{% endif %}{% if run.status in ('writing', 'written') %} disabled{% endif %}><span><b>{{ c.name }}</b><small>{{ c.sku or '' }} · {{ c.unit }}{% if c.price %} · {{ money(c.price|float) }}{% endif %}{% if c.stock is not none %} · {{ t.o_stock }} {{ c.stock|float|round(0)|int }}{% endif %}{% if kind == 'a' %} · {{ t.o_analogs|lower }}{% endif %}</small></span></label>{% endmacro %}
+{% macro cand(ln, c, kind) %}<label class="opt"><input type="radio" name="c{{ ln.key }}" value="{{ c.id }}"{% if ln.choice == c.id and ln.status == 'ok' %} checked{% endif %}{% if run.status in ('writing', 'written') %} disabled{% endif %}><span><b>{{ c.name }}</b><small>{% if ln.choice == c.id and ln.status != 'ok' %}{{ t.o_suggested }} · {% endif %}{{ c.sku or '' }} · {{ c.unit }}{% if c.price %} · {{ money(c.price|float) }}{% endif %}{% if c.stock is not none %} · {{ t.o_stock }} {{ c.stock|float|round(0)|int }}{% endif %}{% if kind == 'a' %} · {{ t.o_analogs|lower }}{% endif %}</small></span></label>{% endmacro %}
 {% block body %}
 {% set cur = r.catalog.currency or '' %}
 {% set crm_name = t['crm_' ~ run.crm] %}
@@ -26,6 +26,8 @@
   {% for l in run.readback.lines %}<tr><td>{{ l.name }}{% if l.sku %} <small>{{ l.sku }}</small>{% endif %}</td><td class="r">{{ num(l.quantity) }}</td><td class="r">{{ money(l.price|float) }}</td><td class="r">{{ money(l.total|float) }}</td></tr>{% endfor %}
   </tbody></table>
   <p class="sum"><span>{{ t.o_amount }}</span><b>{{ money((run.readback.amount or 0)|float) }} {{ run.readback.currency or cur }}</b></p>
+  {% set rb = namespace(base=0) %}{% for l in run.readback.lines %}{% set rb.base = rb.base + l.total|float %}{% endfor %}
+  {% if not r.catalog.line_prices and run.readback.lines and (rb.base - (run.readback.amount or 0)|float)|abs >= 1 %}<p class="muted">{{ t.o_catalog_prices.format(crm=crm_name, base=money(rb.base), total=money((run.readback.amount or 0)|float)) }}</p>{% endif %}
   {% if run.deal_url %}<a class="open" href="{{ run.deal_url }}" rel="noopener noreferrer">{{ t.o_open_crm }}<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></a>{% endif %}
 </section>
 {% endif %}

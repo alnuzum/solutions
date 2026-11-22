@@ -685,12 +685,12 @@ async def test_the_accuracy_reads_as_a_reader_writes_it(make: Any, monkeypatch: 
 
     ru, en = await pages()
     assert (
-        "Точность на эталонном наборе: 100\u00a0% строк (67 строк, 6 заявок в четырёх форматах); ошибок нет."
-        in ru
+        "Точность на эталонном наборе (67 строк, 6 заявок в четырёх форматах): товар верный в 100\u00a0% строк,"
+        " неверных нет; количество верное в 66 из 67." in ru
     )
     assert (
-        "Accuracy on the reference set: 100% of lines (67 lines, 6 orders in four formats); no mistakes."
-        in en
+        "Accuracy on the reference set (67 lines, 6 orders in four formats): the right product in 100% of"
+        " lines, none wrong; the right quantity in 66 of 67." in en
     )
     assert "100.0" not in ru + en and "—" not in ru.split("Точность", 1)[1].split("</p>", 1)[0]
     shown = {
@@ -699,12 +699,14 @@ async def test_the_accuracy_reads_as_a_reader_writes_it(make: Any, monkeypatch: 
         "orders": 6,
         "wrong": 2,
         "wrong_flagged": 1,
+        "right": 66,
+        "qty_ok": 65,
         "date": "2026-11-09",
     }
     monkeypatch.setattr(web, "quality", lambda: shown)
     ru, en = await pages()
-    assert "98,5\u00a0% строк" in ru and "ошибок 2, из них система сама пометила спорными 1." in ru
-    assert "98.5% of lines" in en and "mistakes: 2, of which the system itself marked 1 as unsure." in en
+    assert "98,5\u00a0% строк, неверных 2, из них система сама пометила спорными 1;" in ru
+    assert "98.5% of lines, wrong: 2, of which the system itself marked 1 as unsure;" in en
 
 
 # --- the Minor pack 1 ---
@@ -848,3 +850,52 @@ def test_no_limit_text_promises_a_new_day_or_calls_your_crm_a_demo() -> None:
                 assert not any(w in low for w in ("сегодня", "завтра", "today", "tomorrow", "дневной")), key
                 if key in ("e_ceiling", "n_quota", "e_runs", "e_stt_ceiling", "e_stt_mine"):
                     assert "демо" not in low and "demo" not in low, key  # an own CRM sees them too
+
+
+# --- what the page says after a write ---
+
+
+async def test_a_write_keeps_who_chose_and_explains_catalog_prices_in_amocrm_and_kommo(make: Any) -> None:
+    """The form carries every line's checked option: a line the system chose stays the system's, with its
+    own confidence. Kommo keeps the price on the catalog product: the page says why the lines read back at
+    catalog prices while the deal amount is the total after the rules."""
+    h = await make(
+        choose_first(0.9), demo_kommo_domain="acme.kommo.com", demo_kommo_token="AT-demo-kommo-secret"
+    )
+    h.crm.kind = CrmKind.KOMMO
+    b = Browser(h.app)
+    rid = run_id(await b.order("demo:kommo", sample="order-ru.xlsx"))
+    before = (await b.http.get(f"/ru/orders/{rid}")).text
+    checked = dict(re.findall(r'name="c(\d+)" value="([^"]+)" checked', before))
+    assert checked and "выбрано вами" not in before
+    rings = re.findall(r'aria-label="(\d+) %"', before)
+    resp = await b.decide(rid, {f"c{k}": v for k, v in checked.items()} | {"action": "write"})
+    assert resp.headers["location"].endswith("?n=written")
+    after = (await b.http.get(f"/ru/orders/{rid}")).text
+    assert "выбрано вами" not in after
+    assert re.findall(r'aria-label="(\d+) %"', after) == rings
+    deal = next(iter(h.crm.deals.values()))
+    at_catalog = sum((x.quantity * x.unit_price for x in deal.lines), Decimal(0))
+    assert deal.amount is not None and deal.amount != at_catalog
+    assert "Kommo хранит цену на товаре каталога" in after
+    assert "Расчёт каждой строки записан в примечание к сделке." in after
+
+
+async def test_a_person_s_own_pick_is_marked_as_theirs(make: Any) -> None:
+    h = await make(choose_first(0.9))
+    b = Browser(h.app)
+    rid = run_id(await b.order("demo:bitrix24", sample="order-ru.xlsx"))
+    before = (await b.http.get(f"/ru/orders/{rid}")).text
+    options = re.findall(r'name="c(\d+)" value="([^"s][^"]*)"(?! checked)', before)
+    key, other = options[0]
+    await b.decide(rid, {f"c{key}": other})
+    after = (await b.http.get(f"/ru/orders/{rid}")).text
+    assert after.count("выбрано вами") == 1
+
+
+async def test_the_reference_line_shows_the_quantity_miss() -> None:
+    from alnuzum_orders import web
+
+    q = web.quality()
+    assert q is not None and q["quantity"] < 1
+    assert (q["right"], q["qty_ok"]) == (67, 66)

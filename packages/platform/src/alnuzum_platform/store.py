@@ -18,15 +18,16 @@ the Odoo address for https and public IPs (and again on every connect, see ``net
 import asyncio
 import hashlib
 import json
+import re
 import secrets as _secrets
 import uuid
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from alnuzum_crm.bitrix24 import parse_webhook
@@ -35,7 +36,7 @@ from alnuzum_crm.netguard import check_public_url
 from alnuzum_crm.oauth import ZOHO_ACCOUNTS_HOSTS, ZOHO_API_HOSTS, normalize_amo_domain, zoho_host
 from alnuzum_crm.tokens import TokenSet
 from alnuzum_crm.types import CrmKind
-from alnuzum_platform.crypto import Keyring
+from alnuzum_platform.crypto import Keyring, SecretError
 from alnuzum_platform.models import CrmConnection, CrmWrite, OAuthState
 
 SECRET_KEYS: dict[CrmKind, tuple[frozenset[str], frozenset[str]]] = {
@@ -128,6 +129,58 @@ class ConnectionInfo:
 
 def _aad(conn_id: uuid.UUID, crm: str) -> bytes:
     return f"crm-connection:{conn_id}:{crm}".encode()
+
+
+_IDENT = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+
+
+@dataclass(frozen=True)
+class SealedColumn:
+    """A column sealed with the platform's keys, for ``rotate-keys``: ``aad`` is the associated data of a row
+    with ``{id}`` for the value of its ``key`` column, exactly as the code that seals it writes it."""
+
+    table: str
+    column: str
+    aad: str
+    key: str = "id"
+
+    def __post_init__(self) -> None:
+        for name in (self.table, self.column, self.key):
+            if not _IDENT.match(name):
+                raise ValueError(f"not a plain SQL name: {name!r}")
+
+
+@dataclass
+class Rotation:
+    """What ``rotate_keys`` did. ``broken``: ``table:key`` of values that do not open with any listed key;
+    ``left``: values still under another key than the primary, per ``table.column``; ``unloaded``: solutions
+    whose code did not load, so their columns were not taken."""
+
+    done: int = 0
+    broken: list[str] = field(default_factory=list)
+    left: dict[str, int] = field(default_factory=dict)
+    unloaded: list[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return not (self.broken or self.left or self.unloaded)
+
+
+def _quoted(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _other_key(column: str) -> str:
+    """SQL: the value is a v1 envelope whose key id is not ``:kid``; a value too short or of another format is
+    not one (and ``get_byte`` never reads past it)."""
+    return (
+        f"(CASE WHEN length({column}) >= 3 AND substring({column} from 1 for 2) = decode('7631', 'hex')"
+        f" THEN substring({column} from 4 for get_byte({column}, 2)) <> :kid ELSE false END)"
+    )
+
+
+#: the amoCRM keys of an OAuth window, sealed by ``attach_client``
+OAUTH_CLIENTS = SealedColumn("oauth_states", "client", "oauth-state:{id}", key="id_hash")
 
 
 def tokens_of(secrets: dict[str, str]) -> TokenSet:
@@ -518,9 +571,37 @@ class ConnectionStore:
                 row.status = "reauth_required"
             raise refused
 
-    async def rotate_keys(self) -> int:
-        """Re-encrypt every secret that is not under the primary key; returns how many."""
-        done = 0
+    async def rotate_keys(self, sealed: Iterable[SealedColumn] = ()) -> "Rotation":
+        """Re-encrypt everything that is not under the primary key: the CRM secrets, the OAuth windows and
+        the ``sealed`` columns of the solutions. A value that does not open is named and skipped, the rest go
+        on; then every bytea column of the schema is counted for values still under another key, so a column
+        nobody declared (or a solution that did not load) shows up instead of passing for done."""
+        result = Rotation()
+        await self._rotate_secrets(result)
+        for column in (OAUTH_CLIENTS, *sealed):
+            await self._rotate_column(column, result)
+        result.left = await self.left_under_other_keys()
+        return result
+
+    async def _rotate_column(self, col: SealedColumn, result: "Rotation") -> None:
+        # the names are checked plain identifiers from code, never from a request
+        pick = text(
+            f"SELECT {col.key}, {col.column} FROM {col.table} WHERE {_other_key(col.column)} FOR UPDATE"  # noqa: S608  # nosec B608
+        )
+        put = text(f"UPDATE {col.table} SET {col.column} = :value WHERE {col.key} = :key")  # noqa: S608  # nosec B608
+        async with self._sessions.begin() as session:
+            rows = (await session.execute(pick, {"kid": self._keyring.primary.encode()})).all()
+            for key, blob in rows:
+                try:
+                    fresh = self._keyring.reencrypt(bytes(blob), col.aad.format(id=key).encode())
+                except SecretError:
+                    result.broken.append(f"{col.table}:{key}")  # where, never the value
+                    continue
+                if fresh is not None:
+                    await session.execute(put, {"value": fresh, "key": key})
+                    result.done += 1
+
+    async def _rotate_secrets(self, result: "Rotation") -> None:
         async with self._sessions.begin() as session:
             rows = await session.execute(
                 select(CrmConnection)
@@ -528,12 +609,32 @@ class ConnectionStore:
                 .with_for_update()
             )
             for row in rows.scalars():
-                data: dict[str, Any] = json.loads(
-                    self._keyring.decrypt(row.secret or b"", _aad(row.id, row.crm))
-                )
+                try:
+                    data: dict[str, Any] = json.loads(
+                        self._keyring.decrypt(row.secret or b"", _aad(row.id, row.crm))
+                    )
+                except SecretError:
+                    result.broken.append(f"crm_connections:{row.id}")
+                    continue
                 self._seal(row, data)
-                done += 1
-        return done
+                result.done += 1
+
+    async def left_under_other_keys(self) -> dict[str, int]:
+        """``table.column`` -> values under another key than the primary, in every bytea column."""
+        found: dict[str, int] = {}
+        async with self._sessions.begin() as session:
+            columns = await session.execute(
+                text(
+                    "SELECT table_name, column_name FROM information_schema.columns"
+                    " WHERE table_schema = current_schema() AND data_type = 'bytea' ORDER BY 1, 2"
+                )
+            )
+            for table, column in columns.all():
+                count = text(f"SELECT count(*) FROM {_quoted(table)} WHERE {_other_key(_quoted(column))}")  # noqa: S608  # nosec B608
+                n = (await session.execute(count, {"kid": self._keyring.primary.encode()})).scalar_one()
+                if n:
+                    found[f"{table}.{column}"] = int(n)
+        return found
 
     def token_source(self, conn_id: uuid.UUID, refresher: Refresher | None) -> "StoredToken":
         return StoredToken(self, conn_id, refresher)

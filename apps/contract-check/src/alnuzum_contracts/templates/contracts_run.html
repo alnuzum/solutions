@@ -42,6 +42,7 @@
     {% if x.was %}<small class="quote"><em>{{ t.c_was }}:</em> «{{ x.was }}»</small>{% endif %}
     {% if x.now %}<small class="quote"><em>{{ t.c_now }}:</em> «{{ x.now }}»</small>{% endif %}
     {% if c.why %}<small class="meta">{{ c.why }}</small>{% endif %}
+    {% if c.bank %}<small class="warn">{{ t.c_bank }}</small>{% endif %}
     {% if not c.rated %}<small class="warn">{{ t.c_unrated }}</small>{% endif %}
    </div>
    {% endfor %}

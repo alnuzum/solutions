@@ -13,16 +13,24 @@ _T: dict[str, tuple[str, str]] = {
         "calculation and a task for what is left.",
     ),
     "o_quality": (
-        "Точность на эталонном наборе: {acc} строк ({lines:строка|строки|строк}, {orders:заявка|заявки|заявок} в четырёх форматах); "
-        "{mistakes}. Замер {date}.",
-        "Accuracy on the reference set: {acc} of lines ({lines:line|lines}, {orders:order|orders} in four formats); "
-        "{mistakes}. Measured {date}.",
+        "Точность на эталонном наборе ({lines:строка|строки|строк}, {orders:заявка|заявки|заявок} в четырёх форматах): "
+        "товар верный в {acc} строк, {mistakes}; количество верное в {qty} из {right}. Замер {date}.",
+        "Accuracy on the reference set ({lines:line|lines}, {orders:order|orders} in four formats): "
+        "the right product in {acc} of lines, {mistakes}; the right quantity in {qty} of {right}. Measured {date}.",
     ),
     "o_quality_flagged": (
-        "ошибок {wrong}, из них система сама пометила спорными {flagged}",
-        "mistakes: {wrong}, of which the system itself marked {flagged} as unsure",
+        "неверных {wrong}, из них система сама пометила спорными {flagged}",
+        "wrong: {wrong}, of which the system itself marked {flagged} as unsure",
     ),
-    "o_quality_clean": ("ошибок нет", "no mistakes"),
+    "o_quality_clean": ("неверных нет", "none wrong"),
+    "o_catalog_prices": (
+        "{crm} хранит цену на товаре каталога, а не в строке сделки, поэтому строки записаны по ценам каталога "
+        "(вместе {base}), а бюджет сделки {total} посчитан по вашим правилам: наценки категорий и скидка от суммы. "
+        "Расчёт каждой строки записан в примечание к сделке.",
+        "{crm} keeps the price on the catalog product, not on the deal line, so the lines are written at catalog "
+        "prices ({base} in all), and the deal amount {total} is the total after your rules: category markups and "
+        "the volume discount. The calculation of each line is in the deal's note.",
+    ),
     "o_where": ("Куда записать", "Where to write"),
     "o_demo": ("Демо без регистрации", "Demo, no sign-up"),
     "o_demo_note": (
@@ -79,6 +87,7 @@ _T: dict[str, tuple[str, str]] = {
     "o_by_name": ("по названию", "by name"),
     "o_by_model": ("выбрала система", "picked by the system"),
     "o_by_person": ("выбрано вами", "picked by you"),
+    "o_suggested": ("предлагает система", "the system suggests"),
     "o_unsure": ("Спорно — выберите", "Unsure — pick one"),
     "o_not_found": ("Нет в каталоге", "Not in the catalog"),
     "o_analogs": ("Аналоги", "Alternatives"),

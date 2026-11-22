@@ -38,6 +38,14 @@ _NUM = re.compile(r"^\s*(?:п\.\s*|пункт\s+)?(\d{1,2}(?:\.\d{1,3}){0,4})(\.
 _WORD_NUMBER = re.compile(r"^\s*(?:статья|раздел|article|section|clause)\s+(\d{1,2})\b", re.IGNORECASE)
 _PARTY = re.compile(r"^[A-ZА-ЯЁ][\w«»\"' .-]{1,40}:\s")
 _TOKEN = re.compile(r"\w+(?:[.,]\d+)*|[^\w\s]")
+# bank details: the words that name an account or a bank, and an account number (12 digits and more, in
+# groups); «банковских дней» and a price are neither
+_BANK = re.compile(
+    r"р/с|р/сч|к/с|расч[её]тн\w*\s+сч[её]т|корр?\.?\s*сч[её]т|лицев\w*\s+сч[её]т|\bсч[её]т\s*№|\bIBAN\b|"
+    r"\bSWIFT\b|\bBIC\b|\bБИК\b|\bМФО\b|\bАКБ\b|\bбанк\b|\bbank\b(?!\s+(?:guarantee|day))|\baccount\b",
+    re.IGNORECASE,
+)
+_ACCOUNT = re.compile(r"(?<![\d])\d(?:[ \u00a0]?\d){11,}(?![\d])")
 _QUOTES = str.maketrans({c: '"' for c in "«»“”„‟\"'’‘`"} | {c: "-" for c in "‐‑‒–—―−"} | {"ё": "е"})
 _SPACES = re.compile(r"[\s   ]+")
 
@@ -255,6 +263,8 @@ class Change:
     why: str = ""
     substantive: bool = True
     rated: bool = False
+    #: a party's bank account changed or added: high whatever the model says (see ``bank_details``)
+    bank: bool = False
 
     def to_json(self) -> dict[str, Any]:
         return asdict(self)
@@ -392,7 +402,25 @@ def compare(ours: list[Clause], theirs: list[Clause]) -> Comparison:
     changes.sort(key=lambda c: (c.b if c.b is not None else _after(pairs, c.a), c.a or 0))
     for n, c in enumerate(changes, 1):
         c.id = n
+        if bank_details(
+            ours[c.a].text if c.a is not None else "", theirs[c.b].text if c.b is not None else ""
+        ):
+            c.bank, c.topic, c.risk = True, "requisites", "high"
     return Comparison(ours, theirs, changes, cosmetic, same)
+
+
+def _accounts(text: str) -> set[str]:
+    return {re.sub(r"\D", "", m) for m in _ACCOUNT.findall(text)}
+
+
+def bank_details(ours: str, theirs: str) -> bool:
+    """A party's bank account changed (or a clause with an account appeared): the classic scheme of payment
+    fraud, where a «corrected» account in a draft sends the money elsewhere. Code decides this, not the model:
+    a clause naming an account or a bank whose account numbers differ between the two drafts."""
+    if not (_BANK.search(ours) or _BANK.search(theirs)):
+        return False
+    new = _accounts(theirs) - _accounts(ours)
+    return bool(new)
 
 
 def _after(pairs: list[tuple[int | None, int | None]], a: int | None) -> float:

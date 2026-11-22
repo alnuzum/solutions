@@ -40,6 +40,11 @@ class Keyring:
     def __repr__(self) -> str:
         return f"Keyring(primary={self.primary!r}, keys={len(self._keys)})"
 
+    @property
+    def ids(self) -> list[str]:
+        """The key ids, the primary first."""
+        return list(self._keys)
+
     @classmethod
     def from_env(cls, value: str) -> "Keyring":
         keys: list[tuple[str, bytes]] = []
@@ -70,6 +75,12 @@ class Keyring:
             raise SecretError("unknown envelope version")
         n = envelope[2]
         return envelope[3 : 3 + n].decode()
+
+    def reencrypt(self, envelope: bytes, aad: bytes) -> bytes | None:
+        """The same secret under the primary key, or None when it is under it already."""
+        if self.key_id(envelope) == self.primary:
+            return None
+        return self.encrypt(self.decrypt(envelope, aad), aad)
 
     def decrypt(self, envelope: bytes, aad: bytes) -> bytes:
         kid = self.key_id(envelope)

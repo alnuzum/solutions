@@ -26,7 +26,7 @@ from alnuzum_mail.rules import KINDS, LANGUAGES, MAX_RULES, RuleError, load, par
 from alnuzum_mail.service import Mail, MailError, crm_error, sample_bytes, samples, target_key
 from alnuzum_mail.store import KEEP, MailStore, NotFound, RunInfo, RunsExceeded
 from alnuzum_platform.solutions import Kit, Solution
-from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound
+from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound, SealedColumn
 from alnuzum_platform.web.routes import PageError, redirect
 
 log = logging.getLogger("alnuzum_mail.web")
@@ -408,6 +408,7 @@ def make_solution(mail: Mail) -> Solution:
         router=lambda kit: build(kit, mail),
         startup=_startup,
         sweep=_sweep,
+        sealed=(SealedColumn("mail_runs", "sealed", "mail:{id}"),),
     )
 
 

@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, Response
 
 from alnuzum_crm.errors import CrmError
 from alnuzum_platform.solutions import Kit, Solution
-from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound
+from alnuzum_platform.store import ConnectionDisabled, ConnectionInfo, ConnectionNotFound, SealedColumn
 from alnuzum_platform.web.routes import PageError, redirect
 from alnuzum_platform.web.security import RateLimiter
 from alnuzum_winback.i18n import texts
@@ -322,6 +322,7 @@ def make_solution(winback: Winback) -> Solution:
         router=lambda kit: build(kit, winback),
         startup=_startup,
         sweep=_sweep,
+        sealed=(SealedColumn("winback_scans", "sealed", "winback:{id}"),),
     )
 
 
