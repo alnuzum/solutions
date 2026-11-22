@@ -147,3 +147,20 @@ No Critical. Fixed before the merge:
 
 Limitation, by design: the device fingerprint is computed by the page and any client can forge it; an antidetect
 browser changes it on every request, so the device limit holds only a lazy attack (README says so).
+
+## Gate again, after the fixes and the rebase onto main e7a0d76 (demofix #28)
+
+```
+ruff check .                         All checks passed!
+ruff format --check .                188 files already formatted
+mypy --strict                        Success: no issues found in 146 source files
+bandit                               exit 0
+pip-audit --strict                   No known vulnerabilities found
+solutions discovered                 ['contracts', 'mail', 'orders', 'otp', 'voice', 'winback']
+gitleaks git origin/main..HEAD       no leaks found
+pytest --cov --cov-fail-under=90     953 passed, 1 skipped, 25 deselected; total coverage 90.94 %
+                                     alnuzum_otp: guard.py 98 %, web.py 97 %
+```
+
+README conflict with #28 resolved keeping both: its table of five solutions plus a sixth row for this one; its
+shared-code table without the old `apps/` row.
