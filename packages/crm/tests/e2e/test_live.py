@@ -305,6 +305,7 @@ async def test_purchases_and_a_task_on_the_client(
             product = await _product(crm, f"E2E product {key}", [] if pool else products)
             have = {p.title: p for p in (await crm.purchases(company_id=company)).items}
             fresh = False
+            made_now: set[str] = set()
             for title, days, qty in PURCHASE_POOL:
                 if pool and (title in have or await _linked_back(crm, company, title)):
                     continue
@@ -313,6 +314,7 @@ async def test_purchases_and_a_task_on_the_client(
                     DealIn(title, (line,), company_id=company, tags=("e2e",)), now - timedelta(days=days)
                 )
                 fresh = True
+                made_now.add(title)
                 if not pool:
                     deals.append(made.id)
                     products.extend(made.product_ids)
@@ -320,11 +322,24 @@ async def test_purchases_and_a_task_on_the_client(
             got = (await crm.purchases(company_id=company)).items
             mine = [p for p in got if p.title in {t for t, _, _ in PURCHASE_POOL}]
             assert [p.title for p in mine] == ["E2E purchase pool 2", "E2E purchase pool 1"], got
-            for p, (_, days, qty) in zip(mine, reversed(PURCHASE_POOL), strict=True):
+            for p, (title, days, qty) in zip(mine, reversed(PURCHASE_POOL), strict=True):
                 assert p.company_id == company
-                assert p.closed_at.date() <= now.date() and p.closed_at > now - timedelta(days=days + 2), p
+                assert p.closed_at.date() <= now.date(), p
+                if title in made_now:
+                    assert p.closed_at > now - timedelta(days=days + 2), p
+                else:
+                    # a pool deal made by an earlier run keeps the date it got then: it only grows older
+                    assert p.closed_at < now - timedelta(days=days - 1), p
                 assert [(x.product_id, x.quantity) for x in p.lines] == [(product, qty)], p.lines
                 assert all(x.unit_price == Decimal(100) for x in p.lines), p.lines
+            if not made_now:
+                # both pool deals were made by one earlier run: their dates still lie the pool's 40 days apart
+                # (a closed_at read from the creation date would put them minutes apart)
+                (_, newer, _), (_, older, _) = reversed(PURCHASE_POOL)
+                apart = mine[0].closed_at - mine[1].closed_at
+                assert abs(apart - timedelta(days=older - newer)) <= timedelta(days=1), (
+                    f"{kind}: pool deals {apart} apart; if one was made again, delete both to make them anew"
+                )
             assert (await crm.purchases(company_id=company, lines=False)).items[0].lines == ()
             named = await crm.client_names([company])
             assert list(named) == [company] and named[company].startswith("E2E"), named
