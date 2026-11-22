@@ -164,3 +164,76 @@ pytest --cov --cov-fail-under=90     953 passed, 1 skipped, 25 deselected; total
 
 README conflict with #28 resolved keeping both: its table of five solutions plus a sixth row for this one; its
 shared-code table without the old `apps/` row.
+
+## Merge and deploy
+
+- #29 (Live E2E fix, squash `1724c1d`) merged on CI green; its own live run was cancelled twice in the shared
+  `live-e2e` queue (a newer pending run replaces an older one), so the fix was first proved live on #30's run.
+- #30 (this stand, squash `0a4741f`): CI green, stand deployed, **Live E2E in five CRMs green on the PR** (with the fix);
+  production `/health` answers `0a4741f`. Nothing on the stand is sealed with the platform's keys (no database at all),
+  so `Solution.sealed` stays empty and `rotate-keys` has nothing of it to re-encrypt.
+- Ruling: Dependabot pull requests now get their own `live-e2e` group — a Dependabot push at 10:44 cancelled the waiting
+  manual run of main (its own job is skipped anyway) — the cost: none, their job never runs.
+
+## Live check on production (https://apps.alnuzum.com/ru/otp)
+
+Real headless Chromium (lane b), a fresh context, no registration:
+
+| step | result |
+|---|---|
+| open `/ru/otp` | 200, the table of the run has 10 rows |
+| type +998 97 …, the page solves the proof of work | 1 147 ms |
+| "Получить код" | `?n=sent`, the 6-digit code shown on the page |
+| enter the code | `?n=in`, "Вы вошли"; the hour's row of `+998 974` appears in the live counters |
+| ask again for the same number | `?r=number&w=29`: "Слой 2: на этот номер код уже уходил. Следующий через 29 секунд." |
+
+Probes from outside (`curl`-like, the attack's own `solve()`), 17 of 17 as expected, the same on the stand before
+the merge:
+
+```
+OK  page without registration: 200 (want 200)
+OK  page CSP allows own script only: True (want True)
+OK  send without session: 403 (want 403)
+OK  verify without session: 403 (want 403)
+OK  challenge without session: 401 (want 401)
+OK  POST /lab/otp/reset : 404 (want 404)
+OK  POST /lab/otp/reset ['x-forwarded-for']: 404 (want 404)
+OK  POST /lab/otp/reset ['forwarded']: 404 (want 404)
+OK  GET /lab/otp/state : 404 (want 404)
+OK  GET /lab/otp/state ['x-forwarded-for']: 404 (want 404)
+OK  GET /lab/otp/state ['forwarded']: 404 (want 404)
+OK  strange pause in the address: 200 (want 200)
+OK  admin API from outside: 404 (want 404)
+OK  forged csrf: 403 (want 403)
+OK  foreign origin: 403 (want 403)
+OK  send without the work: /ru/otp?r=human (want /ru/otp?r=human)
+OK  IP limit holds under spoofed lab headers: True (want True)
+    spoofed sends: ['/ru/otp?n=sent', '/ru/otp?n=sent', '/ru/otp?n=sent', '/ru/otp?n=sent', '/ru/otp?r=ip&w=60']
+```
+
+The five other solutions after the deploy, one action each in the browser: orders (sample `order-ru.xlsx` → run page,
+$0.008), voice (`ru-01` → plan of the deal), contracts (`supply-ru-docx` against the standard → changes, $0.0327),
+mail (`new-signature` → parsed letter, $0.0175), win-back (amoCRM demo scan → list, 45 won deals read) — all 200, no
+error block.
+
+Logs after the live check (`docker logs --since 40m apps-prod-platform-1` on the server): 5 `otp:` lines, numbers
+masked (`+998 931 ***28`), 0 unmasked Uzbek numbers, 0 codes, 0 matches of token/secret patterns.
+
+## Live E2E on main
+
+Manual `workflow_dispatch` on main `0a4741f` (run 45014131922): **success**, all five jobs — Live E2E in five CRMs,
+order-to-deal, voice-to-crm (the ElevenLabs "out of credits" of 10.11 did not repeat), contract check, mail triage.
+The push run of the same commit (45013128961) was green too. No job was switched off.
+
+## Not done / limits
+
+- Cloudflare Turnstile is not measured: a proof of work stands in (no Cloudflare account); it stops scripts, not
+  browsers.
+- No IP-to-ASN database: the "provider's network" is the /24 (/48).
+- The alert goes to the log and the page, not to a messenger.
+- The headless-Chromium timing (median 1 509 ms) was taken while the machine ran at load average 22–40 from other
+  sessions; an idle probe gave 420 ms, so the attack's CPU price (15.1 h) is an upper figure.
+- The counters live in the one process: a deploy resets the stand's live counters and closed prefixes.
+- The device fingerprint is computed by the page, any client can forge it (by design, said in the README).
+- The attack runs in process over ASGI (the same pages and middleware, no network between); `browsers.py` is the part
+  over real HTTP.
