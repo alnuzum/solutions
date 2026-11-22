@@ -227,7 +227,8 @@ SUPPLY_EN = [
 ]
 
 # every change: where (a unique part of a paragraph), what, and the truth: topic and level of risk for us.
-# cosmetic: true for a change that must never be rated high (requisites, wording)
+# cosmetic: true for a change that must never be rated high (requisites other than a bank account, wording);
+# a party's new bank account is high: the classic scheme of payment fraud
 PAIRS = [
     {
         "id": "supply-ru-docx",
@@ -326,8 +327,7 @@ PAIRS = [
                 "find": "р/с 2020 8000 1234 5678 9012 в АКБ «Капиталбанк», МФО 01088",
                 "with": "р/с 2020 8000 9876 5432 1098 в АКБ «Хамкорбанк», МФО 00083",
                 "topic": "requisites",
-                "risk": "low",
-                "cosmetic": True,
+                "risk": "high",
             },
             {"op": "format", "find": "ЦЕНА ТОВАРА", "with": "Цена товара"},
             {
@@ -513,8 +513,7 @@ PAIRS = [
                 "find": "Bank: Kapitalbank, account 2020 8840 0000 1111 2222",
                 "with": "Bank: Hamkorbank, account 2020 8840 0000 3333 4444",
                 "topic": "requisites",
-                "risk": "low",
-                "cosmetic": True,
+                "risk": "high",
             },
             {"op": "format", "find": "SUPPLY AGREEMENT No. 21-E", "with": "Supply Agreement No. 21-E"},
         ],

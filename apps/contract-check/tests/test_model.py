@@ -180,3 +180,38 @@ def test_a_clause_without_a_number_is_new_only_when_it_was_added() -> None:
     assert "1. новый пункт · " in note_text(added, "ru") and note_text(added, "ru").split("\n")[3].endswith(
         " · добавлен"
     )
+
+
+def test_a_party_s_bank_account_changed_is_high_whatever_the_model_says() -> None:
+    """A new account of a party is the classic scheme of payment fraud: high, and the page says to confirm
+    it by a call; an address of the same requisites, a price or «банковских дней» stay the model's."""
+
+    def blocks(lines: list[str]) -> list[Any]:
+        return split([Block("", "", t, True) for t in lines])
+
+    ours = [
+        "1. ПРЕДМЕТ",
+        "1.1. Цена партии 1 250 000 сум, оплата в течение 10 (десяти) банковских дней.",
+        "2. РЕКВИЗИТЫ",
+        "Поставщик: ООО «Альфа», р/с 2020 8000 1234 5678 9012 в АКБ «Капиталбанк», МФО 01088.",
+        "Покупатель: ООО «Бета», адрес: г. Ташкент, ул. Амира Темура, 1.",
+    ]
+    theirs = [
+        "1. ПРЕДМЕТ",
+        "1.1. Цена партии 1 350 000 сум, оплата в течение 45 (сорока пяти) банковских дней.",
+        "2. РЕКВИЗИТЫ",
+        "Поставщик: ООО «Альфа», р/с 2020 8000 9876 5432 1098 в АКБ «Хамкорбанк», МФО 00083.",
+        "Покупатель: ООО «Бета», адрес: г. Ташкент, ул. Шота Руставели, 45.",
+    ]
+    cmp = compare(blocks(ours), blocks(theirs))
+    answer = {
+        "changes": [
+            {"id": c.id, "topic": "requisites", "risk": "low", "substantive": False, "why": "реквизиты"}
+            for c in cmp.changes
+        ]
+    }
+    apply_rating(cmp.changes, answer, {c.id for c in cmp.changes})
+    bank = [c for c in cmp.changes if c.bank]
+    assert len(bank) == 1 and bank[0].risk == "high" and bank[0].topic == "requisites"
+    assert "Хамкорбанк" in cmp.theirs[bank[0].b].text  # type: ignore[index]
+    assert {c.risk for c in cmp.changes if not c.bank} == {"low"}

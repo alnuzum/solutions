@@ -40,6 +40,8 @@ RU = {
     "c_was": "Было",
     "c_now": "Стало",
     "c_unrated": "не оценено моделью — проверьте сами",
+    "c_bank": "Новый банковский счёт стороны: так чаще всего уводят оплату. Подтвердите счёт звонком по номеру, "
+    "который был у вас до этого проекта договора, а не по контактам из письма.",
     "c_deleted_here": "удалено из типового",
     "c_more": "Подсветка связана с первыми {n} изменениями.",
     "c_deal": "Сделка в CRM",
@@ -140,6 +142,8 @@ EN = {
     "c_was": "Was",
     "c_now": "Now",
     "c_unrated": "not rated by the model: check it yourself",
+    "c_bank": "A party's new bank account: the most common way to divert a payment. Confirm the account by a call "
+    "to a number you had before this draft, not to the contacts in the letter.",
     "c_deleted_here": "deleted from the standard",
     "c_more": "Hover links cover the first {n} changes.",
     "c_deal": "The CRM deal",

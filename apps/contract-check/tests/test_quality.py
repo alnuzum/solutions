@@ -3,7 +3,7 @@ change made and no other; the live model is held to the bar of CI."""
 
 import os
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from alnuzum_contracts import quality
@@ -20,7 +20,10 @@ class AsPrinted:
         pair = next(p for p in quality.truth()["pairs"] if p["format"] == "scan")
         return list(pair["theirs"]), Usage()
 
+    bank: ClassVar[list[str]] = []
+
     async def rate(self, cmp: Comparison, *, side: str, lang: str, gate: Any) -> Any:
+        self.bank.extend(cmp.theirs[c.b].text for c in cmp.changes if c.bank and c.b is not None)
         answer = {
             "changes": [
                 {"id": c.id, "topic": "other", "risk": "medium", "substantive": True, "why": ""}
@@ -59,3 +62,20 @@ async def test_the_live_model_on_the_reference_set() -> None:
         print(row["id"], row["missed"], row["false_list"])
     assert quality.check(result) == [], result
     assert Decimal(result["usd"]) < Decimal("1.5")
+
+
+async def test_the_new_bank_accounts_of_the_set_are_high_by_the_comparison_alone() -> None:
+    """Both changes of a party's bank account in the set are high in the truth, and the comparison alone
+    flags exactly them, with no model."""
+    AsPrinted.bank.clear()
+    await quality.measure(AsPrinted(), None)
+    high = [
+        e["with"]
+        for p in quality.truth()["pairs"]
+        for e in p["edits"]
+        if e.get("topic") == "requisites" and e.get("risk") == "high"
+    ]
+    assert len(high) == 2 and not any(
+        e.get("cosmetic") for p in quality.truth()["pairs"] for e in p["edits"] if e.get("risk") == "high"
+    )
+    assert len(AsPrinted.bank) == 2 and all(any(w in text for text in AsPrinted.bank) for w in high)
