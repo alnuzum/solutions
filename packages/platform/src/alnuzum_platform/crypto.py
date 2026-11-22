@@ -40,6 +40,11 @@ class Keyring:
     def __repr__(self) -> str:
         return f"Keyring(primary={self.primary!r}, keys={len(self._keys)})"
 
+    @property
+    def ids(self) -> list[str]:
+        """The key ids, the primary first."""
+        return list(self._keys)
+
     @classmethod
     def from_env(cls, value: str) -> "Keyring":
         keys: list[tuple[str, bytes]] = []

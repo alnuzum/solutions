@@ -7,20 +7,66 @@ from alnuzum_platform import cli
 from alnuzum_platform.config import get_settings
 
 KEYS = "k1:" + base64.b64encode(b"\x01" * 32).decode()
+BOTH = "k2:" + base64.b64encode(b"\x02" * 32).decode() + "," + KEYS
 
 
 def test_migrate_and_rotate_keys(
     migrated: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated)
-    monkeypatch.setenv("SECRET_KEYS", KEYS)
+    monkeypatch.setenv("SECRET_KEYS", BOTH)
     get_settings.cache_clear()
     try:
         assert cli.main(["migrate"]) == 0
         assert cli.main(["rotate-keys"]) == 0
     finally:
         get_settings.cache_clear()
-    assert "re-encrypted: 0" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "re-encrypted: 0" in out and "left under other keys: 0" in out
+
+
+def test_rotate_keys_with_one_key_says_so_and_fails(
+    migrated: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The container kept its old environment (a restart does not read .env again): with the old key alone
+    rotate-keys would find nothing to do and pass for done."""
+    monkeypatch.setenv("DATABASE_URL", migrated)
+    monkeypatch.setenv("SECRET_KEYS", KEYS)
+    get_settings.cache_clear()
+    try:
+        assert cli.main(["rotate-keys"]) == 2
+    finally:
+        get_settings.cache_clear()
+    err = capsys.readouterr().err
+    assert "SECRET_KEYS holds one key (k1)" in err and "docker compose up -d platform" in err
+
+
+def test_rotate_keys_fails_when_a_solution_does_not_load(
+    migrated: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from importlib.metadata import entry_points
+
+    from alnuzum_platform import solutions
+
+    class Broken:
+        name = "mail"
+
+        def load(self) -> object:
+            raise ImportError("a broken install")
+
+    monkeypatch.setattr(
+        solutions,
+        "entry_points",
+        lambda group: [ep for ep in entry_points(group=group) if ep.name != "mail"] + [Broken()],
+    )
+    monkeypatch.setenv("DATABASE_URL", migrated)
+    monkeypatch.setenv("SECRET_KEYS", BOTH)
+    get_settings.cache_clear()
+    try:
+        assert cli.main(["rotate-keys"]) == 1
+    finally:
+        get_settings.cache_clear()
+    assert "solution mail does not load: its data was not re-encrypted" in capsys.readouterr().err
 
 
 def test_serve_runs_uvicorn(migrated: str, monkeypatch: pytest.MonkeyPatch) -> None:

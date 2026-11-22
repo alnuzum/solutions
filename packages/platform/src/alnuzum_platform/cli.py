@@ -11,16 +11,41 @@ from alnuzum_platform.crypto import Keyring
 from alnuzum_platform.db import make_engine, make_sessionmaker
 from alnuzum_platform.migrate import downgrade, head, upgrade
 from alnuzum_platform.solutions import discover
-from alnuzum_platform.store import ConnectionStore
+from alnuzum_platform.store import ConnectionStore, Rotation
 
 
-async def rotate(database_url: str, keys: str) -> int:
+async def rotate(database_url: str, keys: str) -> Rotation:
     engine = make_engine(database_url)
     try:
-        sealed = [column for solution in discover() for column in solution.sealed]
-        return await ConnectionStore(make_sessionmaker(engine), Keyring.from_env(keys)).rotate_keys(sealed)
+        failed: list[str] = []
+        sealed = [column for solution in discover(failed=failed) for column in solution.sealed]
+        result = await ConnectionStore(make_sessionmaker(engine), Keyring.from_env(keys)).rotate_keys(sealed)
+        result.unloaded = failed
+        return result
     finally:
         await engine.dispose()
+
+
+def rotate_command(database_url: str, keys: str) -> int:
+    """0 only when nothing is left under another key: then the old key may leave SECRET_KEYS."""
+    keyring = Keyring.from_env(keys)
+    if len(keyring.ids) < 2:
+        print(
+            f"rotate-keys: SECRET_KEYS holds one key ({keyring.primary}). Put the new key first and"
+            " the old one after it, then recreate the container (docker compose up -d platform):"
+            " a restart keeps the old environment.",
+            file=sys.stderr,
+        )
+        return 2
+    result = asyncio.run(rotate(database_url, keys))
+    print(f"re-encrypted: {result.done}")
+    for name in result.unloaded:
+        print(f"solution {name} does not load: its data was not re-encrypted", file=sys.stderr)
+    for where in result.broken:
+        print(f"does not decrypt, left as it is: {where}", file=sys.stderr)
+    left = ", ".join(f"{where} {n}" for where, n in result.left.items())
+    print(f"left under other keys: {sum(result.left.values())}" + (f" ({left})" if left else ""))
+    return 0 if result.ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,8 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     upgrade(settings.database_url)
     if args.cmd == "rotate-keys":
-        count = asyncio.run(rotate(settings.database_url, settings.secret_keys.get_secret_value()))
-        print(f"re-encrypted: {count}")
+        return rotate_command(settings.database_url, settings.secret_keys.get_secret_value())
     if args.cmd == "serve":
         # behind Caddy only (no published port): the client address comes from X-Forwarded-For.
         # The access log is off: query strings carry OAuth codes; Caddy keeps its own log without them.

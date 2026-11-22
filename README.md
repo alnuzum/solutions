@@ -128,12 +128,17 @@ uv run python scripts/odoo_bootstrap.py --password "$ODOO_PASSWORD"
 ### Rotating the encryption key
 
 1. Generate a key: `python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"`.
-2. Put it first in `SECRET_KEYS`, keep the old one after it: `SECRET_KEYS=k2:<new>,k1:<old>`; restart.
+2. Put it first in `SECRET_KEYS`, keep the old one after it: `SECRET_KEYS=k2:<new>,k1:<old>`; recreate the
+   container so it reads `.env` again: `docker compose up -d platform` (`restart` keeps the old environment).
    New secrets are encrypted with `k2`, old ones still decrypt with `k1`.
 3. Re-encrypt everything with the new key: `docker compose exec platform alnuzum-platform rotate-keys`.
    It takes every sealed value: CRM secrets, the amoCRM keys of an open OAuth window and the columns each
    solution declares (`Solution.sealed`: contract runs and standards, mail runs, win-back scans).
-4. When it prints `re-encrypted: 0` on a second run, remove `k1` from `SECRET_KEYS` and restart.
+   It exits with 2 when `SECRET_KEYS` holds one key, and with 1 when a value does not decrypt (named as
+   `table:id`), a solution does not load, or any bytea column still holds a value under another key.
+4. When it exits with 0 and prints `left under other keys: 0`, remove `k1` from `SECRET_KEYS` and run
+   `docker compose up -d platform`. Keep `k1` offline for 14 days: the nightly dumps are kept that long
+   (`deploy/README.md`), and a dump taken before the rotation opens only with it.
 
 ## License
 
