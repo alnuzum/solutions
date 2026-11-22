@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% macro usd(x) %}{% set s = '{:,.2f}'.format(x|float) %}{{ s.replace(',', ' ').replace('.', ',') if lang == 'ru' else s }}{% endmacro %}
+{% macro num(x) %}{% set s = '{:,}'.format(x) %}{{ s.replace(',', ' ') if lang == 'ru' else s }}{% endmacro %}
+{% macro mmss(s) %}{{ '%02d:%02d'|format(s // 60, s % 60) }}{% endmacro %}
+{% block title %}{{ t.o_title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/otp/otp.css"><script src="/static/otp/otp.js" defer></script>{% endblock %}
+{% block body %}
+<div class="head">
+  <div><h1>{{ t.o_title }}</h1><p>{{ t.o_lead }}</p></div>
+</div>
+<div class="otp-top">
+<section class="plate otp-try" id="try">
+  <h2>{{ t.o_try }}</h2>
+  {% if notice %}<p class="otp-note" role="status" data-notice="{{ notice }}">{{ t['n_' ~ notice] }}</p>{% endif %}
+  {% if reason %}<p class="err" role="alert" data-reason="{{ reason }}"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>{{ t['r_' ~ reason].format(w=t.o_sec.format(n=wait)) }}</p>{% endif %}
+  {% if held %}
+  <p>{{ t.o_code_shown.format(phone=held_plus) }}</p>
+  <output class="otp-code" data-code="{{ held.code }}">{{ held.code }}</output>
+  <form method="post" action="/{{ lang }}/otp/verify">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>{{ t.o_code }}<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}"></label>
+    <div class="otp-go"><button class="btn" type="submit" name="action" value="verify">{{ t.o_enter }}</button><button class="btn ghost" type="submit" name="action" value="other">{{ t.o_other }}</button></div>
+  </form>
+  {% else %}
+  <form method="post" action="/{{ lang }}/otp/send" id="otp-send" data-bits="{{ bits }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="pow_c" value="{{ challenge }}">
+    <input type="hidden" name="pow_n" value="">
+    <input type="hidden" name="dev" value="">
+    <label>{{ t.o_phone }}<input name="phone" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" autocomplete="tel" required maxlength="24"></label>
+    <div class="otp-go"><button class="btn" type="submit" disabled>{{ t.o_get }}</button></div>
+    <small class="otp-work" data-done="{{ t.o_work_done }}">{{ t.o_work }}</small>
+    <noscript><p class="err">{{ t.o_nojs }}</p></noscript>
+  </form>
+  {% endif %}
+</section>
+<section class="card otp-live">
+  <h2>{{ t.o_live }}</h2>
+  <p>{{ t.o_spent.format(spent=usd(spent), cap=usd(config.usd_per_hour), sent=sent_total) }}</p>
+  <h3>{{ t.o_closed }}</h3>
+  <p class="small">{% for p, m in closed %}<span class="otp-pill">{{ t.o_closed_row.format(prefix=p, min=m) }}</span> {% else %}{{ t.o_none }}{% endfor %}</p>
+  <h3>{{ t.o_alerts }}</h3>
+  {% if alerts %}<ul class="otp-list small">{% for a in alerts %}<li>{{ t.o_alert_row.format(prefix=a.prefix, confirmed=a.confirmed, sent=a.sent, normal=(a.normal * 100)|round|int) }}</li>{% endfor %}</ul>{% else %}<p class="small">{{ t.o_none }}</p>{% endif %}
+  <h3>{{ t.o_hours }}</h3>
+  {% if hours %}
+  <div class="otp-scroll"><table class="otp-t">
+    <thead><tr><th>{{ t.o_h_hour }}</th><th>{{ t.o_h_prefix }}</th><th class="n">{{ t.o_h_sent }}</th><th class="n">{{ t.o_h_conf }}</th><th class="n">{{ t.o_h_share }}</th></tr></thead>
+    <tbody>{% for h, p, s, c in hours %}<tr><td>{{ h }}</td><td class="mono">{{ p }}</td><td class="n">{{ s }}</td><td class="n">{{ c }}</td><td class="n">{{ (c / s)|pct(lang) if s else '' }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="small muted">{{ t.o_hours_none }}</p>{% endif %}
+</section>
+</div>
+
+<section class="card otp-layers">
+  <h2>{{ t.o_layers }}</h2>
+  <ol>
+  {% for name, on in layers %}
+    <li><b>{{ t['l_' ~ name] }}</b> <span class="otp-pill {{ 'on' if on else 'off' }}">{{ t.o_on if on else t.o_off }}</span>
+    <p class="small">{{ t['l_' ~ name ~ '_d'].format(countries='+' ~ config.countries|join(', +'), bits=bits, cap=usd(config.usd_per_hour)) }}</p>
+    {% if name == 'limits' %}
+    <table class="otp-t small"><tbody>{% for k, l in limits.items() %}<tr><td>{{ t['k_' ~ k] }}</td><td>{{ t.o_limit_row.format(free=l.free, base=l.base|int, cap=(l.cap / 60)|int) }}</td></tr>{% endfor %}</tbody></table>
+    {% endif %}
+    </li>
+  {% endfor %}
+  </ol>
+</section>
+
+<section class="card otp-run" id="run">
+  <h2>{{ t.o_run }}</h2>
+  {% if results %}
+  {% set sc = results.scenario %}
+  <p>{{ t.o_run_lead.format(browsers=num(sc.browsers), subnets=num(sc.subnets), attempts=sc.attempts, honest=sc.honest, abroad=sc.abroad_pct) }}</p>
+  <div class="otp-scroll"><table class="otp-t otp-results">
+    <thead><tr><th>{{ t.o_col_config }}</th><th class="n">{{ t.o_col_requests }}</th><th class="n">{{ t.o_col_sms }}</th><th class="n">{{ t.o_col_usd }}</th><th>{{ t.o_col_when }}</th><th class="n">{{ t.o_col_honest }}</th></tr></thead>
+    <tbody>
+    {% for r in results.rows %}
+    <tr{% if r.config == 'all' %} class="all"{% endif %}>
+      <td>{{ t['o_cfg_' ~ r.config] }}</td>
+      <td class="n">{{ num(r.requests) }}</td>
+      <td class="n">{{ num(r.sms_attack) }} / {{ num(r.sms_honest) }}</td>
+      <td class="n">${{ usd(r.usd) }}</td>
+      <td class="small">{% if r.first_block is none %}{{ t.o_when_none }}{% elif r.stop is none %}{{ t.o_when_first.format(first=mmss(r.first_block)) }}{% else %}{{ t.o_when.format(first=mmss(r.first_block), stop=mmss(r.stop)) }}{% endif %}</td>
+      <td class="n">{{ r.honest_out }} ({{ (r.honest_out / sc.honest)|pct(lang) }})</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="small muted">{{ t.o_run_notes }}</p>
+  {% if results.browser %}{% set b = results.browser %}<p class="small">{{ t.o_browser.format(n=b.solved, median=b.median_ms, max=b.max_ms, sent=b.outcomes.get('sent', 0), script=b.script_refused, scripts=b.scripts, solved=num(results.attack_solved), cpu=(results.attack_cpu_hours.replace('.', ',') if lang == 'ru' else results.attack_cpu_hours)) }}</p>{% endif %}
+  <h3>{{ t.o_repro }}</h3>
+  <pre class="otp-cmd"><code>{{ results.command }}</code></pre>
+  {% else %}<p class="muted">{{ t.o_no_results }}</p>{% endif %}
+  <h3>{{ t.o_prices }}</h3>
+  <p class="small">{{ t.o_prices_d }}</p>
+  <table class="otp-t small"><tbody>{% for c in countries.values() %}<tr><td class="mono">+{{ c.code }}</td><td>{{ c.iso }}</td><td class="n">${{ ('%.4f'|format(c.usd|float)).replace('.', ',') if lang == 'ru' else '%.4f'|format(c.usd|float) }}</td><td><a href="{{ c.source }}">{{ c.source.split('//')[1].split('/')[0] }}</a></td></tr>{% endfor %}</tbody></table>
+  <p><a class="open" href="https://github.com/alnuzum/solutions/tree/main/apps/otp-guard">{{ t.o_code_link }}<svg class="ic" aria-hidden="true"><use href="#i-arr"/></svg></a></p>
+</section>
+{% endblock %}

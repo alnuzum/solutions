@@ -9,6 +9,7 @@ members = [
     "alnuzum-files",
     "alnuzum-mail",
     "alnuzum-orders",
+    "alnuzum-otp",
     "alnuzum-platform",
     "alnuzum-solutions",
     "alnuzum-voice",
@@ -131,6 +132,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "alnuzum-otp"
+version = "0.1.0"
+source = { editable = "apps/otp-guard" }
+dependencies = [
+    { name = "alnuzum-platform" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "alnuzum-platform", editable = "packages/platform" }]
+
+[[package]]
 name = "alnuzum-platform"
 version = "0.1.0"
 source = { editable = "packages/platform" }
@@ -171,6 +183,7 @@ dependencies = [
     { name = "alnuzum-files" },
     { name = "alnuzum-mail" },
     { name = "alnuzum-orders" },
+    { name = "alnuzum-otp" },
     { name = "alnuzum-platform" },
     { name = "alnuzum-voice" },
     { name = "alnuzum-winback" },
@@ -198,6 +211,7 @@ requires-dist = [
     { name = "alnuzum-files", editable = "packages/files" },
     { name = "alnuzum-mail", editable = "apps/mail-triage" },
     { name = "alnuzum-orders", editable = "apps/order-to-deal" },
+    { name = "alnuzum-otp", editable = "apps/otp-guard" },
     { name = "alnuzum-platform", editable = "packages/platform" },
     { name = "alnuzum-voice", editable = "apps/voice-to-crm" },
     { name = "alnuzum-winback", editable = "apps/win-back" },

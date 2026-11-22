@@ -1,0 +1,22 @@
+[project]
+name = "alnuzum-otp"
+version = "0.1.0"
+description = "Al-Nuzum open solution: a login by SMS code guarded against SMS pumping in five layers, with a counting SMS provider and the attack that measures them"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "alnuzum-platform",
+]
+
+[project.entry-points."alnuzum.solutions"]
+otp = "alnuzum_otp.web:solution"
+
+[tool.uv.sources]
+alnuzum-platform = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alnuzum_otp"]

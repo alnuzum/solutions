@@ -1,0 +1,214 @@
+{
+ "command": "uv run python apps/otp-guard/attack/simulate.py && uv run --with playwright python apps/otp-guard/attack/browsers.py",
+ "seed": 7,
+ "lab_bits": 8,
+ "scenario": {
+  "browsers": 12000,
+  "attempts": 3,
+  "subnets": 6000,
+  "honest": 600,
+  "abroad_pct": 2
+ },
+ "rows": [
+  {
+   "config": "none",
+   "requests": 36663,
+   "sms_attack": 36000,
+   "sms_honest": 663,
+   "usd": "9147.83",
+   "first_block": null,
+   "stop": null,
+   "honest_out": 0,
+   "honest_out_by": {},
+   "attack_refused_by": {},
+   "solved": 36663,
+   "alerts": 0,
+   "by_country": {
+    "UZ": 18725,
+    "AZ": 3533,
+    "TJ": 3674,
+    "KG": 3618,
+    "ID": 3596,
+    "RU": 3517
+   }
+  },
+  {
+   "config": "geo",
+   "requests": 36676,
+   "sms_attack": 18105,
+   "sms_honest": 670,
+   "usd": "148.32",
+   "first_block": 0,
+   "stop": null,
+   "honest_out": 6,
+   "honest_out_by": {
+    "geo": 6
+   },
+   "attack_refused_by": {
+    "geo": 17895
+   },
+   "solved": 36676,
+   "alerts": 0,
+   "by_country": {
+    "UZ": 18775
+   }
+  },
+  {
+   "config": "limits",
+   "requests": 36663,
+   "sms_attack": 1336,
+   "sms_honest": 663,
+   "usd": "379.69",
+   "first_block": 1,
+   "stop": null,
+   "honest_out": 0,
+   "honest_out_by": {},
+   "attack_refused_by": {
+    "block": 34664
+   },
+   "solved": 36663,
+   "alerts": 0,
+   "by_country": {
+    "UZ": 1266,
+    "AZ": 144,
+    "TJ": 148,
+    "KG": 147,
+    "ID": 144,
+    "RU": 150
+   }
+  },
+  {
+   "config": "human",
+   "requests": 36663,
+   "sms_attack": 36000,
+   "sms_honest": 663,
+   "usd": "9147.83",
+   "first_block": null,
+   "stop": null,
+   "honest_out": 0,
+   "honest_out_by": {},
+   "attack_refused_by": {},
+   "solved": 36663,
+   "alerts": 0,
+   "by_country": {
+    "UZ": 18725,
+    "AZ": 3533,
+    "TJ": 3674,
+    "KG": 3618,
+    "ID": 3596,
+    "RU": 3517
+   }
+  },
+  {
+   "config": "human_script",
+   "requests": 36663,
+   "sms_attack": 0,
+   "sms_honest": 663,
+   "usd": "10.45",
+   "first_block": 0,
+   "stop": 0,
+   "honest_out": 0,
+   "honest_out_by": {},
+   "attack_refused_by": {
+    "human": 36000
+   },
+   "solved": 663,
+   "alerts": 0,
+   "by_country": {
+    "RU": 7,
+    "UZ": 656
+   }
+  },
+  {
+   "config": "conversion",
+   "requests": 36681,
+   "sms_attack": 1967,
+   "sms_honest": 661,
+   "usd": "514.63",
+   "first_block": 190,
+   "stop": 240,
+   "honest_out": 20,
+   "honest_out_by": {
+    "closed": 20
+   },
+   "attack_refused_by": {
+    "closed": 34033
+   },
+   "solved": 36681,
+   "alerts": 8,
+   "by_country": {
+    "UZ": 1630,
+    "AZ": 194,
+    "TJ": 185,
+    "KG": 207,
+    "ID": 213,
+    "RU": 199
+   }
+  },
+  {
+   "config": "budget",
+   "requests": 36601,
+   "sms_attack": 194,
+   "sms_honest": 1,
+   "usd": "39.99",
+   "first_block": 7,
+   "stop": null,
+   "honest_out": 599,
+   "honest_out_by": {
+    "budget": 599
+   },
+   "attack_refused_by": {
+    "budget": 35806
+   },
+   "solved": 36601,
+   "alerts": 0,
+   "by_country": {
+    "UZ": 114,
+    "AZ": 26,
+    "TJ": 15,
+    "KG": 15,
+    "ID": 13,
+    "RU": 12
+   }
+  },
+  {
+   "config": "all",
+   "requests": 36686,
+   "sms_attack": 90,
+   "sms_honest": 661,
+   "usd": "5.93",
+   "first_block": 0,
+   "stop": 0,
+   "honest_out": 23,
+   "honest_out_by": {
+    "geo": 6,
+    "closed": 17
+   },
+   "attack_refused_by": {
+    "geo": 17909,
+    "block": 2537,
+    "closed": 15464
+   },
+   "solved": 36686,
+   "alerts": 3,
+   "by_country": {
+    "UZ": 751
+   }
+  }
+ ],
+ "attack_solved": 36000,
+ "browser": {
+  "bits": 20,
+  "solved": 20,
+  "median_ms": 1509,
+  "max_ms": 3963,
+  "devices": 20,
+  "outcomes": {
+   "sent": 3,
+   "block": 17
+  },
+  "script_refused": 20,
+  "scripts": 20
+ },
+ "attack_cpu_hours": "15.1"
+}
