@@ -1057,3 +1057,26 @@ async def test_writing_without_a_deal_says_to_choose_one(make: Any) -> None:
         shown = (await c.get(done.headers["location"])).text
         assert "Сначала выберите сделку." in shown
     assert h.crm.writes == []
+
+
+async def test_a_closed_deal_of_another_company_is_not_dropped_for_an_open_one() -> None:
+    """Only the closed deals of a company that has an open one are left out: «Ромашка» with a closed deal
+    beside an open «Ромашка-Сити», or beside an open deal of a contact also named, goes to a person."""
+    from alnuzum_voice.engine import find_candidates, pick
+    from alnuzum_voice.text import fold
+
+    class Found:
+        def __init__(self, deals: list[DealHit]) -> None:
+            self.deals = deals
+
+        async def find_deals(self, query: str, *, limit: int = 8) -> list[DealHit]:
+            q = fold(query)
+            return [d for d in self.deals if any(q in fold(x or "") for x in (d.title, d.company, d.contact))]
+
+    won = DealHit("W1", "Ромашка: поставка 2025", "Ромашка", None, "s", Decimal(1), DealStatus.WON)
+    other = DealHit("O1", "Лютик: окна", "Лютик", "Иван Петров", "s", Decimal(1), DealStatus.OPEN)
+    city = DealHit("O2", "Ромашка-Сити: ремонт", "Ромашка-Сити", None, "s", Decimal(1), DealStatus.OPEN)
+    for deals, queries in (([won, other], ["Ромашка", "Иван Петров"]), ([won, city], ["Ромашка"])):
+        found = await find_candidates(Found(deals), queries, demo=False)  # type: ignore[arg-type]
+        assert {c["id"] for c in found} == {d.id for d in deals}
+        assert pick(found, queries) is None

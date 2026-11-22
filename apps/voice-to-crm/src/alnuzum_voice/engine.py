@@ -166,15 +166,22 @@ async def find_candidates(crm: CRM, queries: list[str], *, demo: bool) -> list[d
                 if len(word) >= MIN_WORD:
                     await search(variants(word))
     folded = [fold(q) for q in queries]
-    found = list(seen.values())
-    open_ = [c for c in found if c["status"] == DealStatus.OPEN.value]
-    # A note is about work in progress: the closed deals of the same company (a purchase history, the
-    # won deals of past years) are offered only when no open deal answers the name.
-    found = open_ or found
+    # A note is about work in progress: a closed deal (a purchase history, the won deals of past years) is
+    # left out when the same company has an open deal among those found. A closed deal of another company
+    # stays, so «Ромашка» with only closed deals beside an open «Ромашка-Сити» is left to a person.
+    busy = {
+        fold(c["company"]) for c in seen.values() if c["company"] and c["status"] == DealStatus.OPEN.value
+    }
+    found = [
+        c
+        for c in seen.values()
+        if c["status"] == DealStatus.OPEN.value or not c["company"] or fold(c["company"]) not in busy
+    ]
 
-    def score(c: dict[str, Any]) -> int:
+    def score(c: dict[str, Any]) -> tuple[int, int]:
         names = [fold(c.get(k) or "") for k in ("title", "company", "contact")]
-        return -sum(1 for q in folded if q and any(q in n for n in names))
+        exact = sum(1 for q in folded if q and any(q in n for n in names))
+        return (-exact, 0 if c["status"] == DealStatus.OPEN.value else 1)
 
     return sorted(found, key=score)[:MAX_CANDIDATES]
 
