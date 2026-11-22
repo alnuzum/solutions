@@ -5,13 +5,30 @@
 Open-source solutions for CRM integrators by [Al-Nuzum](https://alnuzum.com). Each solution connects to
 the CRM a company already runs — amoCRM, Kommo, Bitrix24, Zoho CRM or Odoo — and works on live data.
 
-This monorepo holds what every solution shares:
+**Live demos, no sign-up: [apps.alnuzum.com](https://apps.alnuzum.com/en).** A demo writes into a test
+account of the CRM you pick and reads the result back from it; your own CRM connects on the same page.
+
+## Solutions
+
+| Solution | What it does | Demo | Reference set, measured | Code |
+|---|---|---|---|---|
+| Customer order → deal with products | An order as an e-mail, a spreadsheet, a PDF or a photo: every line found in the CRM catalog, priced by the company's rules, unsure lines left to a person; one button writes a deal with products, a note on the calculation and a task | [/en/orders](https://apps.alnuzum.com/en/orders) | 6 orders in four formats, 67 lines: the right product in 67 of 67, the right quantity in 66 of 67, none wrong passed off as sure (2026-11-09) | [`apps/order-to-deal`](apps/order-to-deal) |
+| Manager's voice → CRM | A voice note (on the page or to a Telegram bot) becomes a plan of changes of one deal: stage, sum, closing date, products, task; written only after the manager confirms | [/en/voice](https://apps.alnuzum.com/en/voice) | 22 commands (12 Russian, 10 Uzbek, synthesised speech): the deal taken alone and the plan exactly right in 22 of 22; word error rate 8.5 % (2026-11-09) | [`apps/voice-to-crm`](apps/voice-to-crm) |
+| A contract against your standard | The counterparty's draft (DOCX, PDF, a scan or text) against the company's standard: every changed clause with its risk for your side; a party's new bank account is always high | [/en/contracts](https://apps.alnuzum.com/en/contracts) | 4 pairs, 44 changes: found 44, false 0, the level of risk matched in 42 of 44 (2026-11-22) | [`apps/contract-check`](apps/contract-check) |
+| Incoming mail sorted | A letter: its kind, the sender's requisites, the company found in the CRM by INN, domain or name, then a deal or a note; instructions inside a letter are not followed | [/en/mail](https://apps.alnuzum.com/en/mail) | 31 letters in Russian, English and Uzbek: the kind right in 31 of 31, requisites 118 of 119, the company 24 of 24, 4 of 4 injections ignored (2026-11-09) | [`apps/mail-triage`](apps/mail-triage) |
+| Win back lapsed clients | From the purchase history in the CRM: the clients who missed their order cycle, the reason by their orders, a task for the manager on the company | [/en/winback](https://apps.alnuzum.com/en/winback) | A rule, no AI: on the demo history the five clients are sorted as planned, 5 of 5 (2026-11-10) | [`apps/win-back`](apps/win-back) |
+
+The numbers come from `python -m <package>.quality --write` against a reference set with every answer
+known in advance (`samples/` of each solution); misses are shown as they are. On every push to `main` CI runs
+the sets against the live model and holds them to a bar.
+
+## Shared code
 
 | Path | What |
 |---|---|
 | `packages/crm` | `alnuzum_crm`: one async interface over five CRMs (companies, contacts, deals with product lines, files, notes, tasks, product catalog, deal history), with rate limits, retries and token refresh |
-| `packages/platform` | `alnuzum_platform`: CRM connections stored encrypted, token refresh without races, SSRF guard for user-supplied CRM addresses, HTTP API |
-| `apps/` | the solutions themselves (coming next) |
+| `packages/platform` | `alnuzum_platform`: CRM connections stored encrypted, token refresh without races, SSRF guard for user-supplied CRM addresses, HTTP API, the pages every solution shares |
+| `packages/files` | `alnuzum_files`: files from strangers: the type decided by the content, a zip bounded before it unpacks, scans and Word documents read in a process of their own |
 
 ## Quick start
 

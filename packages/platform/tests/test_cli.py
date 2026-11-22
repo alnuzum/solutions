@@ -86,3 +86,26 @@ def test_the_automatic_rollback_downgrades_with_the_new_image_before_the_old_one
     restore = body.index('cp -p "$DIR/.env.prev" "$DIR/.env"')
     assert old_head < down < restore, "the database goes back before the old image starts"
     assert "--network none" in body
+
+
+def test_the_readme_lists_every_solution_with_its_demo_and_measured_date() -> None:
+    """What a stranger opens first: every installed solution with a link to its demo and the date of its
+    reference set, in both languages; nothing «coming next»."""
+    import json
+    from pathlib import Path
+
+    from alnuzum_platform.solutions import discover
+
+    root = Path(__file__).resolve().parents[3]
+    en, ru = (root / "README.md").read_text(), (root / "README.ru.md").read_text()
+    assert "coming next" not in en and "следующий этап" not in ru
+    assert "](https://apps.alnuzum.com/en)" in en and "](https://apps.alnuzum.com/ru)" in ru
+    for s in discover():
+        assert (
+            f"](https://apps.alnuzum.com/en/{s.slug})" in en
+            and f"](https://apps.alnuzum.com/ru/{s.slug})" in ru
+        )
+        for q in root.glob("apps/*/src/*/quality.json"):
+            if q.parent.name.removeprefix("alnuzum_") == s.slug:
+                y, m, d = json.loads(q.read_text())["date"].split("-")
+                assert f"({y}-{m}-{d})" in en and f"({d}.{m}.{y})" in ru, (s.slug, q)
